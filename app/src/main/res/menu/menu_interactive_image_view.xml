@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+      xmlns:tools="http://schemas.android.com/tools"
+      xmlns:app="http://schemas.android.com/apk/res-auto"
+      tools:context="com.codepunk.demo.InteractiveImageViewActivity" >
+
+    <item
+        android:id="@+id/controls_menu"
+        android:icon="@drawable/ic_tune_white_24dp"
+        android:title="@string/menu_controls"
+        app:showAsAction="always"
+        android:onClick="onControlsClick" />
+
+</menu>
