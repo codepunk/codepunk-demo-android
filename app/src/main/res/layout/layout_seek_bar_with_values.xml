@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical">
+
+    <android.support.v7.widget.AppCompatImageView
+        android:id="@+id/image_icon"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:srcCompat="@drawable/ic_swap_horiz_white_24dp"/>
+
+    <TextView
+        android:id="@+id/text_current_value"
+        android:layout_width="@dimen/image_view_value_width"
+        android:layout_height="wrap_content"
+        tools:text="100%"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/small_margin"
+        android:layout_marginEnd="@dimen/small_margin"
+        android:text="@string/text_vertical_bar"/>
+
+    <TextView
+        android:id="@+id/text_min_value"
+        android:layout_width="@dimen/image_view_value_width"
+        android:layout_height="wrap_content"
+        android:gravity="end"
+        android:textAlignment="textEnd"
+        tools:text="0%"/>
+
+    <android.support.v7.widget.AppCompatSeekBar
+        android:id="@+id/seek_value"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:max="100" />
+
+    <TextView
+        android:id="@+id/text_max_value"
+        android:layout_width="@dimen/image_view_value_width"
+        android:layout_height="wrap_content"
+        android:gravity="start"
+        android:textAlignment="textStart"
+        tools:text="100%"/>
+
+</LinearLayout>

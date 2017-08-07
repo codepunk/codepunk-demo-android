@@ -3,7 +3,7 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/layout_view"
+    android:id="@+id/layout_main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context="com.codepunk.demo.InteractiveImageViewActivity">
@@ -13,33 +13,41 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        app:layout_constraintGuide_percent="0.66" />
+        app:layout_constraintGuide_end="@dimen/controls_size" />
 
     <com.codepunk.demo.InteractiveImageView
-        android:id="@+id/image_view"
+        android:id="@+id/view_image"
         android:layout_width="0dp"
         android:layout_height="0dp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintBottom_toTopOf="@id/guideline"
-        android:src="@drawable/wilderness_lodge"
+        tools:src="@drawable/wilderness_lodge"
+        android:background="@android:color/black"
         android:scaleType="center"/>
 
     <FrameLayout
-        android:id="@+id/controls_view"
+        android:id="@+id/layout_controls"
         android:layout_width="0dp"
-        android:layout_height="250dp"
+        android:layout_height="@dimen/controls_size"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/guideline"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:background="@color/colorAccent"
-        android:padding="25dp">
+        app:layout_constraintEnd_toEndOf="parent">
 
-        <Button
+        <ScrollView
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:text="@string/app_name"/>
+            android:clipToPadding="false"
+            android:padding="@dimen/large_margin"
+            android:scrollbarStyle="outsideOverlay">
+
+            <include
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                layout="@layout/layout_controls" />
+
+        </ScrollView>
 
     </FrameLayout>
 

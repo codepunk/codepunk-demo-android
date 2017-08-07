@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <TextView
+        android:id="@+id/label_drawable"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/label_drawable" />
+
+    <android.support.v7.widget.AppCompatSpinner
+        android:id="@+id/spinner_drawable"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/small_margin"
+        android:entries="@array/drawables" />
+
+    <TextView
+        android:id="@+id/label_scale_type"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/label_scale_type"
+        android:layout_marginTop="@dimen/standard_margin" />
+
+    <android.support.v7.widget.AppCompatSpinner
+        android:id="@+id/spinner_scale_type"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/small_margin"
+        android:entries="@array/scale_types" />
+
+    <TextView
+        android:id="@+id/label_pan"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/label_pan"
+        android:layout_marginTop="@dimen/standard_margin" />
+
+    <include
+        android:id="@+id/seek_pan_x"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        layout="@layout/layout_seek_bar_with_values" />
+
+    <include
+        android:id="@+id/seek_pan_y"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        layout="@layout/layout_seek_bar_with_values" />
+
+    <TextView
+        android:id="@+id/label_scale"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/label_scale"
+        android:layout_marginTop="@dimen/standard_margin" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <include
+                android:id="@+id/seek_scale_x"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                layout="@layout/layout_seek_bar_with_values" />
+
+            <include
+                android:id="@+id/seek_scale_y"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                layout="@layout/layout_seek_bar_with_values" />
+
+        </LinearLayout>
+
+        <ImageButton
+            android:id="@+id/image_btn_lock"
+            android:layout_width="@dimen/touch_target_size"
+            android:layout_height="match_parent"
+            app:srcCompat="@drawable/ic_lock_open_white_24dp"
+            android:scaleType="center"
+            style="?borderlessButtonStyle"/>
+
+    </LinearLayout>
+
+</LinearLayout>
