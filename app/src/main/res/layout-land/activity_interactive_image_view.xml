@@ -25,7 +25,7 @@
         app:layout_constraintEnd_toStartOf="@id/guideline"
         tools:src="@drawable/wilderness_lodge"
         android:background="@android:color/black"
-        android:scaleType="center"/>
+        android:scaleType="centerInside"/>
 
     <FrameLayout
         android:id="@+id/layout_controls"
@@ -38,7 +38,7 @@
         <ScrollView
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:clipToPadding="false"
+            android:clipToPadding="true"
             android:padding="@dimen/large_margin"
             android:scrollbarStyle="outsideOverlay">
 

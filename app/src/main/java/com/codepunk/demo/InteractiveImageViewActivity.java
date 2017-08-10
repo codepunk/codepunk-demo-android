@@ -5,6 +5,7 @@ import android.annotation.TargetApi;
 import android.app.Activity;
 import android.content.res.Resources;
 import android.graphics.Canvas;
+import android.graphics.PointF;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Bundle;
@@ -35,6 +36,7 @@ import java.text.Format;
 import java.text.NumberFormat;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 
 import static android.os.Build.VERSION_CODES.HONEYCOMB;
 
@@ -198,6 +200,9 @@ public class InteractiveImageViewActivity extends AppCompatActivity
     private GuidelineAnimateCompatImpl mGuidelineAnimateCompatImpl;
 
     private boolean mScaleLocked = false;
+
+    private final PointF mCenter = new PointF();
+    private final PointF mScale = new PointF();
     //endregion Fields
 
     //region Lifecycle methods
@@ -244,7 +249,6 @@ public class InteractiveImageViewActivity extends AppCompatActivity
         mImageView.setOnDrawListener(this);
         mDrawableSpinner.setOnItemSelectedListener(this);
         mScaleTypeSpinner.setOnItemSelectedListener(this);
-
         mLockBtn.setOnClickListener(this);
 
         if (savedInstanceState == null) {
@@ -266,6 +270,29 @@ public class InteractiveImageViewActivity extends AppCompatActivity
         } else {
             mLockBtn.setImageResource(R.drawable.ic_lock_open_white_24dp);
         }
+
+        /* TODO TEMP
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                final int paddingLeft = mImageView.getPaddingLeft();
+                final int paddingTop = mImageView.getPaddingTop();
+                final int paddingRight = mImageView.getPaddingRight();
+                final int paddingBottom = mImageView.getPaddingBottom();
+                final int width = mImageView.getWidth();
+                final int height = mImageView.getHeight();
+                final int availableWidth = width - paddingLeft - paddingRight;
+                final int availableHeight = height - paddingTop - paddingBottom;
+                final float px = (availableWidth / 2.0f);
+                final float py = (availableHeight / 2.0f);
+
+                mImageView.setScaleType(ImageView.ScaleType.MATRIX);
+                final Matrix matrix = mImageView.getImageMatrix();
+                matrix.postRotate(30.0f, px, py);
+                mImageView.setImageMatrix(matrix);
+            }
+        }, 2000);
+        */
     }
 
     @Override
@@ -300,12 +327,19 @@ public class InteractiveImageViewActivity extends AppCompatActivity
 
     @Override
     public void onDraw(InteractiveImageView view, Canvas canvas) {
-        Log.d(TAG, "onDraw");
         // TODO TEMP
         mScaleXSeekBarWithValues.setMinValue(view.getMinScaleX());
         mScaleXSeekBarWithValues.setMaxValue(view.getMaxScaleX());
         mScaleYSeekBarWithValues.setMinValue(view.getMinScaleY());
         mScaleYSeekBarWithValues.setMaxValue(view.getMaxScaleY());
+
+        mImageView.getRelativeCenter(mCenter);
+        mPanXSeekBarWithValues.setCurrentValue(mCenter.x);
+        mPanYSeekBarWithValues.setCurrentValue(mCenter.y);
+
+        mImageView.getScale(mScale);
+        mScaleXSeekBarWithValues.setCurrentValue(mScale.x);
+        mScaleYSeekBarWithValues.setCurrentValue(mScale.y);
     }
 
     @Override
