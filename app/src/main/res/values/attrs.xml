@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="Theme">
+        <attr name="extendedSeekBarStyle" format="reference" />
+    </declare-styleable>
+
+    <declare-styleable name="ExtendedSeekBar">
+        <attr name="android:icon" />
+        <attr name="valueViewWidth" format="dimension" />
+    </declare-styleable>
+</resources>

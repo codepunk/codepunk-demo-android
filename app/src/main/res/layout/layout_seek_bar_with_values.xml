@@ -16,23 +16,22 @@
 
     <TextView
         android:id="@+id/text_current_value"
-        android:layout_width="@dimen/image_view_value_width"
+        android:layout_width="@dimen/extended_seek_bar_value_view_width"
         android:layout_height="wrap_content"
         tools:text="100%"/>
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="@dimen/small_margin"
-        android:layout_marginEnd="@dimen/small_margin"
-        android:text="@string/text_vertical_bar"/>
+    <View
+        android:layout_width="1px"
+        android:layout_height="match_parent"
+        android:layout_margin="@dimen/small_margin"
+        android:background="@android:color/white"/>
 
     <TextView
         android:id="@+id/text_min_value"
-        android:layout_width="@dimen/image_view_value_width"
+        android:layout_width="@dimen/extended_seek_bar_value_view_width"
         android:layout_height="wrap_content"
         android:gravity="end"
-        android:textAlignment="textEnd"
+        android:textAlignment="gravity"
         tools:text="0%"/>
 
     <android.support.v7.widget.AppCompatSeekBar
@@ -44,10 +43,10 @@
 
     <TextView
         android:id="@+id/text_max_value"
-        android:layout_width="@dimen/image_view_value_width"
+        android:layout_width="@dimen/extended_seek_bar_value_view_width"
         android:layout_height="wrap_content"
         android:gravity="start"
-        android:textAlignment="textStart"
+        android:textAlignment="gravity"
         tools:text="100%"/>
 
 </LinearLayout>

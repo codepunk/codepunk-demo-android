@@ -6,20 +6,29 @@ import android.graphics.Matrix;
 import android.graphics.PointF;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
+import android.support.annotation.NonNull;
 import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
+import android.view.View;
 
 import static android.graphics.Matrix.MSCALE_X;
 import static android.graphics.Matrix.MSCALE_Y;
+import static android.widget.ImageView.ScaleType.MATRIX;
+
+// TODO NEXT Save a local ScaleType
 
 public class InteractiveImageView extends AppCompatImageView {
+
     private final static String TAG = "tag_" + InteractiveImageView.class.getSimpleName();
+
+    private ScaleType mScaleType;
 
     private final RectF mRectF = new RectF();
     private final float[] mValues = new float[9];
     private final float[] mSrcPoints = new float[2];
     private final float[] mDstPoints = new float[2];
     private final Matrix mInverseMatrix = new Matrix();
+    private final Object mLock = new Object();
 
     public interface OnDrawListener {
         void onDraw(InteractiveImageView view, Canvas canvas);
@@ -47,6 +56,12 @@ public class InteractiveImageView extends AppCompatImageView {
         }
     }
 
+    @Override
+    public void setScaleType(ScaleType scaleType) {
+        mScaleType = scaleType;
+        super.setScaleType(scaleType);
+    }
+
     public float getMaxScaleX() {
         return 4.0f; // TODO TEMP
     }
@@ -63,42 +78,48 @@ public class InteractiveImageView extends AppCompatImageView {
         return 1.0f; // TODO TEMP
     }
 
-    public boolean getRelativeCenter(PointF outPoint) {
+    public boolean getImagePointInCenter(@NonNull PointF outPoint) {
         final Drawable d = getDrawable();
-        if (d != null) {
-            final int intrinsicWidth = d.getIntrinsicWidth();
-            final int intrinsicHeight = d.getIntrinsicHeight();
-            if (intrinsicWidth >= 0 && intrinsicHeight >= 0) {
-                mRectF.set(0, 0, intrinsicWidth, intrinsicHeight);
-                final Matrix matrix = getImageMatrix();
-                matrix.mapRect(mRectF);
-                matrix.invert(mInverseMatrix);
-
-                mSrcPoints[0] = (getWidth() - getPaddingLeft() - getPaddingRight()) / 2.0f;
-                mSrcPoints[1] = (getHeight() - getPaddingTop()- getPaddingBottom()) / 2.0f;
-
-                mInverseMatrix.mapPoints(mDstPoints, mSrcPoints);
-                outPoint.x = mDstPoints[0] / intrinsicWidth;
-                outPoint.y = mDstPoints[1] / intrinsicHeight;
-                return true;
-
-                // TODO: When anything but MATRIX, if actual size <= avail size, make it 0.5
-                // Is that true for EVERYTHING but MATRIX?
-            }
+        if (d == null) {
+            return false;
         }
-        return false;
+        final int intrinsicWidth = d.getIntrinsicWidth();
+        final int intrinsicHeight = d.getIntrinsicHeight();
+        if (intrinsicWidth < 0 || intrinsicHeight < 0) {
+            return false;
+        }
+        synchronized (mLock) {
+            mRectF.set(0, 0, intrinsicWidth, intrinsicHeight);
+            final Matrix matrix = getImageMatrix();
+            matrix.mapRect(mRectF);
+            final int availableWidth = getAvailableWidth();
+            final int availableHeight = getAvailableHeight();
+            matrix.invert(mInverseMatrix);
+            mSrcPoints[0] = availableWidth / 2.0f;
+            mSrcPoints[1] = availableHeight / 2.0f;
+            mInverseMatrix.mapPoints(mDstPoints, mSrcPoints);
+            outPoint.x = (mScaleType == MATRIX || Math.round(mRectF.width()) > availableWidth ?
+                    mDstPoints[0] / intrinsicWidth :
+                    0.5f);
+            outPoint.y = (mScaleType == MATRIX || Math.round(mRectF.height()) > availableHeight ?
+                    mDstPoints[1] / intrinsicHeight :
+                    0.5f);
+            return true;
+        }
     }
 
     public boolean getScale(PointF outPoint) {
         final Drawable d = getDrawable();
         if (d != null) {
-            final int intrinsicWidth = d.getIntrinsicWidth();
-            final int intrinsicHeight = d.getIntrinsicHeight();
-            if (intrinsicWidth >= 0 && intrinsicHeight >= 0) {
-                getImageMatrix().getValues(mValues);
-                outPoint.x = mValues[MSCALE_X];
-                outPoint.y = mValues[MSCALE_Y];
-                return true;
+            synchronized (mLock) {
+                final int intrinsicWidth = d.getIntrinsicWidth();
+                final int intrinsicHeight = d.getIntrinsicHeight();
+                if (intrinsicWidth >= 0 && intrinsicHeight >= 0) {
+                    getImageMatrix().getValues(mValues);
+                    outPoint.x = mValues[MSCALE_X];
+                    outPoint.y = mValues[MSCALE_Y];
+                    return true;
+                }
             }
         }
         return false;
@@ -106,5 +127,13 @@ public class InteractiveImageView extends AppCompatImageView {
 
     public void setOnDrawListener(OnDrawListener onDrawListener) {
         mOnDrawListener = onDrawListener;
+    }
+
+    private int getAvailableHeight() {
+        return getHeight() - getPaddingTop() - getPaddingBottom();
+    }
+
+    private int getAvailableWidth() {
+        return getWidth() - getPaddingLeft() - getPaddingRight();
     }
 }

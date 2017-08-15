@@ -1,11 +1,8 @@
 <resources>
 
-    <!-- Base application theme. -->
-    <style name="AppTheme" parent="Theme.AppCompat">
-        <!-- Customize your theme here. -->
-        <item name="colorPrimary">@color/colorPrimary</item>
-        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
-        <item name="colorAccent">@color/colorAccent</item>
+    <style name="ExtendedSeekBar" parent="@android:style/Widget">
+        <item name="android:icon">@android:color/transparent</item>
+        <item name="valueViewWidth">@dimen/extended_seek_bar_value_view_width</item>
     </style>
 
 </resources>

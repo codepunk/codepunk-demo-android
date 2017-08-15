@@ -40,17 +40,17 @@
         android:text="@string/label_pan"
         android:layout_marginTop="@dimen/standard_margin" />
 
-    <include
+    <com.codepunk.demo.ExtendedSeekBar
         android:id="@+id/seek_pan_x"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        layout="@layout/layout_seek_bar_with_values" />
+        android:icon="@drawable/ic_swap_horiz_white_24dp" />
 
-    <include
+    <com.codepunk.demo.ExtendedSeekBar
         android:id="@+id/seek_pan_y"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        layout="@layout/layout_seek_bar_with_values" />
+        android:icon="@drawable/ic_swap_vert_white_24dp" />
 
     <TextView
         android:id="@+id/label_scale"
@@ -70,17 +70,17 @@
             android:layout_weight="1"
             android:orientation="vertical">
 
-            <include
+            <com.codepunk.demo.ExtendedSeekBar
                 android:id="@+id/seek_scale_x"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                layout="@layout/layout_seek_bar_with_values" />
+                android:icon="@drawable/ic_swap_horiz_white_24dp" />
 
-            <include
+            <com.codepunk.demo.ExtendedSeekBar
                 android:id="@+id/seek_scale_y"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                layout="@layout/layout_seek_bar_with_values" />
+                android:icon="@drawable/ic_swap_vert_white_24dp" />
 
         </LinearLayout>
 
@@ -88,7 +88,7 @@
             android:id="@+id/image_btn_lock"
             android:layout_width="@dimen/touch_target_size"
             android:layout_height="match_parent"
-            app:srcCompat="@drawable/ic_lock_open_white_24dp"
+            app:srcCompat="@drawable/ic_lock_outline_white_24dp"
             android:scaleType="center"
             style="?borderlessButtonStyle"/>
 

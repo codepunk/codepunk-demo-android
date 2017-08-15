@@ -2,21 +2,15 @@ package com.codepunk.demo;
 
 import android.animation.ValueAnimator;
 import android.annotation.TargetApi;
-import android.app.Activity;
 import android.content.res.Resources;
 import android.graphics.Canvas;
 import android.graphics.PointF;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Bundle;
-import android.support.annotation.DrawableRes;
-import android.support.annotation.IdRes;
 import android.support.constraint.ConstraintLayout.LayoutParams;
 import android.support.constraint.Guideline;
 import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.AppCompatImageView;
-import android.support.v7.widget.AppCompatSeekBar;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -28,28 +22,35 @@ import android.view.animation.Transformation;
 import android.widget.AdapterView;
 import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.SeekBar;
 import android.widget.Spinner;
-import android.widget.TextView;
 
-import java.text.DecimalFormat;
-import java.text.Format;
 import java.text.NumberFormat;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
+import java.util.Map;
 
 import static android.os.Build.VERSION_CODES.HONEYCOMB;
 
 @SuppressWarnings({"FieldCanBeLocal", "unused"})
-public class InteractiveImageViewActivity extends AppCompatActivity
-        implements AdapterView.OnItemSelectedListener,
-        InteractiveImageView.OnDrawListener,
-        View.OnClickListener {
-
-    private static final String TAG = "tag_" + InteractiveImageViewActivity.class.getSimpleName();
+public class InteractiveImageViewActivity
+        extends AppCompatActivity
+        implements View.OnClickListener,
+                AdapterView.OnItemSelectedListener,
+                InteractiveImageView.OnDrawListener {
 
     //region Nested classes
-    private static class SeekBarWithValues {
+    /*
+    private static class SeekBarWithValues
+            implements SeekBar.OnSeekBarChangeListener {
+
+        private interface OnValueChangeListener {
+            void onStartTrackingValue(SeekBarWithValues seekBarWithValues, float value);
+            void onValueChanged(SeekBarWithValues seekBarWithValues, float value, boolean fromUser);
+            void onStopTrackingValue(SeekBarWithValues seekBarWithValues);
+        }
+
         private final ViewGroup mView;
         private final AppCompatImageView mIconView;
         private final TextView mCurrentValueText;
@@ -58,9 +59,11 @@ public class InteractiveImageViewActivity extends AppCompatActivity
         private final TextView mMaxValueText;
 
         private Format mFormat = new DecimalFormat("#0.0");
-        private float mCurrentValue = 0.0f;
         private float mMinValue = 0.0f;
         private float mMaxValue = 100.0f;
+
+        private float mTrackingStartValue;
+        private OnValueChangeListener mOnValueChangeListener;
 
         public SeekBarWithValues(Activity activity, @IdRes int resId) {
             super();
@@ -70,40 +73,74 @@ public class InteractiveImageViewActivity extends AppCompatActivity
             mMinValueText = (TextView) mView.findViewById(R.id.text_min_value);
             mValueSeekBar = (AppCompatSeekBar) mView.findViewById(R.id.seek_value);
             mMaxValueText = (TextView) mView.findViewById(R.id.text_max_value);
+
+            mValueSeekBar.setOnSeekBarChangeListener(this);
         }
 
-        public void setIcon(@DrawableRes int resId) {
-            mIconView.setImageResource(resId);
+        public float getCurrentValue() {
+            return progressToValue(mValueSeekBar.getProgress());
+        }
+
+        public void setCurrentValue(float value) {
+            mCurrentValueText.setText(mFormat.format(value));
+            mValueSeekBar.setProgress(valueToProgress(value));
         }
 
         public void setFormat(Format format) {
             mFormat = format;
         }
 
-        public void setCurrentValue(float value) {
-            mCurrentValue = value;
-            mCurrentValueText.setText(mFormat.format(value));
-            updateSeekBarValue();
+        public void setIcon(@DrawableRes int resId) {
+            mIconView.setImageResource(resId);
         }
 
-        public void setMaxValue(float value) {
-            mMaxValue = value;
-            mMaxValueText.setText(mFormat.format(value));
-            updateSeekBarValue();
+        public void setRange(float min, float max) {
+            mMinValue = Math.min(min, max);
+            mMaxValue = Math.max(min, max);
+            mMinValueText.setText(mFormat.format(mMinValue));
+            mMaxValueText.setText(mFormat.format(mMaxValue));
+            setCurrentValue(getCurrentValue());
         }
 
-        public void setMinValue(float value) {
-            mMinValue = value;
-            mMinValueText.setText(mFormat.format(value));
-            updateSeekBarValue();
+        private float checkValue(float value) {
+            return Math.max(Math.min(value, mMaxValue), mMinValue);
         }
 
-        private void updateSeekBarValue() {
-            final int range = mValueSeekBar.getMax();
-            final int value = (int) (range * (mCurrentValue - mMinValue) / (mMaxValue - mMinValue));
-            mValueSeekBar.setProgress(value);
+        private int valueToProgress(float value) {
+            final float checkedValue = checkValue(value);
+            return Math.round(
+                    mValueSeekBar.getMax() * (checkedValue - mMinValue) / (mMaxValue - mMinValue));
+        }
+
+        private float progressToValue(int progress) {
+            final float relativeProgress =
+                    (float) mValueSeekBar.getProgress() / mValueSeekBar.getMax();
+            return mMinValue + (mMaxValue - mMinValue) * relativeProgress;
+        }
+
+        @Override // SeekBar.OnSeekBarChangeListener
+        public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+
+        }
+
+        @Override // SeekBar.OnSeekBarChangeListener
+        public void onStartTrackingTouch(SeekBar seekBar) {
+            mTrackingStartValue = progressToValue(seekBar.getProgress());
+            if (mOnValueChangeListener != null) {
+                mOnValueChangeListener.onStartTrackingValue(this, mTrackingStartValue);
+            }
+        }
+
+        @Override // SeekBar.OnSeekBarChangeListener
+        public void onStopTrackingTouch(SeekBar seekBar) {
+
+        }
+
+        public void setOnValueChangeListener(OnValueChangeListener onValueChangeListener) {
+            mOnValueChangeListener = onValueChangeListener;
         }
     }
+    */
 
     private interface GuidelineAnimateCompatImpl {
         void animate(final int toValue);
@@ -163,6 +200,8 @@ public class InteractiveImageViewActivity extends AppCompatActivity
     //endregion Nested classes
 
     //region Constants
+    private static final String TAG = "tag_" + InteractiveImageViewActivity.class.getSimpleName();
+
     private final List<Integer> DRAWABLE_RES_IDS = Arrays.asList(
             0,
             R.drawable.cinderellas_castle,
@@ -184,10 +223,10 @@ public class InteractiveImageViewActivity extends AppCompatActivity
     private ViewGroup mControlsView;
     private Spinner mDrawableSpinner;
     private Spinner mScaleTypeSpinner;
-    private SeekBarWithValues mPanXSeekBarWithValues;
-    private SeekBarWithValues mPanYSeekBarWithValues;
-    private SeekBarWithValues mScaleXSeekBarWithValues;
-    private SeekBarWithValues mScaleYSeekBarWithValues;
+    private ExtendedSeekBar mPanXSeekBar;
+    private ExtendedSeekBar mPanYSeekBar;
+    private ExtendedSeekBar mScaleXSeekBar;
+    private ExtendedSeekBar mScaleYSeekBar;
     private ImageButton mLockBtn;
 
     private boolean mShowingControls = true;
@@ -199,7 +238,9 @@ public class InteractiveImageViewActivity extends AppCompatActivity
 
     private GuidelineAnimateCompatImpl mGuidelineAnimateCompatImpl;
 
-    private boolean mScaleLocked = false;
+    private boolean mScaleLocked = true;
+    private SeekBar mTrackingSeekBar;
+    private final Map<SeekBar, Integer> mStartValues = new HashMap<>();
 
     private final PointF mCenter = new PointF();
     private final PointF mScale = new PointF();
@@ -216,10 +257,10 @@ public class InteractiveImageViewActivity extends AppCompatActivity
         mControlsView = (ViewGroup) findViewById(R.id.layout_controls);
         mDrawableSpinner = (Spinner) findViewById(R.id.spinner_drawable);
         mScaleTypeSpinner = (Spinner) findViewById(R.id.spinner_scale_type);
-        mPanXSeekBarWithValues = new SeekBarWithValues(this, R.id.seek_pan_x);
-        mPanYSeekBarWithValues = new SeekBarWithValues(this, R.id.seek_pan_y);
-        mScaleXSeekBarWithValues = new SeekBarWithValues(this, R.id.seek_scale_x);
-        mScaleYSeekBarWithValues = new SeekBarWithValues(this, R.id.seek_scale_y);
+        mPanXSeekBar = (ExtendedSeekBar) findViewById(R.id.seek_pan_x);
+        mPanYSeekBar = (ExtendedSeekBar) findViewById(R.id.seek_pan_y);
+        mScaleXSeekBar = (ExtendedSeekBar) findViewById(R.id.seek_scale_x);
+        mScaleYSeekBar = (ExtendedSeekBar) findViewById(R.id.seek_scale_y);
         mLockBtn = (ImageButton) findViewById(R.id.image_btn_lock);
 
         LayoutParams lp = (LayoutParams) mGuideline.getLayoutParams();
@@ -236,25 +277,22 @@ public class InteractiveImageViewActivity extends AppCompatActivity
         final ImageView.ScaleType scaleType = mImageView.getScaleType();
         mScaleTypeSpinner.setSelection(scaleType.ordinal());
 
+        /*
         final NumberFormat percentFormat = NumberFormat.getPercentInstance();
-        mPanXSeekBarWithValues.setFormat(percentFormat);
-        mPanXSeekBarWithValues.setMinValue(0.0f);
-        mPanXSeekBarWithValues.setMaxValue(1.0f);
-        mPanYSeekBarWithValues.setFormat(percentFormat);
-        mPanYSeekBarWithValues.setIcon(R.drawable.ic_swap_vert_white_24dp);
-        mPanYSeekBarWithValues.setMinValue(0.0f);
-        mPanYSeekBarWithValues.setMaxValue(1.0f);
-        mScaleYSeekBarWithValues.setIcon(R.drawable.ic_swap_vert_white_24dp);
+        mPanXSeekBar.setFormat(percentFormat);
+        mPanXSeekBar.setRange(0.0f, 1.0f);
+        mPanYSeekBar.setFormat(percentFormat);
+        mPanYSeekBar.setIcon(R.drawable.ic_swap_vert_white_24dp);
+        mPanYSeekBar.setRange(0.0f, 1.0f);
+        mScaleYSeekBar.setIcon(R.drawable.ic_swap_vert_white_24dp);
+        */
 
         mImageView.setOnDrawListener(this);
         mDrawableSpinner.setOnItemSelectedListener(this);
         mScaleTypeSpinner.setOnItemSelectedListener(this);
         mLockBtn.setOnClickListener(this);
 
-        if (savedInstanceState == null) {
-            mShowingControls = true;
-            mScaleLocked = false;
-        } else {
+        if (savedInstanceState != null) {
             mShowingControls = savedInstanceState.getBoolean(KEY_SHOWING_CONTROLS, false);
             mScaleLocked = savedInstanceState.getBoolean(KEY_SCALE_LOCKED, false);
         }
@@ -309,8 +347,8 @@ public class InteractiveImageViewActivity extends AppCompatActivity
     }
     //endregion Lifecycle methods
 
-    //region Implemented methods
-    @Override
+    //region Interface methods
+    @Override /* View.OnClickListener */
     public void onClick(View v) {
         switch (v.getId()) {
             case R.id.image_btn_lock:
@@ -325,24 +363,7 @@ public class InteractiveImageViewActivity extends AppCompatActivity
         }
     }
 
-    @Override
-    public void onDraw(InteractiveImageView view, Canvas canvas) {
-        // TODO TEMP
-        mScaleXSeekBarWithValues.setMinValue(view.getMinScaleX());
-        mScaleXSeekBarWithValues.setMaxValue(view.getMaxScaleX());
-        mScaleYSeekBarWithValues.setMinValue(view.getMinScaleY());
-        mScaleYSeekBarWithValues.setMaxValue(view.getMaxScaleY());
-
-        mImageView.getRelativeCenter(mCenter);
-        mPanXSeekBarWithValues.setCurrentValue(mCenter.x);
-        mPanYSeekBarWithValues.setCurrentValue(mCenter.y);
-
-        mImageView.getScale(mScale);
-        mScaleXSeekBarWithValues.setCurrentValue(mScale.x);
-        mScaleYSeekBarWithValues.setCurrentValue(mScale.y);
-    }
-
-    @Override
+    @Override /* AdapterView.OnItemSelectedListener */
     public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
         switch (parent.getId()) {
             case R.id.spinner_drawable:
@@ -370,10 +391,74 @@ public class InteractiveImageViewActivity extends AppCompatActivity
         }
     }
 
-    @Override
+    @Override // AdapterView.OnItemSelectedListener
     public void onNothingSelected(AdapterView<?> parent) {
     }
-    //endregion Implemented methods
+
+    /*
+    @Override // SeekBar.OnSeekBarChangeListener
+    public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+        if (fromUser && mScaleLocked) {
+            int startProgress = mStartValues.containsKey(seekBar) ? mStartValues.get(seekBar) : 0;
+            float factor = (float) progress / startProgress;
+            Log.d(TAG, String.format(Locale.US, "startProgress=%d, factor=%.2f", startProgress, factor));
+        }
+    }
+
+    @Override // SeekBar.OnSeekBarChangeListener
+    public void onStartTrackingTouch(SeekBar seekBar) {
+        if (mScaleLocked) {
+            mTrackingSeekBar = seekBar;
+            mStartValues.put(
+                    mScaleXSeekBar.mValueSeekBar,
+                    mScaleXSeekBar.mValueSeekBar.getProgress());
+            mStartValues.put(
+                    mScaleYSeekBar.mValueSeekBar,
+                    mScaleYSeekBar.mValueSeekBar.getProgress());
+        }
+    }
+
+    @Override // SeekBar.OnSeekBarChangeListener
+    public void onStopTrackingTouch(SeekBar seekBar) {
+        mTrackingSeekBar = null;
+        mStartValues.clear();
+    }
+    */
+
+    /*
+    @Override
+    public void onStartTrackingValue(SeekBarWithValues seekBarWithValues, float value) {
+
+    }
+
+    @Override
+    public void onValueChanged(SeekBarWithValues seekBarWithValues, float value, boolean fromUser) {
+
+    }
+
+    @Override
+    public void onStopTrackingValue(SeekBarWithValues seekBarWithValues) {
+
+    }
+    */
+
+    @Override /* InteractiveImageView.OnDrawListener */
+    public void onDraw(InteractiveImageView view, Canvas canvas) {
+        // TODO TEMP
+        /*
+        mScaleXSeekBar.setRange(view.getMinScaleX(), view.getMaxScaleX());
+        mScaleYSeekBar.setRange(view.getMinScaleY(), view.getMaxScaleY());
+
+        mImageView.getImagePointInCenter(mCenter);
+        mPanXSeekBar.setCurrentValue(mCenter.x);
+        mPanYSeekBar.setCurrentValue(mCenter.y);
+
+        mImageView.getScale(mScale);
+        mScaleXSeekBar.setCurrentValue(mScale.x);
+        mScaleYSeekBar.setCurrentValue(mScale.y);
+        */
+    }
+    //endregion Interface methods
 
     //region Methods
     public void onControlsClick(MenuItem item) {
