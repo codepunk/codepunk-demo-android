@@ -1,8 +1,2 @@
 <resources>
-
-    <style name="ExtendedSeekBar" parent="@android:style/Widget">
-        <item name="android:icon">@android:color/transparent</item>
-        <item name="valueViewWidth">@dimen/extended_seek_bar_value_view_width</item>
-    </style>
-
 </resources>

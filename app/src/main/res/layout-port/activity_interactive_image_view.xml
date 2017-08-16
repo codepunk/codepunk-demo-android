@@ -25,7 +25,7 @@
         app:layout_constraintBottom_toTopOf="@id/guideline"
         tools:src="@drawable/wilderness_lodge"
         android:background="@android:color/black"
-        android:scaleType="centerInside"/>
+        android:scaleType="centerCrop"/>
 
     <FrameLayout
         android:id="@+id/layout_controls"

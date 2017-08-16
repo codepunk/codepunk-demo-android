@@ -17,7 +17,7 @@ public class ViewTreeObserverCompat {
     }
 
     @SuppressWarnings("deprecation")
-    private static class BaseViewTreeObserverCompatImpl
+    private static final class BaseViewTreeObserverCompatImpl
             implements ViewTreeObserverCompatImpl {
         @Override
         public void removeOnGlobalLayoutListener(
@@ -28,7 +28,7 @@ public class ViewTreeObserverCompat {
     }
 
     @TargetApi(JELLY_BEAN)
-    private static class JellyBeanViewTreeObserverCompatImpl
+    private static final class JellyBeanViewTreeObserverCompatImpl
             implements ViewTreeObserverCompatImpl {
         @Override
         public void removeOnGlobalLayoutListener(

@@ -8,6 +8,4 @@
     <string name="label_scale_type">Scale Type:</string>
     <string name="label_pan">Pan:</string>
     <string name="label_scale">Scale:</string>
-
-    <string name="text_vertical_bar">|</string>
 </resources>
