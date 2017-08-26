@@ -3,6 +3,7 @@ package com.codepunk.demo;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
+import android.graphics.Point;
 import android.graphics.PointF;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
@@ -25,7 +26,7 @@ public class InteractiveImageView extends AppCompatImageView {
 
     private final PointF mPointF = new PointF();
     private final RectF mRectF = new RectF();
-    private final float[] mValues = new float[9];
+    private final float[] mMatrixValues = new float[9];
     private final float[] mSrcPoints = new float[2];
     private final float[] mDstPoints = new float[2];
     private final Matrix mInverseMatrix = new Matrix();
@@ -67,6 +68,31 @@ public class InteractiveImageView extends AppCompatImageView {
     public void setScaleType(ScaleType scaleType) {
         mScaleType = scaleType;
         super.setScaleType(scaleType);
+    }
+
+    public boolean getDisplayedImageSize(@NonNull Point outPoint) {
+        final Drawable drawable = getDrawable();
+        if (drawable != null) {
+            final int intrinsicWidth = drawable.getIntrinsicWidth();
+            final int intrinsicHeight = drawable.getIntrinsicHeight();
+            if (intrinsicWidth > 0 && intrinsicHeight > 0) {
+                getImageMatrix().getValues(mMatrixValues);
+                outPoint.x = Math.round(intrinsicWidth * mMatrixValues[MSCALE_X]);
+                outPoint.y = Math.round(intrinsicHeight * mMatrixValues[MSCALE_Y]);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean getIntrinsicImageSize(@NonNull Point outPoint) {
+        final Drawable drawable = getDrawable();
+        if (drawable != null) {
+            outPoint.x = drawable.getIntrinsicWidth();
+            outPoint.y = drawable.getIntrinsicHeight();
+            return true;
+        }
+        return false;
     }
 
     public float getMaxScaleX() {
@@ -127,9 +153,9 @@ public class InteractiveImageView extends AppCompatImageView {
                 final int intrinsicWidth = d.getIntrinsicWidth();
                 final int intrinsicHeight = d.getIntrinsicHeight();
                 if (intrinsicWidth >= 0 && intrinsicHeight >= 0) {
-                    getImageMatrix().getValues(mValues);
-                    outPoint.x = mValues[MSCALE_X];
-                    outPoint.y = mValues[MSCALE_Y];
+                    getImageMatrix().getValues(mMatrixValues);
+                    outPoint.x = mMatrixValues[MSCALE_X];
+                    outPoint.y = mMatrixValues[MSCALE_Y];
                     return true;
                 }
             }
@@ -205,11 +231,11 @@ public class InteractiveImageView extends AppCompatImageView {
                 super.setScaleType(MATRIX);
             }
             final Matrix matrix = getImageMatrix();
-            matrix.getValues(mValues); // TODO Can I do this without getting values?
+            matrix.getValues(mMatrixValues); // TODO Can I do this without getting values?
 
             matrix.preScale(
-                    scaleX / mValues[MSCALE_X],
-                    scaleY / mValues[MSCALE_Y],
+                    scaleX / mMatrixValues[MSCALE_X],
+                    scaleY / mMatrixValues[MSCALE_Y],
                     intrinsicWidth * relativeX,
                     intrinsicHeight * relativeY);
 
