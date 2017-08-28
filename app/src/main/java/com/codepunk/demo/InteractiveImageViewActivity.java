@@ -4,7 +4,6 @@ import android.animation.ValueAnimator;
 import android.annotation.TargetApi;
 import android.content.res.Resources;
 import android.graphics.Canvas;
-import android.graphics.Matrix;
 import android.graphics.Point;
 import android.graphics.PointF;
 import android.graphics.drawable.Drawable;
@@ -13,14 +12,11 @@ import android.os.Bundle;
 import android.support.constraint.ConstraintLayout.LayoutParams;
 import android.support.constraint.Guideline;
 import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.AppCompatSeekBar;
 import android.support.v7.widget.AppCompatTextView;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.animation.AccelerateInterpolator;
 import android.view.animation.Animation;
 import android.view.animation.DecelerateInterpolator;
 import android.view.animation.Interpolator;
@@ -31,11 +27,12 @@ import android.widget.ImageView;
 import android.widget.SeekBar;
 import android.widget.Spinner;
 
+import com.codepunk.demo.support.SeekBarCompat;
+
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
 
 import static android.os.Build.VERSION_CODES.HONEYCOMB;
 
@@ -133,19 +130,19 @@ public class InteractiveImageViewActivity
     private Spinner mScaleTypeSpinner;
     private AppCompatTextView mPanXValueView;
     private AppCompatTextView mPanXMinValueView;
-    private AppCompatSeekBar mPanXSeekBar;
+    private AppCompatSeekBarEx mPanXSeekBar;
     private AppCompatTextView mPanXMaxValueView;
     private AppCompatTextView mPanYValueView;
     private AppCompatTextView mPanYMinValueView;
-    private AppCompatSeekBar mPanYSeekBar;
+    private AppCompatSeekBarEx mPanYSeekBar;
     private AppCompatTextView mPanYMaxValueView;
     private AppCompatTextView mScaleXValueView;
     private AppCompatTextView mScaleXMinValueView;
-    private AppCompatSeekBar mScaleXSeekBar;
+    private AppCompatSeekBarEx mScaleXSeekBar;
     private AppCompatTextView mScaleXMaxValueView;
     private AppCompatTextView mScaleYValueView;
     private AppCompatTextView mScaleYMinValueView;
-    private AppCompatSeekBar mScaleYSeekBar;
+    private AppCompatSeekBarEx mScaleYSeekBar;
     private AppCompatTextView mScaleYMaxValueView;
     private ImageButton mLockBtn;
 
@@ -184,21 +181,32 @@ public class InteractiveImageViewActivity
         mScaleTypeSpinner = (Spinner) findViewById(R.id.spinner_scale_type);
         mPanXValueView = (AppCompatTextView) findViewById(R.id.text_pan_x_value);
         mPanXMinValueView = (AppCompatTextView) findViewById(R.id.text_pan_x_min_value);
-        mPanXSeekBar = (AppCompatSeekBar) findViewById(R.id.seek_pan_x_value);
+        mPanXSeekBar = (AppCompatSeekBarEx) findViewById(R.id.seek_pan_x_value);
         mPanXMaxValueView = (AppCompatTextView) findViewById(R.id.text_pan_x_max_value);
         mPanYValueView = (AppCompatTextView) findViewById(R.id.text_pan_y_value);
         mPanYMinValueView = (AppCompatTextView) findViewById(R.id.text_pan_y_min_value);
-        mPanYSeekBar = (AppCompatSeekBar) findViewById(R.id.seek_pan_y_value);
+        mPanYSeekBar = (AppCompatSeekBarEx) findViewById(R.id.seek_pan_y_value);
         mPanYMaxValueView = (AppCompatTextView) findViewById(R.id.text_pan_y_max_value);
         mScaleXValueView = (AppCompatTextView) findViewById(R.id.text_scale_x_value);
         mScaleXMinValueView = (AppCompatTextView) findViewById(R.id.text_scale_x_min_value);
-        mScaleXSeekBar = (AppCompatSeekBar) findViewById(R.id.seek_scale_x_value);
+        mScaleXSeekBar = (AppCompatSeekBarEx) findViewById(R.id.seek_scale_x_value);
         mScaleXMaxValueView = (AppCompatTextView) findViewById(R.id.text_scale_x_max_value);
         mScaleYValueView = (AppCompatTextView) findViewById(R.id.text_scale_y_value);
         mScaleYMinValueView = (AppCompatTextView) findViewById(R.id.text_scale_y_min_value);
-        mScaleYSeekBar = (AppCompatSeekBar) findViewById(R.id.seek_scale_y_value);
+        mScaleYSeekBar = (AppCompatSeekBarEx) findViewById(R.id.seek_scale_y_value);
         mScaleYMaxValueView = (AppCompatTextView) findViewById(R.id.text_scale_y_max_value);
         mLockBtn = (ImageButton) findViewById(R.id.image_btn_lock);
+
+        // TODO TEMP
+        mPanXSeekBar.setInnerMin(0);
+        mPanXSeekBar.setInnerMax(mPanXSeekBar.getMax());
+        mPanYSeekBar.setInnerMin(0);
+        mPanYSeekBar.setInnerMax(mPanYSeekBar.getMax());
+        mScaleXSeekBar.setInnerMin(250);
+        mScaleXSeekBar.setInnerMax(mScaleXSeekBar.getMax());
+        mScaleYSeekBar.setInnerMin(250);
+        mScaleYSeekBar.setInnerMax(mScaleYSeekBar.getMax());
+        // END TEMP
 
         mPanXMinValueView.setText(mPercentFormat.format(1.0f));
         mPanXMaxValueView.setText(mPercentFormat.format(0.0f));
@@ -523,12 +531,12 @@ public class InteractiveImageViewActivity
         return mGuidelineAnimateCompatImpl;
     }
 
-    private static float getPercentProgress(AppCompatSeekBar seekBar) {
+    private static float getPercentProgress(SeekBar seekBar) {
         return (float) seekBar.getProgress() / seekBar.getMax();
     }
 
     private float getRangeProgress(
-            AppCompatSeekBar seekBar,
+            SeekBar seekBar,
             float minValue,
             float maxValue) {
         float percentProgress = getPercentProgress(seekBar);
@@ -538,14 +546,14 @@ public class InteractiveImageViewActivity
     }
 
     private static void setPercentProgress(
-            AppCompatSeekBar seekBar,
+            SeekBar seekBar,
             float percentProgress,
             boolean animate) {
         SeekBarCompat.setProgress(seekBar, (int) (seekBar.getMax() * percentProgress), animate);
     }
 
     private static void setReversePercentProgress(
-            AppCompatSeekBar seekBar,
+            SeekBar seekBar,
             float percentProgress,
             boolean animate) {
         SeekBarCompat.setProgress(
@@ -555,7 +563,7 @@ public class InteractiveImageViewActivity
     }
 
     private void setRangeProgress(
-            AppCompatSeekBar seekBar,
+            SeekBar seekBar,
             float minValue,
             float maxValue,
             float value,

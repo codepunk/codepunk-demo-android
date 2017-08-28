@@ -75,7 +75,7 @@
             android:textAlignment="gravity"
             tools:text="0%"/>
 
-        <android.support.v7.widget.AppCompatSeekBar
+        <com.codepunk.demo.AppCompatSeekBarEx
             android:id="@+id/seek_pan_x_value"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -126,7 +126,7 @@
             android:textAlignment="gravity"
             tools:text="0%"/>
 
-        <android.support.v7.widget.AppCompatSeekBar
+        <com.codepunk.demo.AppCompatSeekBarEx
             android:id="@+id/seek_pan_y_value"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -195,7 +195,7 @@
                     android:textAlignment="gravity"
                     tools:text="1.0"/>
 
-                <android.support.v7.widget.AppCompatSeekBar
+                <com.codepunk.demo.AppCompatSeekBarEx
                     android:id="@+id/seek_scale_x_value"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -246,7 +246,7 @@
                     android:textAlignment="gravity"
                     tools:text="1.0"/>
 
-                <android.support.v7.widget.AppCompatSeekBar
+                <com.codepunk.demo.AppCompatSeekBarEx
                     android:id="@+id/seek_scale_y_value"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
