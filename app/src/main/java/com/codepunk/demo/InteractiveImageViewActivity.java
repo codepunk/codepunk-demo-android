@@ -24,10 +24,9 @@ import android.view.animation.Transformation;
 import android.widget.AdapterView;
 import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.SeekBar;
 import android.widget.Spinner;
-
-import com.codepunk.demo.support.SeekBarCompat;
 
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
@@ -173,29 +172,29 @@ public class InteractiveImageViewActivity
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_interactive_image_view);
-        mMainLayout = (ViewGroup) findViewById(R.id.layout_main);
-        mGuideline = (Guideline) findViewById(R.id.guideline);
-        mImageView = (InteractiveImageView) findViewById(R.id.view_image);
-        mControlsView = (ViewGroup) findViewById(R.id.layout_controls);
-        mDrawableSpinner = (Spinner) findViewById(R.id.spinner_drawable);
-        mScaleTypeSpinner = (Spinner) findViewById(R.id.spinner_scale_type);
-        mPanXValueView = (AppCompatTextView) findViewById(R.id.text_pan_x_value);
-        mPanXMinValueView = (AppCompatTextView) findViewById(R.id.text_pan_x_min_value);
-        mPanXSeekBar = (AppCompatSeekBarEx) findViewById(R.id.seek_pan_x_value);
-        mPanXMaxValueView = (AppCompatTextView) findViewById(R.id.text_pan_x_max_value);
-        mPanYValueView = (AppCompatTextView) findViewById(R.id.text_pan_y_value);
-        mPanYMinValueView = (AppCompatTextView) findViewById(R.id.text_pan_y_min_value);
-        mPanYSeekBar = (AppCompatSeekBarEx) findViewById(R.id.seek_pan_y_value);
-        mPanYMaxValueView = (AppCompatTextView) findViewById(R.id.text_pan_y_max_value);
-        mScaleXValueView = (AppCompatTextView) findViewById(R.id.text_scale_x_value);
-        mScaleXMinValueView = (AppCompatTextView) findViewById(R.id.text_scale_x_min_value);
-        mScaleXSeekBar = (AppCompatSeekBarEx) findViewById(R.id.seek_scale_x_value);
-        mScaleXMaxValueView = (AppCompatTextView) findViewById(R.id.text_scale_x_max_value);
-        mScaleYValueView = (AppCompatTextView) findViewById(R.id.text_scale_y_value);
-        mScaleYMinValueView = (AppCompatTextView) findViewById(R.id.text_scale_y_min_value);
-        mScaleYSeekBar = (AppCompatSeekBarEx) findViewById(R.id.seek_scale_y_value);
-        mScaleYMaxValueView = (AppCompatTextView) findViewById(R.id.text_scale_y_max_value);
-        mLockBtn = (ImageButton) findViewById(R.id.image_btn_lock);
+        mMainLayout = findViewById(R.id.layout_main);
+        mGuideline = findViewById(R.id.guideline);
+        mImageView = findViewById(R.id.view_image);
+        mControlsView = findViewById(R.id.layout_controls);
+        mDrawableSpinner = findViewById(R.id.spinner_drawable);
+        mScaleTypeSpinner = findViewById(R.id.spinner_scale_type);
+        mPanXValueView = findViewById(R.id.text_pan_x_value);
+        mPanXMinValueView = findViewById(R.id.text_pan_x_min_value);
+        mPanXSeekBar = findViewById(R.id.seek_pan_x_value);
+        mPanXMaxValueView = findViewById(R.id.text_pan_x_max_value);
+        mPanYValueView = findViewById(R.id.text_pan_y_value);
+        mPanYMinValueView = findViewById(R.id.text_pan_y_min_value);
+        mPanYSeekBar = findViewById(R.id.seek_pan_y_value);
+        mPanYMaxValueView = findViewById(R.id.text_pan_y_max_value);
+        mScaleXValueView = findViewById(R.id.text_scale_x_value);
+        mScaleXMinValueView = findViewById(R.id.text_scale_x_min_value);
+        mScaleXSeekBar = findViewById(R.id.seek_scale_x_value);
+        mScaleXMaxValueView = findViewById(R.id.text_scale_x_max_value);
+        mScaleYValueView = findViewById(R.id.text_scale_y_value);
+        mScaleYMinValueView = findViewById(R.id.text_scale_y_min_value);
+        mScaleYSeekBar = findViewById(R.id.seek_scale_y_value);
+        mScaleYMaxValueView = findViewById(R.id.text_scale_y_max_value);
+        mLockBtn = findViewById(R.id.image_btn_lock);
 
         // TODO TEMP
         mPanXSeekBar.setInnerMin(0);
@@ -208,10 +207,10 @@ public class InteractiveImageViewActivity
         mScaleYSeekBar.setInnerMax(mScaleYSeekBar.getMax());
         // END TEMP
 
-        mPanXMinValueView.setText(mPercentFormat.format(1.0f));
-        mPanXMaxValueView.setText(mPercentFormat.format(0.0f));
-        mPanYMinValueView.setText(mPercentFormat.format(1.0f));
-        mPanYMaxValueView.setText(mPercentFormat.format(0.0f));
+        mPanXMinValueView.setText(mPercentFormat.format(0.0f));
+        mPanXMaxValueView.setText(mPercentFormat.format(1.0f));
+        mPanYMinValueView.setText(mPercentFormat.format(0.0f));
+        mPanYMaxValueView.setText(mPercentFormat.format(1.0f));
 
         LayoutParams lp = (LayoutParams) mGuideline.getLayoutParams();
         mShownEnd = lp.guideEnd;
@@ -351,9 +350,9 @@ public class InteractiveImageViewActivity
             switch (id) {
                 case R.id.seek_pan_x_value:
                 case R.id.seek_pan_y_value:
-                    mImageView.setRelativeCenter(
-                            1.0f - getPercentProgress(mPanXSeekBar),
-                            1.0f - getPercentProgress(mPanYSeekBar));
+                    float centerX = getValue(mPanXSeekBar, 0.0f, 1.0f);
+                    float centerY = getValue(mPanYSeekBar, 0.0f, 1.0f);
+                    mImageView.setRelativeCenter(centerX, centerY);
                     break;
                 case R.id.seek_scale_x_value:
                 case R.id.seek_scale_y_value:
@@ -365,6 +364,7 @@ public class InteractiveImageViewActivity
                     final float scaleX;
                     final float scaleY;
 
+                    /*
                     if (mScaleLocked &&
                             mImageView.getIntrinsicImageSize(mIntrinsicSizePoint) &&
                             mImageView.getDisplayedImageSize(mDisplayedSizePoint)) {
@@ -419,9 +419,12 @@ public class InteractiveImageViewActivity
                             }
                         }
                     } else {
-                        scaleX = getRangeProgress(mScaleXSeekBar, minScaleX, maxScaleX);
-                        scaleY = getRangeProgress(mScaleYSeekBar, minScaleY, maxScaleY);
+                    */
+                        scaleX = getValue(mScaleXSeekBar, minScaleX, maxScaleX);
+                        scaleY = getValue(mScaleYSeekBar, minScaleY, maxScaleY);
+                    /*
                     }
+                    */
 
                     // TODO set the 2 seek bars
                     //final int progressX = extrapolate(scaleX);
@@ -461,9 +464,9 @@ public class InteractiveImageViewActivity
         // TODO Capture which control(s) the user is manipulating and don't update those
         mImageView.getRelativeCenter(mCenter);
         mPanXValueView.setText(mPercentFormat.format(mCenter.x));
-        setReversePercentProgress(mPanXSeekBar, mCenter.x, false);
+        setValue(mPanXSeekBar, 0.0f, 1.0f, mCenter.x);
         mPanYValueView.setText(mPercentFormat.format(mCenter.y));
-        setReversePercentProgress(mPanYSeekBar, mCenter.y, false);
+        setValue(mPanYSeekBar, 0.0f, 1.0f, mCenter.y);
 
         final float minScaleX = view.getMinScaleX();
         final float maxScaleX = view.getMaxScaleX();
@@ -472,11 +475,11 @@ public class InteractiveImageViewActivity
         mImageView.getScale(mScale);
         mScaleXValueView.setText(mDecimalFormat.format(mScale.x));
         mScaleXMinValueView.setText(mDecimalFormat.format(minScaleX));
-        setRangeProgress(mScaleXSeekBar, minScaleX, maxScaleX, mScale.x, false);
+        setValue(mScaleXSeekBar, minScaleX, maxScaleX, mScale.x);
         mScaleXMaxValueView.setText(mDecimalFormat.format(maxScaleX));
         mScaleYValueView.setText(mDecimalFormat.format(mScale.y));
         mScaleYMinValueView.setText(mDecimalFormat.format(minScaleY));
-        setRangeProgress(mScaleYSeekBar, minScaleY, maxScaleY, mScale.y, false);
+        setValue(mScaleYSeekBar, minScaleY, maxScaleY, mScale.y);
         mScaleYMaxValueView.setText(mDecimalFormat.format(maxScaleY));
     }
     //endregion Interface methods
@@ -531,65 +534,47 @@ public class InteractiveImageViewActivity
         return mGuidelineAnimateCompatImpl;
     }
 
-    private static float getPercentProgress(SeekBar seekBar) {
-        return (float) seekBar.getProgress() / seekBar.getMax();
-    }
-
-    private float getRangeProgress(
-            SeekBar seekBar,
+    private static float progressToValue(
+            int min,
+            int max,
+            int progress,
             float minValue,
             float maxValue) {
-        float percentProgress = getPercentProgress(seekBar);
-        // TODO Logarithmic?
-        float interpolatedProgress = extrapolate(percentProgress);
-        return minValue + interpolatedProgress * (maxValue - minValue);
+        final float percent = (float) (progress - min) / (max - min);
+        return (minValue + (maxValue - minValue) * percent);
     }
 
-    private static void setPercentProgress(
-            SeekBar seekBar,
-            float percentProgress,
-            boolean animate) {
-        SeekBarCompat.setProgress(seekBar, (int) (seekBar.getMax() * percentProgress), animate);
+    private static float getValue(ProgressBar progressBar, float minValue, float maxValue) {
+        return progressToValue(
+                0 /* TODO */,
+                progressBar.getMax(),
+                progressBar.getProgress(),
+                minValue,
+                maxValue);
     }
 
-    private static void setReversePercentProgress(
-            SeekBar seekBar,
-            float percentProgress,
-            boolean animate) {
-        SeekBarCompat.setProgress(
-                seekBar,
-                (int) (seekBar.getMax() * (1.0f - percentProgress)),
-                animate);
+    private static void setValue(
+            ProgressBar progressBar,
+            float minValue,
+            float maxValue,
+            float value) {
+        progressBar.setProgress(
+                valueToProgress(
+                        minValue,
+                        maxValue,
+                        value,
+                        0 /* TODO */,
+                        progressBar.getMax()));
     }
 
-    private void setRangeProgress(
-            SeekBar seekBar,
+    private static int valueToProgress(
             float minValue,
             float maxValue,
             float value,
-            boolean animate) {
-        // TODO Logarithmic?
-        final float percentProgress = (value - minValue) / (maxValue - minValue);
-        final float interpolatedProgress = interpolate(percentProgress);
-        setPercentProgress(seekBar, interpolatedProgress, animate);
-    }
-
-    @SuppressWarnings("ConstantConditions")
-    private static float interpolate(float value) {
-        if (INTERPOLATION_FACTOR == 2.0d) {
-            return (float) Math.sqrt((double) value);
-        } else {
-            return (float) Math.pow((double) value, 1.0d / INTERPOLATION_FACTOR);
-        }
-    }
-
-    @SuppressWarnings("ConstantConditions")
-    private static float extrapolate(float value) {
-        if (INTERPOLATION_FACTOR == 2.0d) {
-            return value * value;
-        } else {
-            return (float) Math.pow((double) value, INTERPOLATION_FACTOR);
-        }
+            int min,
+            int max) {
+        final float percent = (value - minValue) / (maxValue - minValue);
+        return min + (int) ((max - min) * percent);
     }
     //endregion Private methods
 }
