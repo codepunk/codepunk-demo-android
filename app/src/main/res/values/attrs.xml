@@ -1,3 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <declare-styleable name="Theme">
+        <attr name="appCompatProgressBarStyle" format="reference" />
+    </declare-styleable>
+
+    <attr name="supportMin" format="integer" />
+
+    <declare-styleable name="AppCompatProgressBar">
+        <attr name="supportMin" />
+        <attr name="android:progress" />
+        <attr name="android:secondaryProgress" />
+    </declare-styleable>
 </resources>

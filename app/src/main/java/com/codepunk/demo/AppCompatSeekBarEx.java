@@ -69,7 +69,7 @@ public class AppCompatSeekBarEx extends AppCompatSeekBar {
     private void callSetProgressInternal(int progress, boolean fromUser, boolean animate) {
         try {
             Method method = ProgressBar.class.getDeclaredMethod(
-                    "setProgressInternal",
+                    "refreshProgress",
                     int.class,
                     boolean.class,
                     boolean.class);

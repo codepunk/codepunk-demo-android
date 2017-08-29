@@ -1,16 +1,27 @@
 package com.codepunk.demo;
 
-import android.content.Intent;
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
+
+import com.codepunk.demo.support.AppCompatProgressBar;
+
+import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        // TODO LATER setContentView(R.layout.activity_main);
-        startActivity(new Intent(this, InteractiveImageViewActivity.class));
-        finish();
+        setContentView(R.layout.activity_main);
+        //startActivity(new Intent(this, InteractiveImageViewActivity.class));
+        //finish();
+
+        final AppCompatProgressBar progressBar = findViewById(R.id.progress_bar);
+        final int min = progressBar.getSupportMin();
+        final int max = progressBar.getMax();
+        final int progress = progressBar.getProgress();
+
+        Log.d("MainActivity", String.format(Locale.US, "min=%d, max=%d, progress=%d", min, max, progress));
     }
 }

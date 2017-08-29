@@ -1,2 +1,5 @@
 <resources>
+    <style name="AppCompatProgressBar" parent="@android:style/Widget.ProgressBar">
+        <item name="supportMin">0</item>
+    </style>
 </resources>
