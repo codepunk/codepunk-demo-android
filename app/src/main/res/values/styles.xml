@@ -1,5 +1,15 @@
 <resources>
     <style name="AppCompatProgressBar" parent="@android:style/Widget.ProgressBar">
+        <item name="supportMax">100</item>
         <item name="supportMin">0</item>
+        <item name="supportProgress">0</item>
+        <item name="supportSecondaryProgress">0</item>
     </style>
+
+    <style name="AppCompatRatingBar" parent="@style/AppCompatProgressBar">
+    </style>
+
+    <style name="AppCompatSeekBar" parent="@style/AppCompatProgressBar">
+    </style>
+
 </resources>

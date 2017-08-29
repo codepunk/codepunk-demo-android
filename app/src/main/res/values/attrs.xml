@@ -2,13 +2,33 @@
 <resources>
     <declare-styleable name="Theme">
         <attr name="appCompatProgressBarStyle" format="reference" />
+        <attr name="appCompatRatingBarStyle" format="reference" />
+        <attr name="appCompatSeekBarStyle" format="reference" />
     </declare-styleable>
 
+    <attr name="supportMax" format="integer" />
     <attr name="supportMin" format="integer" />
+    <attr name="supportProgress" format="integer" />
+    <attr name="supportSecondaryProgress" format="integer" />
 
     <declare-styleable name="AppCompatProgressBar">
+        <attr name="supportMax" />
         <attr name="supportMin" />
-        <attr name="android:progress" />
-        <attr name="android:secondaryProgress" />
+        <attr name="supportProgress" />
+        <attr name="supportSecondaryProgress" />
+    </declare-styleable>
+
+    <declare-styleable name="AppCompatRatingBar">
+        <attr name="supportMax" />
+        <attr name="supportMin" />
+        <attr name="supportProgress" />
+        <attr name="supportSecondaryProgress" />
+    </declare-styleable>
+
+    <declare-styleable name="AppCompatSeekBar">
+        <attr name="supportMax" />
+        <attr name="supportMin" />
+        <attr name="supportProgress" />
+        <attr name="supportSecondaryProgress" />
     </declare-styleable>
 </resources>

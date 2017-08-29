@@ -375,9 +375,9 @@ public class AppCompatProgressBarVersionOne extends ProgressBar {
         final TypedArray a = context.obtainStyledAttributes(
                 attrs, R.styleable.AppCompatProgressBar, defStyleAttr, defStyleRes);
         final int min = a.getInt(R.styleable.AppCompatProgressBar_supportMin, getImpl().getMin());
-        final int progress = a.getInt(R.styleable.AppCompatProgressBar_android_progress, min);
+        final int progress = 0; //a.getInt(R.styleable.AppCompatProgressBar_android_progress, min);
         final int secondaryProgress =
-                a.getInt(R.styleable.AppCompatProgressBar_android_secondaryProgress, min);
+                0; //a.getInt(R.styleable.AppCompatProgressBar_android_secondaryProgress, min);
         setSupportMin(min);
         setProgress(progress);
         setSecondaryProgress(secondaryProgress);

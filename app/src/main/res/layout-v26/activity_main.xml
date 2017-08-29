@@ -45,4 +45,18 @@
         app:supportMax="2000"
         app:supportProgress="1500"/>
 
+    <SeekBar
+        android:id="@+id/seek_bar_2"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/seek_bar"
+        android:layout_margin="20dp"
+        style="@style/Widget.AppCompat.ProgressBar.Horizontal"
+        android:indeterminate="false"
+        android:min="1000"
+        android:max="2000"
+        android:progress="1500"/>
+
 </android.support.constraint.ConstraintLayout>
