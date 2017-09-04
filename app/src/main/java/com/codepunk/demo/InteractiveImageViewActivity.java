@@ -35,6 +35,8 @@ import java.util.List;
 
 import static android.os.Build.VERSION_CODES.HONEYCOMB;
 
+// TODO Convert lock button into a toggle button
+
 @SuppressWarnings({"FieldCanBeLocal", "unused"})
 public class InteractiveImageViewActivity
         extends AppCompatActivity
@@ -220,7 +222,6 @@ public class InteractiveImageViewActivity
         mScaleTypeEntryValues = res.getStringArray(R.array.scale_type_values);
 
         final int resId = R.drawable.wilderness_lodge;
-        mImageView.setImageResource(resId);
         final int position = DRAWABLE_RES_IDS.indexOf(resId);
         mDrawableSpinner.setSelection(position);
         final ImageView.ScaleType scaleType = mImageView.getScaleType();
@@ -364,6 +365,16 @@ public class InteractiveImageViewActivity
                     final float scaleX;
                     final float scaleY;
 
+                    if (mScaleLocked &&
+                            mImageView.getIntrinsicImageSize(mIntrinsicSizePoint) &&
+                            mImageView.getDisplayedImageSize(mDisplayedSizePoint)) {
+
+                        // TODO !!
+                        scaleX = getValue(mScaleXSeekBar, minScaleX, maxScaleX);
+                        scaleY = getValue(mScaleYSeekBar, minScaleY, maxScaleY);
+
+                    } else {
+
                     /*
                     if (mScaleLocked &&
                             mImageView.getIntrinsicImageSize(mIntrinsicSizePoint) &&
@@ -422,9 +433,7 @@ public class InteractiveImageViewActivity
                     */
                         scaleX = getValue(mScaleXSeekBar, minScaleX, maxScaleX);
                         scaleY = getValue(mScaleYSeekBar, minScaleY, maxScaleY);
-                    /*
                     }
-                    */
 
                     // TODO set the 2 seek bars
                     //final int progressX = extrapolate(scaleX);
@@ -545,8 +554,9 @@ public class InteractiveImageViewActivity
     }
 
     private static float getValue(ProgressBar progressBar, float minValue, float maxValue) {
+        final int minProgress = 0;
         return progressToValue(
-                0 /* TODO */,
+                minProgress,
                 progressBar.getMax(),
                 progressBar.getProgress(),
                 minValue,
@@ -558,12 +568,13 @@ public class InteractiveImageViewActivity
             float minValue,
             float maxValue,
             float value) {
+        final int minProgress = 0;
         progressBar.setProgress(
                 valueToProgress(
                         minValue,
                         maxValue,
                         value,
-                        0 /* TODO */,
+                        minProgress,
                         progressBar.getMax()));
     }
 
