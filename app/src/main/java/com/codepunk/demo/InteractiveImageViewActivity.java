@@ -12,6 +12,7 @@ import android.os.Bundle;
 import android.support.constraint.ConstraintLayout.LayoutParams;
 import android.support.constraint.Guideline;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.AppCompatSeekBar;
 import android.support.v7.widget.AppCompatTextView;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -22,11 +23,11 @@ import android.view.animation.DecelerateInterpolator;
 import android.view.animation.Interpolator;
 import android.view.animation.Transformation;
 import android.widget.AdapterView;
-import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.SeekBar;
 import android.widget.Spinner;
+import android.widget.ToggleButton;
 
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
@@ -34,8 +35,6 @@ import java.util.Arrays;
 import java.util.List;
 
 import static android.os.Build.VERSION_CODES.HONEYCOMB;
-
-// TODO Convert lock button into a toggle button
 
 @SuppressWarnings({"FieldCanBeLocal", "unused"})
 public class InteractiveImageViewActivity
@@ -131,21 +130,22 @@ public class InteractiveImageViewActivity
     private Spinner mScaleTypeSpinner;
     private AppCompatTextView mPanXValueView;
     private AppCompatTextView mPanXMinValueView;
-    private AppCompatSeekBarEx mPanXSeekBar;
+    private AppCompatSeekBar mPanXSeekBar;
     private AppCompatTextView mPanXMaxValueView;
     private AppCompatTextView mPanYValueView;
     private AppCompatTextView mPanYMinValueView;
-    private AppCompatSeekBarEx mPanYSeekBar;
+    private AppCompatSeekBar mPanYSeekBar;
     private AppCompatTextView mPanYMaxValueView;
     private AppCompatTextView mScaleXValueView;
     private AppCompatTextView mScaleXMinValueView;
-    private AppCompatSeekBarEx mScaleXSeekBar;
+    private AppCompatSeekBar mScaleXSeekBar;
     private AppCompatTextView mScaleXMaxValueView;
     private AppCompatTextView mScaleYValueView;
     private AppCompatTextView mScaleYMinValueView;
-    private AppCompatSeekBarEx mScaleYSeekBar;
+    private AppCompatSeekBar mScaleYSeekBar;
     private AppCompatTextView mScaleYMaxValueView;
-    private ImageButton mLockBtn;
+    private ViewGroup mLockBtnLayout;
+    private ToggleButton mLockBtn;
 
     private boolean mShowingControls = true;
 
@@ -156,7 +156,6 @@ public class InteractiveImageViewActivity
 
     private GuidelineAnimateCompatImpl mGuidelineAnimateCompatImpl;
 
-    private boolean mScaleLocked = true;
     private SeekBar mTrackingSeekBar;
 
     private final PointF mCenter = new PointF();
@@ -196,18 +195,8 @@ public class InteractiveImageViewActivity
         mScaleYMinValueView = findViewById(R.id.text_scale_y_min_value);
         mScaleYSeekBar = findViewById(R.id.seek_scale_y_value);
         mScaleYMaxValueView = findViewById(R.id.text_scale_y_max_value);
-        mLockBtn = findViewById(R.id.image_btn_lock);
-
-        // TODO TEMP
-        mPanXSeekBar.setInnerMin(0);
-        mPanXSeekBar.setInnerMax(mPanXSeekBar.getMax());
-        mPanYSeekBar.setInnerMin(0);
-        mPanYSeekBar.setInnerMax(mPanYSeekBar.getMax());
-        mScaleXSeekBar.setInnerMin(250);
-        mScaleXSeekBar.setInnerMax(mScaleXSeekBar.getMax());
-        mScaleYSeekBar.setInnerMin(250);
-        mScaleYSeekBar.setInnerMax(mScaleYSeekBar.getMax());
-        // END TEMP
+        mLockBtnLayout = findViewById(R.id.layout_btn_lock);
+        mLockBtn = findViewById(R.id.btn_lock);
 
         mPanXMinValueView.setText(mPercentFormat.format(0.0f));
         mPanXMaxValueView.setText(mPercentFormat.format(1.0f));
@@ -230,15 +219,18 @@ public class InteractiveImageViewActivity
         mImageView.setOnDrawListener(this);
         mDrawableSpinner.setOnItemSelectedListener(this);
         mScaleTypeSpinner.setOnItemSelectedListener(this);
-        mLockBtn.setOnClickListener(this);
+        mLockBtnLayout.setOnClickListener(this);
         mPanXSeekBar.setOnSeekBarChangeListener(this);
         mPanYSeekBar.setOnSeekBarChangeListener(this);
         mScaleXSeekBar.setOnSeekBarChangeListener(this);
         mScaleYSeekBar.setOnSeekBarChangeListener(this);
 
-        if (savedInstanceState != null) {
+        final boolean scaleLocked;
+        if (savedInstanceState == null) {
+            scaleLocked = true;
+        } else  {
             mShowingControls = savedInstanceState.getBoolean(KEY_SHOWING_CONTROLS, false);
-            mScaleLocked = savedInstanceState.getBoolean(KEY_SCALE_LOCKED, false);
+            scaleLocked = savedInstanceState.getBoolean(KEY_SCALE_LOCKED, false);
         }
 
         if (mShowingControls) {
@@ -247,34 +239,7 @@ public class InteractiveImageViewActivity
             hideControls(false);
         }
 
-        if (mScaleLocked) {
-            mLockBtn.setImageResource(R.drawable.ic_lock_outline_white_24dp);
-        } else {
-            mLockBtn.setImageResource(R.drawable.ic_lock_open_white_24dp);
-        }
-
-        /* TODO TEMP
-        new Handler().postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                final int paddingLeft = mImageView.getPaddingLeft();
-                final int paddingTop = mImageView.getPaddingTop();
-                final int paddingRight = mImageView.getPaddingRight();
-                final int paddingBottom = mImageView.getPaddingBottom();
-                final int width = mImageView.getWidth();
-                final int height = mImageView.getHeight();
-                final int availableWidth = width - paddingLeft - paddingRight;
-                final int availableHeight = height - paddingTop - paddingBottom;
-                final float px = (availableWidth / 2.0f);
-                final float py = (availableHeight / 2.0f);
-
-                mImageView.setScaleType(ImageView.ScaleType.MATRIX);
-                final Matrix matrix = mImageView.getImageMatrix();
-                matrix.postRotate(30.0f, px, py);
-                mImageView.setImageMatrix(matrix);
-            }
-        }, 2000);
-        */
+        mLockBtn.setChecked(scaleLocked);
     }
 
     @Override
@@ -287,7 +252,7 @@ public class InteractiveImageViewActivity
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
         outState.putBoolean(KEY_SHOWING_CONTROLS, mShowingControls);
-        outState.putBoolean(KEY_SCALE_LOCKED, mScaleLocked);
+        outState.putBoolean(KEY_SCALE_LOCKED, mLockBtn.isChecked());
     }
     //endregion Lifecycle methods
 
@@ -295,13 +260,12 @@ public class InteractiveImageViewActivity
     @Override /* View.OnClickListener */
     public void onClick(View v) {
         switch (v.getId()) {
-            case R.id.image_btn_lock:
-                if (mScaleLocked) {
-                    mScaleLocked = false;
-                    mLockBtn.setImageResource(R.drawable.ic_lock_open_white_24dp);
+            case R.id.layout_btn_lock:
+                // TODO NEXT
+                if (((ToggleButton) v).isChecked()) {
+
                 } else {
-                    mScaleLocked = true;
-                    mLockBtn.setImageResource(R.drawable.ic_lock_outline_white_24dp);
+
                 }
                 break;
         }
@@ -365,7 +329,7 @@ public class InteractiveImageViewActivity
                     final float scaleX;
                     final float scaleY;
 
-                    if (mScaleLocked &&
+                    if (mLockBtn.isChecked() &&
                             mImageView.getIntrinsicImageSize(mIntrinsicSizePoint) &&
                             mImageView.getDisplayedImageSize(mDisplayedSizePoint)) {
 

@@ -75,7 +75,7 @@
             android:textAlignment="gravity"
             tools:text="0%"/>
 
-        <com.codepunk.demo.AppCompatSeekBarEx
+        <android.support.v7.widget.AppCompatSeekBar
             android:id="@+id/seek_pan_x_value"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -126,7 +126,7 @@
             android:textAlignment="gravity"
             tools:text="0%"/>
 
-        <com.codepunk.demo.AppCompatSeekBarEx
+        <android.support.v7.widget.AppCompatSeekBar
             android:id="@+id/seek_pan_y_value"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -195,7 +195,7 @@
                     android:textAlignment="gravity"
                     tools:text="1.0"/>
 
-                <com.codepunk.demo.AppCompatSeekBarEx
+                <android.support.v7.widget.AppCompatSeekBar
                     android:id="@+id/seek_scale_x_value"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -246,7 +246,7 @@
                     android:textAlignment="gravity"
                     tools:text="1.0"/>
 
-                <com.codepunk.demo.AppCompatSeekBarEx
+                <android.support.v7.widget.AppCompatSeekBar
                     android:id="@+id/seek_scale_y_value"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -279,13 +279,22 @@
 
         </LinearLayout>
 
-        <ImageButton
-            android:id="@+id/image_btn_lock"
+        <FrameLayout
+            android:id="@+id/layout_btn_lock"
             android:layout_width="@dimen/touch_target_size"
             android:layout_height="@dimen/touch_target_size"
-            app:srcCompat="@drawable/ic_lock_outline_white_24dp"
-            android:scaleType="center"
-            style="?borderlessButtonStyle"/>
+            android:layout_gravity="center_vertical" >
+
+            <ToggleButton
+                android:id="@+id/btn_lock"
+                android:layout_width="@dimen/default_icon_size"
+                android:layout_height="@dimen/default_icon_size"
+                android:layout_gravity="center"
+                android:background="@drawable/ic_lock_white_24dp"
+                android:textOff=""
+                android:textOn="" />
+
+        </FrameLayout>
 
     </LinearLayout>
 

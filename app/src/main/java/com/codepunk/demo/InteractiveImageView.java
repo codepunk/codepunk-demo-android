@@ -9,12 +9,10 @@ import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.annotation.Px;
 import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
-import android.util.Log;
-
-import java.util.Locale;
 
 import static android.graphics.Matrix.MSCALE_X;
 import static android.graphics.Matrix.MSCALE_Y;
@@ -24,8 +22,144 @@ import static android.widget.ImageView.ScaleType.MATRIX;
 
 public class InteractiveImageView extends AppCompatImageView {
 
-    private final static String TAG = "tag_" + InteractiveImageView.class.getSimpleName();
+    //region Nested classes
+    public interface OnDrawListener {
+        void onDraw(InteractiveImageView view, Canvas canvas);
+    }
 
+    public interface ScalingStrategy {
+        float getMaxScaleX();
+        float getMaxScaleY();
+        float getMinScaleX();
+        float getMinScaleY();
+        void invalidateMaxScale();
+        void invalidateMinScale();
+    }
+
+    private class DefaultScalingStrategy implements ScalingStrategy {
+        static final float BASE_MULTIPLIER = 3.0f;
+        static final float UPPER_MULTIPLIER = 5.0f;
+
+        private DisplayMetrics mDisplayMetrics;
+
+        private final PointF mMaxScale = new PointF(1.0f, 1.0f);
+        private final PointF mMinScale = new PointF(1.0f, 1.0f);
+
+        private boolean mMaxScaleDirty;
+        private boolean mMinScaleDirty;
+
+        public DefaultScalingStrategy() {
+            super();
+            mDisplayMetrics = getResources().getDisplayMetrics();
+        }
+
+        @Override
+        public float getMaxScaleX() {
+            return getMaxScale().x;
+        }
+
+        @Override
+        public float getMaxScaleY() {
+            return getMaxScale().y;
+        }
+
+        @Override
+        public float getMinScaleX() {
+            return getMinScale().x;
+        }
+
+        @Override
+        public float getMinScaleY() {
+            return getMinScale().y;
+        }
+
+        @Override
+        public void invalidateMaxScale() {
+            mMaxScaleDirty = true;
+        }
+
+        @Override
+        public void invalidateMinScale() {
+            mMinScaleDirty = true;
+        }
+
+        private synchronized PointF getMaxScale() {
+            if (mMaxScaleDirty) {
+                mMaxScaleDirty = false;
+                if (getIntrinsicImageSize(mPoint)) {
+                    final float baseScale = BASE_MULTIPLIER *
+                            (float) Math.min(
+                                    mDisplayMetrics.widthPixels,
+                                    mDisplayMetrics.heightPixels) /
+                            Math.min(mPoint.x, mPoint.y);
+                    final float upperScale = UPPER_MULTIPLIER *
+                            (float) Math.max(
+                                    mDisplayMetrics.widthPixels,
+                                    mDisplayMetrics.heightPixels) /
+                            Math.max(mPoint.x, mPoint.y);
+                    final int viewDim;
+                    if (mPoint.x < mPoint.y) {
+                        viewDim = getAvailableWidth();
+                    } else if (mPoint.x > mPoint.y) {
+                        viewDim = getAvailableHeight();
+                    } else {
+                        viewDim = Math.min(
+                                getAvailableWidth(),
+                                getAvailableHeight());
+                    }
+                    final float lowerScale = (float) viewDim /
+                            Math.min(mPoint.x, mPoint.y);
+                    final float scale = Math.max(Math.min(baseScale, upperScale), lowerScale);
+                    mMaxScale.set(scale, scale);
+                } else {
+                    mMaxScale.x = mMaxScale.y = 1.0f;
+                }
+            }
+            return mMaxScale;
+        }
+
+        private synchronized PointF getMinScale() {
+            if (mMinScaleDirty) {
+                mMinScaleDirty = false;
+                if (!getIntrinsicImageSize(mPoint) || mScaleType == ScaleType.CENTER) {
+                    mMinScale.set(1.0f, 1.0f);
+                } else if (mScaleType == ScaleType.MATRIX) {
+                    getImageMatrix().getValues(mMatrixValues);
+                    mMinScale.set(mMatrixValues[MSCALE_X], mMatrixValues[MSCALE_Y]);
+                } else {
+                    final float scaleX = (float) getAvailableWidth() / mPoint.x;
+                    final float scaleY = (float) getAvailableHeight() / mPoint.y;
+                    final float max = Math.max(scaleX, scaleY);
+                    final float min = Math.min(scaleX, scaleY);
+                    switch (mScaleType) {
+                        case CENTER_CROP:
+                            mMinScale.set(max, max);
+                            break;
+                        case CENTER_INSIDE:
+                            final float scale = Math.min(min, 1.0f);
+                            mMinScale.set(scale, scale);
+                            break;
+                        case FIT_CENTER:
+                        case FIT_END:
+                        case FIT_START:
+                            mMinScale.set(min, min);
+                            break;
+                        case FIT_XY:
+                            mMinScale.set(scaleX, scaleY);
+                            break;
+                    }
+                }
+            }
+            return mMinScale;
+        }
+    }
+    //endregion Nested classes
+
+    //region Constants
+    private static final String TAG = "tag_" + InteractiveImageView.class.getSimpleName();
+    //endregion Constants
+
+    //region Fields
     private ScaleType mScaleType;
 
     private final Point mPoint = new Point();
@@ -37,15 +171,12 @@ public class InteractiveImageView extends AppCompatImageView {
     private final Matrix mInverseMatrix = new Matrix();
     private final Object mLock = new Object();
 
-    private boolean mMaxScaleDirty = false;
-    private float mMaxScale = 1.0f;
-
-    public interface OnDrawListener {
-        void onDraw(InteractiveImageView view, Canvas canvas);
-    }
+    private ScalingStrategy mScalingStrategy;
 
     private OnDrawListener mOnDrawListener;
+    //endregion Fields
 
+    //region Constructors
     public InteractiveImageView(Context context) {
         super(context);
     }
@@ -57,6 +188,14 @@ public class InteractiveImageView extends AppCompatImageView {
     public InteractiveImageView(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
     }
+    //endregion Constructors
+
+    //region Inherited methods
+
+    @Override
+    public ScaleType getScaleType() {
+        return mScaleType;
+    }
 
     @Override
     protected void onDraw(Canvas canvas) {
@@ -67,10 +206,32 @@ public class InteractiveImageView extends AppCompatImageView {
     }
 
     @Override
+    protected void onSizeChanged(int w, int h, int oldw, int oldh) {
+        super.onSizeChanged(w, h, oldw, oldh);
+        getScalingStrategy().invalidateMaxScale();
+        getScalingStrategy().invalidateMinScale();
+    }
+
+    @Override
     public void setImageDrawable(@Nullable Drawable drawable) {
-        invalidateMaxScale();
         super.setImageDrawable(drawable);
         super.setScaleType(mScaleType);
+        getScalingStrategy().invalidateMaxScale();
+        getScalingStrategy().invalidateMinScale();
+    }
+
+    @Override
+    public void setPadding(@Px int left, @Px int top, @Px int right, @Px int bottom) {
+        super.setPadding(left, top, right, bottom);
+        getScalingStrategy().invalidateMaxScale();
+        getScalingStrategy().invalidateMinScale();
+    }
+
+    @Override
+    public void setPaddingRelative(@Px int start, @Px int top, @Px int end, @Px int bottom) {
+        super.setPaddingRelative(start, top, end, bottom);
+        getScalingStrategy().invalidateMaxScale();
+        getScalingStrategy().invalidateMinScale();
     }
 
     @Override
@@ -78,7 +239,9 @@ public class InteractiveImageView extends AppCompatImageView {
         mScaleType = scaleType;
         super.setScaleType(scaleType);
     }
+    //endregion Inherited methods
 
+    //region Methods
     public boolean getDisplayedImageSize(@NonNull Point outPoint) {
         getImageMatrix().getValues(mMatrixValues);
         return getImageSizeAtScale(mMatrixValues[MSCALE_X], mMatrixValues[MSCALE_Y], outPoint);
@@ -102,56 +265,20 @@ public class InteractiveImageView extends AppCompatImageView {
         return getImageSizeAtScale(1.0f, 1.0f, outPoint);
     }
 
-    protected synchronized float getMaxScale() {
-        // TODO Make this ScalingStrategy
-        // TODO Think of meaningful variable names
-        // TODO Clean this logic up
-        if (mMaxScaleDirty) {
-            final float MIN_MULTIPLIER = 3.0f;
-            final float MAX_MULTIPLIER = 5.0f;
-            mMaxScaleDirty = false;
-            if (getIntrinsicImageSize(mPoint)) {
-                getImageMatrix().getValues(mMatrixValues);
-                final DisplayMetrics dm = getContext().getResources().getDisplayMetrics();
-                final float scale1 = MIN_MULTIPLIER *
-                        (float) Math.min(dm.widthPixels, dm.heightPixels) /
-                        Math.min(mPoint.x, mPoint.y);
-                final float scale2 = MAX_MULTIPLIER *
-                        (float) Math.max(dm.widthPixels, dm.heightPixels) /
-                        Math.max(mPoint.x, mPoint.y);
-                final int screenDim; // TODO Tie this to control size, not screen size?
-                if ((mPoint.x == mPoint.y)) {
-                    screenDim = Math.min(dm.widthPixels, dm.heightPixels);
-                } else if ((mPoint.x < mPoint.y)) {
-                    screenDim = dm.widthPixels;
-                } else {
-                    screenDim = dm.heightPixels;
-                }
-                final float scale3 = (float) screenDim /
-                        Math.min(mPoint.x, mPoint.y);
-                mMaxScale = Math.max(Math.min(scale1, scale2), scale3);
-            } else {
-                mMaxScale = 1.0f;
-            }
-            Log.d(TAG, String.format(Locale.US, "Calculating max scale... mMaxScale=%.2f", mMaxScale));
-        }
-        return mMaxScale;
+    public float getMaxScaleX() {
+        return getScalingStrategy().getMaxScaleX();
     }
 
-    public synchronized float getMaxScaleX() {
-        return getMaxScale();
-    }
-
-    public synchronized float getMaxScaleY() {
-        return getMaxScale();
+    public float getMaxScaleY() {
+        return getScalingStrategy().getMaxScaleY();
     }
 
     public float getMinScaleX() {
-        return 0.2f; // TODO TEMP
+        return getScalingStrategy().getMinScaleX();
     }
 
     public float getMinScaleY() {
-        return 0.2f; // TODO TEMP
+        return getScalingStrategy().getMinScaleY();
     }
 
     public boolean getRelativeCenter(@NonNull PointF outPoint) {
@@ -288,8 +415,17 @@ public class InteractiveImageView extends AppCompatImageView {
         }
     }
 
-    protected void invalidateMaxScale() {
-        mMaxScaleDirty = true;
+    public void setScalingStrategy(ScalingStrategy scalingStrategy) {
+        mScalingStrategy = scalingStrategy;
+    }
+    //endregion Methods
+
+    //region Private methods
+    private ScalingStrategy getScalingStrategy() {
+        if (mScalingStrategy == null) {
+            mScalingStrategy = new DefaultScalingStrategy();
+        }
+        return mScalingStrategy;
     }
 
     private int getAvailableHeight() {
@@ -299,4 +435,5 @@ public class InteractiveImageView extends AppCompatImageView {
     private int getAvailableWidth() {
         return getWidth() - getPaddingLeft() - getPaddingRight();
     }
+    //endregion Private methods
 }

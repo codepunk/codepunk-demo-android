@@ -4,5 +4,6 @@
     <dimen name="standard_margin">8dp</dimen>
     <dimen name="large_margin">16dp</dimen>
     <dimen name="touch_target_size">48dp</dimen>
+    <dimen name="default_icon_size">24dp</dimen>
     <dimen name="extended_seek_bar_value_view_width">40dp</dimen>
 </resources>
