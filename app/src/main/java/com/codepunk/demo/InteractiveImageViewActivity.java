@@ -454,6 +454,11 @@ public class InteractiveImageViewActivity
         mScaleYMinValueView.setText(mDecimalFormat.format(minScaleY));
         setValue(mScaleYSeekBar, minScaleY, maxScaleY, mScale.y);
         mScaleYMaxValueView.setText(mDecimalFormat.format(maxScaleY));
+
+        final float minSizeX = view.getMinSizeX();
+        final float maxSizeX = view.getMaxSizeX();
+        final float minSizeY = view.getMinSizeY();
+        final float maxSizeY = view.getMaxSizeY();
     }
     //endregion Interface methods
 
