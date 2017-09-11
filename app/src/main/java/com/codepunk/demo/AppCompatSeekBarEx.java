@@ -1,6 +1,8 @@
 package com.codepunk.demo;
 
 import android.content.Context;
+import android.graphics.Canvas;
+import android.graphics.Rect;
 import android.os.Build;
 import android.support.v4.math.MathUtils;
 import android.support.v7.widget.AppCompatSeekBar;
@@ -135,6 +137,13 @@ public class AppCompatSeekBarEx extends AppCompatSeekBar {
         super.setProgress(progress, animate);
         clampProgress(false, animate);
     }
+
+    @Override
+    protected synchronized void onDraw(Canvas canvas) {
+        super.onDraw(canvas);
+        Rect r = new Rect();
+    }
+
     //endregion Inherited methods
 
     //region Methods

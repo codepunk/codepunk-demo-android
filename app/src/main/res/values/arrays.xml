@@ -23,7 +23,7 @@
     </string-array>
 
     <string-array name="drawables">
-        <item>[No image]</item>
+        <item>None</item>
         <item>Cinderella Castle</item>
         <item>Wilderness Lodge</item>
         <item>Polynesian</item>

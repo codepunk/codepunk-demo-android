@@ -29,6 +29,8 @@ import android.widget.SeekBar;
 import android.widget.Spinner;
 import android.widget.ToggleButton;
 
+import com.codepunk.demo.support.ProgressBarCompat;
+
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.Arrays;
@@ -269,42 +271,88 @@ public class InteractiveImageViewActivity
                     final float maxScaleX = mImageView.getMaxScaleX();
                     final float minScaleY = mImageView.getMinScaleY();
                     final float maxScaleY = mImageView.getMaxScaleY();
-                    final int minSizeX = Math.round(minScaleX * mIntrinsicSizePoint.x);
-                    final int maxSizeX = Math.round(maxScaleX * mIntrinsicSizePoint.x);
-                    final int minSizeY = Math.round(minScaleY * mIntrinsicSizePoint.y);
-                    final int maxSizeY = Math.round(maxScaleY * mIntrinsicSizePoint.y);
+                    final float minWidth = minScaleX * mIntrinsicSizePoint.x;
+                    final float maxWidth = maxScaleX * mIntrinsicSizePoint.x;
+                    final float minHeight = minScaleY * mIntrinsicSizePoint.y;
+                    final float maxHeight = maxScaleY * mIntrinsicSizePoint.y;
                     mImageView.getDisplayedImageSize(mDisplayedSizePoint);
+                    mImageView.getScale(mScale);
 
-                    // How do I coalesce values?
-                    // I have:
-                    // currentWidth, minimumWidth, maximumWidth
-                    // currentHeight, minimumHeight, maximumHeight
+                    final float minFactorX = minWidth / mDisplayedSizePoint.x;
+                    final float minFactorY = minHeight / mDisplayedSizePoint.y;
+                    final float maxFactorX = maxWidth / mDisplayedSizePoint.x;
+                    final float maxFactorY = maxHeight / mDisplayedSizePoint.y;
+                    // TODO Is this "factor" different than taking minScale & currentScale?
 
-                    // ???
+                    final float lockedMinWidth;
+                    final float lockedMinHeight;
+                    if (minFactorX > minFactorY) {
+                        lockedMinWidth = minWidth;
+                        lockedMinHeight = mDisplayedSizePoint.y * minFactorX;
+                    } else {
+                        lockedMinHeight = minHeight;
+                        lockedMinWidth = mDisplayedSizePoint.x * minFactorY;
+                    }
 
-                    final float minFactorX = (float) minSizeX / mDisplayedSizePoint.x;
-                    final float minFactorY = (float) minSizeY / mDisplayedSizePoint.y;
-                    // Which is bigger?
-                    final float minFactor = Math.max(minFactorX, minFactorY);
+                    final float lockedMaxWidth;
+                    final float lockedMaxHeight;
+                    if (maxFactorX < maxFactorY) {
+                        lockedMaxWidth = maxWidth;
+                        lockedMaxHeight = mDisplayedSizePoint.y * maxFactorX;
+                    } else {
+                        lockedMaxHeight = maxHeight;
+                        lockedMaxWidth = mDisplayedSizePoint.x * maxFactorY;
+                    }
 
-                    final float maxFactorX = (float) maxSizeX / mDisplayedSizePoint.x;
-                    final float maxFactorY = (float) maxSizeY / mDisplayedSizePoint.y;
-                    final float maxFactor = Math.min(maxFactorX, maxFactorY);
+                    final float EPSILON = 0.0001f;
+                    final float pctX = (mDisplayedSizePoint.x - lockedMinWidth) / (lockedMaxWidth - lockedMinWidth);
+                    final float pctY = (mDisplayedSizePoint.y - lockedMinHeight) / (lockedMaxHeight - lockedMinHeight);
+                    if (Math.abs(pctX - pctY) > EPSILON) {
+                        throw new IllegalStateException("pctX and pctY should be equal");
+                    }
 
+                    final boolean enabled = (!Float.isNaN(pctX));
+                    setValue(mScaleXSeekBar, 0.0f, 1.0f, pctX, true);
+                    setValue(mScaleYSeekBar, 0.0f, 1.0f, pctX, true);
+                    mScaleXSeekBar.setEnabled(enabled);
+                    mScaleYSeekBar.setEnabled(enabled);
+
+                    /*
                     Log.d(TAG, String.format(
                             Locale.US,
-                            "minFactorX=%.2f, minFactorY=%.2f, minFactor=%.2f, maxFactorX=%.2f, maxFactorY=%.2f, maxFactor=%.2f",
+                            "minFactorX=%.2f, minFactorY=%.2f, maxFactorX=%.2f, maxFactorY=%.2f",
                             minFactorX,
                             minFactorY,
-                            minFactor,
                             maxFactorX,
-                            maxFactorY,
-                            maxFactor));
+                            maxFactorY));
+                    */
 
                     // Where are we on the scale of minFactor -> maxFactor?
                 }
             } else {
+                mScaleXSeekBar.setEnabled(true);
+                mScaleYSeekBar.setEnabled(true);
 
+                // TODO Code duplicated with onDraw
+                final float minScaleX = mImageView.getMinScaleX();
+                final float maxScaleX = mImageView.getMaxScaleX();
+                final float minScaleY = mImageView.getMinScaleY();
+                final float maxScaleY = mImageView.getMaxScaleY();
+                final int minWidth = Math.round(minScaleX * mIntrinsicSizePoint.x);
+                final int maxWidth = Math.round(maxScaleX * mIntrinsicSizePoint.x);
+                final int minHeight = Math.round(minScaleY * mIntrinsicSizePoint.y);
+                final int maxHeight = Math.round(maxScaleY * mIntrinsicSizePoint.y);
+                mImageView.getScale(mScale);
+
+                mScaleXValueView.setText(mDecimalFormat.format(mScale.x));
+                mScaleXMinValueView.setText(mDecimalFormat.format(minScaleX));
+                mScaleXMaxValueView.setText(mDecimalFormat.format(maxScaleX));
+                mScaleYValueView.setText(mDecimalFormat.format(mScale.y));
+                mScaleYMinValueView.setText(mDecimalFormat.format(minScaleY));
+                mScaleYMaxValueView.setText(mDecimalFormat.format(maxScaleY));
+
+                setValue(mScaleXSeekBar, minWidth, maxWidth, mIntrinsicSizePoint.x * mScale.x, true);
+                setValue(mScaleYSeekBar, minHeight, maxHeight, mIntrinsicSizePoint.y * mScale.y, true);
             }
         }
     }
@@ -474,32 +522,19 @@ public class InteractiveImageViewActivity
         // TODO Capture which control(s) the user is manipulating and don't update those
         mImageView.getRelativeCenter(mCenter);
         mPanXValueView.setText(mPercentFormat.format(mCenter.x));
-        setValue(mPanXSeekBar, 0.0f, 1.0f, mCenter.x);
+        setValue(mPanXSeekBar, 0.0f, 1.0f, mCenter.x, false);
         mPanYValueView.setText(mPercentFormat.format(mCenter.y));
-        setValue(mPanYSeekBar, 0.0f, 1.0f, mCenter.y);
+        setValue(mPanYSeekBar, 0.0f, 1.0f, mCenter.y, false);
 
         final float minScaleX = view.getMinScaleX();
         final float maxScaleX = view.getMaxScaleX();
         final float minScaleY = view.getMinScaleY();
         final float maxScaleY = view.getMaxScaleY();
-        final int minSizeX = Math.round(minScaleX * mIntrinsicSizePoint.x);
-        final int maxSizeX = Math.round(maxScaleX * mIntrinsicSizePoint.x);
-        final int minSizeY = Math.round(minScaleY * mIntrinsicSizePoint.y);
-        final int maxSizeY = Math.round(maxScaleY * mIntrinsicSizePoint.y);
+        final int minWidth = Math.round(minScaleX * mIntrinsicSizePoint.x);
+        final int maxWidth = Math.round(maxScaleX * mIntrinsicSizePoint.x);
+        final int minHeight = Math.round(minScaleY * mIntrinsicSizePoint.y);
+        final int maxHeight = Math.round(maxScaleY * mIntrinsicSizePoint.y);
         mImageView.getScale(mScale);
-
-        // TODO TEMP
-        Log.d(
-                TAG,
-                String.format(
-                        Locale.US,
-                        "mIntrinsicSizePoint=%s, minSizeX=%d, maxSizeX=%d, minSizeY=%d, maxSizeY=%d",
-                        mIntrinsicSizePoint,
-                        minSizeX,
-                        maxSizeX,
-                        minSizeY,
-                        maxSizeY));
-        // END TEMP
 
         mScaleXValueView.setText(mDecimalFormat.format(mScale.x));
         mScaleXMinValueView.setText(mDecimalFormat.format(minScaleX));
@@ -508,8 +543,8 @@ public class InteractiveImageViewActivity
         mScaleYMinValueView.setText(mDecimalFormat.format(minScaleY));
         mScaleYMaxValueView.setText(mDecimalFormat.format(maxScaleY));
 
-        setValue(mScaleXSeekBar, minSizeX, maxSizeX, mIntrinsicSizePoint.x * mScale.x);
-        setValue(mScaleYSeekBar, minSizeY, maxSizeY, mIntrinsicSizePoint.y * mScale.y);
+        setValue(mScaleXSeekBar, minWidth, maxWidth, mIntrinsicSizePoint.x * mScale.x, false);
+        setValue(mScaleYSeekBar, minHeight, maxHeight, mIntrinsicSizePoint.y * mScale.y, false);
     }
     //endregion Interface methods
 
@@ -587,15 +622,16 @@ public class InteractiveImageViewActivity
             ProgressBar progressBar,
             float minValue,
             float maxValue,
-            float value) {
+            float value,
+            boolean animate) {
         final int minProgress = 0;
-        progressBar.setProgress(
-                valueToProgress(
-                        minValue,
-                        maxValue,
-                        value,
-                        minProgress,
-                        progressBar.getMax()));
+        final int progress = valueToProgress(
+                minValue,
+                maxValue,
+                value,
+                minProgress,
+                progressBar.getMax());
+        ProgressBarCompat.setProgress(progressBar, progress, animate);
     }
 
     private static int valueToProgress(
@@ -604,7 +640,10 @@ public class InteractiveImageViewActivity
             float value,
             int min,
             int max) {
-        final float percent = (value - minValue) / (maxValue - minValue);
+        final float percent = (
+                Float.isNaN(value) ?
+                        0.50f :
+                        (value - minValue) / (maxValue - minValue));
         return min + (int) ((max - min) * percent);
     }
     //endregion Private methods

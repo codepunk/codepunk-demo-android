@@ -5,5 +5,6 @@
     <dimen name="large_margin">16dp</dimen>
     <dimen name="touch_target_size">48dp</dimen>
     <dimen name="default_icon_size">24dp</dimen>
+    <dimen name="controls_section_label_view_width">60dp</dimen>
     <dimen name="extended_seek_bar_value_view_width">40dp</dimen>
 </resources>

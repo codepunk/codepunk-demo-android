@@ -34,20 +34,18 @@
         android:layout_marginTop="@dimen/small_margin"
         android:entries="@array/scale_types" />
 
-    <TextView
-        android:id="@+id/label_pan"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/label_pan"
-        android:layout_marginTop="@dimen/standard_margin" />
-
     <LinearLayout
-        android:id="@+id/layout_pan_x"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="@dimen/standard_margin"
         android:orientation="horizontal"
         android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/label_pan"
+            android:layout_width="@dimen/controls_section_label_view_width"
+            android:layout_height="wrap_content"
+            android:text="@string/label_pan" />
 
         <android.support.v7.widget.AppCompatImageView
             android:layout_width="wrap_content"
@@ -60,12 +58,29 @@
             android:layout_height="wrap_content"
             tools:text="100%"/>
 
-        <View
-            android:layout_width="2px"
-            android:layout_height="match_parent"
-            android:layout_margin="@dimen/small_margin"
-            android:background="@android:color/white"
-            tools:ignore="PxUsage"/>
+        <android.support.v7.widget.AppCompatImageView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="@dimen/large_margin"
+            android:layout_marginStart="@dimen/large_margin"
+            app:srcCompat="@drawable/ic_swap_vert_white_24dp"/>
+
+        <android.support.v7.widget.AppCompatTextView
+            android:id="@+id/text_pan_y_value"
+            android:layout_width="@dimen/extended_seek_bar_value_view_width"
+            android:layout_height="wrap_content"
+            tools:text="100%"/>
+
+    </LinearLayout>
+
+
+    <LinearLayout
+        android:id="@+id/layout_pan_x"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/standard_margin"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
 
         <android.support.v7.widget.AppCompatTextView
             android:id="@+id/text_pan_x_min_value"
@@ -100,24 +115,6 @@
         android:orientation="horizontal"
         android:gravity="center_vertical">
 
-        <android.support.v7.widget.AppCompatImageView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            app:srcCompat="@drawable/ic_swap_vert_white_24dp"/>
-
-        <android.support.v7.widget.AppCompatTextView
-            android:id="@+id/text_pan_y_value"
-            android:layout_width="@dimen/extended_seek_bar_value_view_width"
-            android:layout_height="wrap_content"
-            tools:text="100%"/>
-
-        <View
-            android:layout_width="2px"
-            android:layout_height="match_parent"
-            android:layout_margin="@dimen/small_margin"
-            android:background="@android:color/white"
-            tools:ignore="PxUsage"/>
-
         <android.support.v7.widget.AppCompatTextView
             android:id="@+id/text_pan_y_min_value"
             android:layout_width="@dimen/extended_seek_bar_value_view_width"
@@ -143,12 +140,44 @@
 
     </LinearLayout>
 
-    <TextView
-        android:id="@+id/label_scale"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/label_scale"
-        android:layout_marginTop="@dimen/standard_margin" />
+        android:layout_marginTop="@dimen/standard_margin"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/label_scale"
+            android:layout_width="@dimen/controls_section_label_view_width"
+            android:layout_height="wrap_content"
+            android:text="@string/label_scale" />
+
+        <android.support.v7.widget.AppCompatImageView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:srcCompat="@drawable/ic_swap_horiz_white_24dp"/>
+
+        <android.support.v7.widget.AppCompatTextView
+            android:id="@+id/text_scale_x_value"
+            android:layout_width="@dimen/extended_seek_bar_value_view_width"
+            android:layout_height="wrap_content"
+            tools:text="0.5"/>
+
+        <android.support.v7.widget.AppCompatImageView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="@dimen/large_margin"
+            android:layout_marginStart="@dimen/large_margin"
+            app:srcCompat="@drawable/ic_swap_vert_white_24dp"/>
+
+        <android.support.v7.widget.AppCompatTextView
+            android:id="@+id/text_scale_y_value"
+            android:layout_width="@dimen/extended_seek_bar_value_view_width"
+            android:layout_height="wrap_content"
+            tools:text="0.5"/>
+
+    </LinearLayout>
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -168,24 +197,6 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical">
-
-                <android.support.v7.widget.AppCompatImageView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    app:srcCompat="@drawable/ic_swap_horiz_white_24dp"/>
-
-                <android.support.v7.widget.AppCompatTextView
-                    android:id="@+id/text_scale_x_value"
-                    android:layout_width="@dimen/extended_seek_bar_value_view_width"
-                    android:layout_height="wrap_content"
-                    tools:text="0.5"/>
-
-                <View
-                    android:layout_width="2px"
-                    android:layout_height="match_parent"
-                    android:layout_margin="@dimen/small_margin"
-                    android:background="@android:color/white"
-                    tools:ignore="PxUsage"/>
 
                 <android.support.v7.widget.AppCompatTextView
                     android:id="@+id/text_scale_x_min_value"
@@ -220,24 +231,6 @@
                 android:orientation="horizontal"
                 android:gravity="center_vertical">
 
-                <android.support.v7.widget.AppCompatImageView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    app:srcCompat="@drawable/ic_swap_vert_white_24dp"/>
-
-                <android.support.v7.widget.AppCompatTextView
-                    android:id="@+id/text_scale_y_value"
-                    android:layout_width="@dimen/extended_seek_bar_value_view_width"
-                    android:layout_height="wrap_content"
-                    tools:text="0.5"/>
-
-                <View
-                    android:layout_width="2px"
-                    android:layout_height="match_parent"
-                    android:layout_margin="@dimen/small_margin"
-                    android:background="@android:color/white"
-                    tools:ignore="PxUsage"/>
-
                 <android.support.v7.widget.AppCompatTextView
                     android:id="@+id/text_scale_y_min_value"
                     android:layout_width="@dimen/extended_seek_bar_value_view_width"
@@ -262,20 +255,6 @@
                     tools:text="5.0"/>
 
             </LinearLayout>
-
-            <!--
-            <com.codepunk.demo.ExtendedSeekBar
-                android:id="@+id/seek_scale_x"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:icon="@drawable/ic_swap_horiz_white_24dp" />
-
-            <com.codepunk.demo.ExtendedSeekBar
-                android:id="@+id/seek_scale_y"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:icon="@drawable/ic_swap_vert_white_24dp" />
-            -->
 
         </LinearLayout>
 
