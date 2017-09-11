@@ -6,7 +6,6 @@ import android.content.res.Resources;
 import android.graphics.Canvas;
 import android.graphics.Point;
 import android.graphics.PointF;
-import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.support.constraint.ConstraintLayout.LayoutParams;
@@ -14,6 +13,7 @@ import android.support.constraint.Guideline;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.AppCompatSeekBar;
 import android.support.v7.widget.AppCompatTextView;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -33,6 +33,7 @@ import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 
 import static android.os.Build.VERSION_CODES.HONEYCOMB;
 
@@ -166,6 +167,7 @@ public class InteractiveImageViewActivity
 
     private final Point mIntrinsicSizePoint = new Point();
     private final Point mDisplayedSizePoint = new Point();
+    private boolean mHasIntrinsicSize = false;
     //endregion Fields
 
     //region Lifecycle methods
@@ -222,6 +224,7 @@ public class InteractiveImageViewActivity
         mLockBtnLayout.setOnClickListener(this);
         mPanXSeekBar.setOnSeekBarChangeListener(this);
         mPanYSeekBar.setOnSeekBarChangeListener(this);
+        mLockBtn.setOnClickListener(this);
         mScaleXSeekBar.setOnSeekBarChangeListener(this);
         mScaleYSeekBar.setOnSeekBarChangeListener(this);
 
@@ -259,15 +262,50 @@ public class InteractiveImageViewActivity
     //region Interface methods
     @Override /* View.OnClickListener */
     public void onClick(View v) {
-        switch (v.getId()) {
-            case R.id.layout_btn_lock:
-                // TODO NEXT
-                if (((ToggleButton) v).isChecked()) {
+        if (v == mLockBtn) {
+            if (mLockBtn.isChecked()) {
+                if (mHasIntrinsicSize) {
+                    final float minScaleX = mImageView.getMinScaleX();
+                    final float maxScaleX = mImageView.getMaxScaleX();
+                    final float minScaleY = mImageView.getMinScaleY();
+                    final float maxScaleY = mImageView.getMaxScaleY();
+                    final int minSizeX = Math.round(minScaleX * mIntrinsicSizePoint.x);
+                    final int maxSizeX = Math.round(maxScaleX * mIntrinsicSizePoint.x);
+                    final int minSizeY = Math.round(minScaleY * mIntrinsicSizePoint.y);
+                    final int maxSizeY = Math.round(maxScaleY * mIntrinsicSizePoint.y);
+                    mImageView.getDisplayedImageSize(mDisplayedSizePoint);
 
-                } else {
+                    // How do I coalesce values?
+                    // I have:
+                    // currentWidth, minimumWidth, maximumWidth
+                    // currentHeight, minimumHeight, maximumHeight
 
+                    // ???
+
+                    final float minFactorX = (float) minSizeX / mDisplayedSizePoint.x;
+                    final float minFactorY = (float) minSizeY / mDisplayedSizePoint.y;
+                    // Which is bigger?
+                    final float minFactor = Math.max(minFactorX, minFactorY);
+
+                    final float maxFactorX = (float) maxSizeX / mDisplayedSizePoint.x;
+                    final float maxFactorY = (float) maxSizeY / mDisplayedSizePoint.y;
+                    final float maxFactor = Math.min(maxFactorX, maxFactorY);
+
+                    Log.d(TAG, String.format(
+                            Locale.US,
+                            "minFactorX=%.2f, minFactorY=%.2f, minFactor=%.2f, maxFactorX=%.2f, maxFactorY=%.2f, maxFactor=%.2f",
+                            minFactorX,
+                            minFactorY,
+                            minFactor,
+                            maxFactorX,
+                            maxFactorY,
+                            maxFactor));
+
+                    // Where are we on the scale of minFactor -> maxFactor?
                 }
-                break;
+            } else {
+
+            }
         }
     }
 
@@ -277,8 +315,9 @@ public class InteractiveImageViewActivity
             case R.id.spinner_drawable:
                 final int resId = DRAWABLE_RES_IDS.get(position);
                 mImageView.setImageResource(resId);
-                final Drawable drawable = mImageView.getDrawable();
+                mHasIntrinsicSize = mImageView.getIntrinsicImageSize(mIntrinsicSizePoint);
                 /*
+                final Drawable drawable = mImageView.getDrawable();
                 if (drawable == null) {
                     mIntrinsicSizeTextView.setText(
                             getResources().getString(R.string.intrinsic_size_text, 0, 0));
@@ -329,9 +368,7 @@ public class InteractiveImageViewActivity
                     final float scaleX;
                     final float scaleY;
 
-                    if (mLockBtn.isChecked() &&
-                            mImageView.getIntrinsicImageSize(mIntrinsicSizePoint) &&
-                            mImageView.getDisplayedImageSize(mDisplayedSizePoint)) {
+                    if (mLockBtn.isChecked() && mHasIntrinsicSize) {
 
                         // TODO !!
                         scaleX = getValue(mScaleXSeekBar, minScaleX, maxScaleX);
@@ -445,20 +482,34 @@ public class InteractiveImageViewActivity
         final float maxScaleX = view.getMaxScaleX();
         final float minScaleY = view.getMinScaleY();
         final float maxScaleY = view.getMaxScaleY();
+        final int minSizeX = Math.round(minScaleX * mIntrinsicSizePoint.x);
+        final int maxSizeX = Math.round(maxScaleX * mIntrinsicSizePoint.x);
+        final int minSizeY = Math.round(minScaleY * mIntrinsicSizePoint.y);
+        final int maxSizeY = Math.round(maxScaleY * mIntrinsicSizePoint.y);
         mImageView.getScale(mScale);
+
+        // TODO TEMP
+        Log.d(
+                TAG,
+                String.format(
+                        Locale.US,
+                        "mIntrinsicSizePoint=%s, minSizeX=%d, maxSizeX=%d, minSizeY=%d, maxSizeY=%d",
+                        mIntrinsicSizePoint,
+                        minSizeX,
+                        maxSizeX,
+                        minSizeY,
+                        maxSizeY));
+        // END TEMP
+
         mScaleXValueView.setText(mDecimalFormat.format(mScale.x));
         mScaleXMinValueView.setText(mDecimalFormat.format(minScaleX));
-        setValue(mScaleXSeekBar, minScaleX, maxScaleX, mScale.x);
         mScaleXMaxValueView.setText(mDecimalFormat.format(maxScaleX));
         mScaleYValueView.setText(mDecimalFormat.format(mScale.y));
         mScaleYMinValueView.setText(mDecimalFormat.format(minScaleY));
-        setValue(mScaleYSeekBar, minScaleY, maxScaleY, mScale.y);
         mScaleYMaxValueView.setText(mDecimalFormat.format(maxScaleY));
 
-        final float minSizeX = view.getMinSizeX();
-        final float maxSizeX = view.getMaxSizeX();
-        final float minSizeY = view.getMinSizeY();
-        final float maxSizeY = view.getMaxSizeY();
+        setValue(mScaleXSeekBar, minSizeX, maxSizeX, mIntrinsicSizePoint.x * mScale.x);
+        setValue(mScaleYSeekBar, minSizeY, maxSizeY, mIntrinsicSizePoint.y * mScale.y);
     }
     //endregion Interface methods
 
