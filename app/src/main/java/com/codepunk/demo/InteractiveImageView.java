@@ -14,6 +14,13 @@ import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
 import android.util.Log;
+import android.view.Display;
+import android.view.WindowManager;
+
+import com.codepunk.demo.support.DisplayCompat;
+
+import org.apache.commons.lang3.builder.ToStringBuilder;
+import org.apache.commons.lang3.builder.ToStringStyle;
 
 import java.util.Locale;
 
@@ -40,12 +47,11 @@ public class InteractiveImageView extends AppCompatImageView {
     }
 
     private class DefaultScalingStrategy implements ScalingStrategy {
-        static final float BASE_MULTIPLIER = 3.0f;
-        static final float UPPER_MULTIPLIER = 5.0f;
+        static final float BREADTH_MULTIPLIER = 3.0f;
+        static final float LENGTH_MULTIPLIER = 5.0f;
 
-        private final DisplayMetrics mDisplayMetrics;
-        private final int mDisplayWidth;
-        private final int mDisplayLength;
+        private final int mScreenBreadth;
+        private final int mScreenLength;
 
         private final PointF mMaxScale = new PointF(1.0f, 1.0f);
         private final PointF mMinScale = new PointF(1.0f, 1.0f);
@@ -55,9 +61,15 @@ public class InteractiveImageView extends AppCompatImageView {
 
         public DefaultScalingStrategy() {
             super();
-            mDisplayMetrics = getResources().getDisplayMetrics();
-            mDisplayWidth = Math.min(mDisplayMetrics.widthPixels, mDisplayMetrics.heightPixels);
-            mDisplayLength = Math.max(mDisplayMetrics.widthPixels, mDisplayMetrics.heightPixels);
+            WindowManager manager =
+                    (WindowManager) getContext().getSystemService(Context.WINDOW_SERVICE);
+            Display display = manager.getDefaultDisplay();
+            Point point = new Point();
+            DisplayCompat.getRealSize(display, point);
+            DisplayMetrics dm = new DisplayMetrics();
+            DisplayCompat.getRealMetrics(display, dm);
+            mScreenBreadth = Math.min(point.x, point.y);
+            mScreenLength = Math.max(point.x, point.y);
         }
 
         @Override
@@ -90,17 +102,43 @@ public class InteractiveImageView extends AppCompatImageView {
             mMinScaleDirty = true;
         }
 
+        public synchronized void tempScaleThingy() {
+            if (getDisplayedImageSize(mPoint)) {
+                final int maxBreadth = Math.round(BREADTH_MULTIPLIER * mScreenBreadth);
+                final int maxLength = Math.round(LENGTH_MULTIPLIER * mScreenLength);
+                final int displayedBreadth = Math.min(mPoint.x, mPoint.y);
+                final int displayedLength = Math.max(mPoint.x, mPoint.y);
+
+                final float scale = Math.min(
+                        displayedBreadth == 0 ? 1.0f : (float) maxBreadth / displayedBreadth,
+                        displayedLength == 0 ? 1.0f : (float) maxLength / displayedLength);
+                final int scaledWidth = Math.round(mPoint.x * scale);
+                final int scaledHeight = Math.round(mPoint.y * scale);
+
+                String str = new ToStringBuilder(this, ToStringStyle.NO_CLASS_NAME_STYLE)
+                        .append("mScreenBreadth", mScreenBreadth)
+                        .append("mScreenLength", mScreenLength)
+                        .append("maxBreadth", maxBreadth)
+                        .append("maxLength", maxLength)
+                        .append("scaledWidth", scaledWidth)
+                        .append("scaledHeight", scaledHeight)
+                        .build();
+                Log.d(TAG, str);
+            }
+        }
+
         private synchronized PointF getMaxScale() {
             if (mMaxScaleDirty) {
                 mMaxScaleDirty = false;
+                tempScaleThingy();
                 if (getIntrinsicImageSize(mPoint)) {
                     getImageMatrix().getValues(mMatrixValues); // TODO FIT_XY?
                     final int imageWidth = Math.round(mPoint.x * mMatrixValues[MSCALE_X]);
                     final int imageHeight = Math.round(mPoint.y * mMatrixValues[MSCALE_Y]);
                     final int imageBreadth = Math.min(imageWidth, imageHeight);
                     final int imageLength = Math.max(imageWidth, imageHeight);
-                    final float breadthScale = BASE_MULTIPLIER * mDisplayWidth / imageBreadth;
-                    final float lengthScale = UPPER_MULTIPLIER * mDisplayLength / imageLength;
+                    final float breadthScale = BREADTH_MULTIPLIER * mScreenBreadth / imageBreadth;
+                    final float lengthScale = LENGTH_MULTIPLIER * mScreenLength / imageLength;
                     final float correspondingScale =
                             (float) getCorrespondingDimension(mPoint) / imageBreadth;
                     float clampedScale = Math.min(breadthScale, lengthScale);
