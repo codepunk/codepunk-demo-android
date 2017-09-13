@@ -4,8 +4,11 @@ import android.animation.ValueAnimator;
 import android.annotation.TargetApi;
 import android.content.res.Resources;
 import android.graphics.Canvas;
+import android.graphics.Matrix;
 import android.graphics.Point;
 import android.graphics.PointF;
+import android.graphics.Rect;
+import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.support.constraint.ConstraintLayout.LayoutParams;
@@ -545,6 +548,29 @@ public class InteractiveImageViewActivity
 
         setValue(mScaleXSeekBar, minWidth, maxWidth, mIntrinsicSizePoint.x * mScale.x, false);
         setValue(mScaleYSeekBar, minHeight, maxHeight, mIntrinsicSizePoint.y * mScale.y, false);
+
+        // TODO TEMP
+        final float[] values = new float[9];
+        mImageView.getImageMatrix().getValues(values);
+        final Point size = new Point();
+        mImageView.getIntrinsicImageSize(size);
+        final Rect drawnRect = new Rect(
+                Math.round(values[Matrix.MTRANS_X]),
+                Math.round(values[Matrix.MTRANS_Y]),
+                Math.round(values[Matrix.MTRANS_X] + size.x * values[Matrix.MSCALE_X]),
+                Math.round(values[Matrix.MTRANS_Y] + size.y * values[Matrix.MSCALE_Y]));
+
+        final Rect viewRect = new Rect(
+                0,
+                0,
+                mImageView.getWidth() - mImageView.getPaddingLeft() - mImageView.getPaddingRight(),
+                mImageView.getHeight() - mImageView.getPaddingTop() - mImageView.getPaddingBottom());
+        final Rect drawableRect = new Rect(0, 0, size.x, size.y);
+        final Rect scaledRect = new Rect();
+        GraphicsUtils.scale(viewRect, drawableRect, mImageView.getScaleType(), scaledRect);
+
+        Log.d(TAG, String.format(Locale.US, "drawnRect=%s, scaledRect=%s", drawnRect, scaledRect));
+        // END TEMP
     }
     //endregion Interface methods
 

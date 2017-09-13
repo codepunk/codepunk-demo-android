@@ -5,6 +5,7 @@ import android.graphics.Canvas;
 import android.graphics.Matrix;
 import android.graphics.Point;
 import android.graphics.PointF;
+import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.support.annotation.NonNull;
@@ -119,7 +120,7 @@ public class InteractiveImageView extends AppCompatImageView {
                     final float screenBasedScale = Math.min(
                             (float) mMaxBreadth / displayedBreadth,
                             (float) mMaxLength / displayedLength);
-                    // TODO Maybe consolidate the above into a fit inside based on scale type thing?
+
                     final float viewBasedScale;
                     if (displayedWidth < displayedHeight) {
                         viewBasedScale = (float) getAvailableWidth() / displayedWidth;
