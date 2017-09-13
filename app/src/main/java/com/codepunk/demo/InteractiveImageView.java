@@ -14,6 +14,7 @@ import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
 import android.util.Log;
+import android.util.Size;
 import android.view.Display;
 import android.view.WindowManager;
 
@@ -52,6 +53,8 @@ public class InteractiveImageView extends AppCompatImageView {
 
         private final int mScreenBreadth;
         private final int mScreenLength;
+        private final int mMaxBreadth;
+        private final int mMaxLength;
 
         private final PointF mMaxScale = new PointF(1.0f, 1.0f);
         private final PointF mMinScale = new PointF(1.0f, 1.0f);
@@ -70,6 +73,8 @@ public class InteractiveImageView extends AppCompatImageView {
             DisplayCompat.getRealMetrics(display, dm);
             mScreenBreadth = Math.min(point.x, point.y);
             mScreenLength = Math.max(point.x, point.y);
+            mMaxBreadth = Math.round(BREADTH_MULTIPLIER * mScreenBreadth);
+            mMaxLength = Math.round(LENGTH_MULTIPLIER * mScreenLength);
         }
 
         @Override
@@ -102,66 +107,33 @@ public class InteractiveImageView extends AppCompatImageView {
             mMinScaleDirty = true;
         }
 
-        public synchronized void tempScaleThingy() {
-            if (getDisplayedImageSize(mPoint)) {
-                final int maxBreadth = Math.round(BREADTH_MULTIPLIER * mScreenBreadth);
-                final int maxLength = Math.round(LENGTH_MULTIPLIER * mScreenLength);
-                final int displayedBreadth = Math.min(mPoint.x, mPoint.y);
-                final int displayedLength = Math.max(mPoint.x, mPoint.y);
-
-                final float scale = Math.min(
-                        displayedBreadth == 0 ? 1.0f : (float) maxBreadth / displayedBreadth,
-                        displayedLength == 0 ? 1.0f : (float) maxLength / displayedLength);
-                final int scaledWidth = Math.round(mPoint.x * scale);
-                final int scaledHeight = Math.round(mPoint.y * scale);
-
-                String str = new ToStringBuilder(this, ToStringStyle.NO_CLASS_NAME_STYLE)
-                        .append("mScreenBreadth", mScreenBreadth)
-                        .append("mScreenLength", mScreenLength)
-                        .append("maxBreadth", maxBreadth)
-                        .append("maxLength", maxLength)
-                        .append("scaledWidth", scaledWidth)
-                        .append("scaledHeight", scaledHeight)
-                        .build();
-                Log.d(TAG, str);
-            }
-        }
-
         private synchronized PointF getMaxScale() {
             if (mMaxScaleDirty) {
                 mMaxScaleDirty = false;
-                tempScaleThingy();
                 if (getIntrinsicImageSize(mPoint)) {
-                    getImageMatrix().getValues(mMatrixValues); // TODO FIT_XY?
-                    final int imageWidth = Math.round(mPoint.x * mMatrixValues[MSCALE_X]);
-                    final int imageHeight = Math.round(mPoint.y * mMatrixValues[MSCALE_Y]);
-                    final int imageBreadth = Math.min(imageWidth, imageHeight);
-                    final int imageLength = Math.max(imageWidth, imageHeight);
-                    final float breadthScale = BREADTH_MULTIPLIER * mScreenBreadth / imageBreadth;
-                    final float lengthScale = LENGTH_MULTIPLIER * mScreenLength / imageLength;
-                    final float correspondingScale =
-                            (float) getCorrespondingDimension(mPoint) / imageBreadth;
-                    float clampedScale = Math.min(breadthScale, lengthScale);
-                    clampedScale = Math.max(clampedScale, correspondingScale);
-                    mMaxScale.set(
-                            clampedScale * mMatrixValues[MSCALE_X],
-                            clampedScale * mMatrixValues[MSCALE_Y]);
-                    // TODO TEMP
-                    Log.d(
-                            TAG,
-                            String.format(
-                                    Locale.US,
-                                    "getMaxScale: Intrinsic Size=%s, Displayed Size=%dx%d, breadthScale=%.2f, lengthScale=%.2f, correspondingScale=%.2f, clampedScale=%.2f, Max Scale=%s",
-                                    mPoint,
-                                    imageWidth, imageHeight,
-                                    breadthScale,
-                                    lengthScale,
-                                    correspondingScale,
-                                    clampedScale,
-                                    mMaxScale));
-                    // END TEMP
+                    getImageMatrix().getValues(mMatrixValues);
+                    final int displayedWidth = Math.round(mPoint.x * mMatrixValues[MSCALE_X]);
+                    final int displayedHeight = Math.round(mPoint.y * mMatrixValues[MSCALE_Y]);
+                    final int displayedBreadth = Math.min(displayedWidth, displayedHeight);
+                    final int displayedLength = Math.max(displayedWidth, displayedHeight);
+                    final float screenBasedScale = Math.min(
+                            (float) mMaxBreadth / displayedBreadth,
+                            (float) mMaxLength / displayedLength);
+                    // TODO Maybe consolidate the above into a fit inside based on scale type thing?
+                    final float viewBasedScale;
+                    if (displayedWidth < displayedHeight) {
+                        viewBasedScale = (float) getAvailableWidth() / displayedWidth;
+                    } else if (displayedWidth > displayedHeight) {
+                        viewBasedScale = (float) getAvailableHeight() / displayedHeight;
+                    } else {
+                        viewBasedScale =
+                                (float) Math.min(getAvailableWidth(), getAvailableHeight()) /
+                                displayedWidth;
+                    }
+                    final float scale = Math.max(screenBasedScale, viewBasedScale);
+                    mMaxScale.set(scale * mMatrixValues[MSCALE_X], scale * mMatrixValues[MSCALE_Y]);
                 } else {
-                    mMaxScale.x = mMaxScale.y = 1.0f;
+                    mMaxScale.set(1.0f, 1.0f);
                 }
             }
             return mMaxScale;
@@ -186,6 +158,26 @@ public class InteractiveImageView extends AppCompatImageView {
                 return getAvailableHeight();
             } else {
                 return Math.min(getAvailableWidth(), getAvailableHeight());
+            }
+        }
+
+        private void getSmallestMaxScaleBasedOnView(PointF outPoint) {
+            if (getIntrinsicImageSize(mPoint)) {
+                getImageMatrix().getValues(mMatrixValues);
+                final int displayedWidth = Math.round(mPoint.x * mMatrixValues[MSCALE_X]);
+                final int displayedHeight = Math.round(mPoint.y * mMatrixValues[MSCALE_Y]);
+                final float scale;
+                if (displayedWidth < displayedHeight) {
+                    scale = (float) getAvailableWidth() / displayedWidth;
+                } else if (displayedWidth > displayedHeight) {
+                    scale = (float) getAvailableHeight() / displayedHeight;
+                } else {
+                    scale = (float) Math.min(getAvailableWidth(), getAvailableHeight()) /
+                            displayedWidth;
+                }
+                outPoint.set(scale * mMatrixValues[MSCALE_X], scale * mMatrixValues[MSCALE_Y]);
+            } else {
+                outPoint.set(1.0f, 1.0f);
             }
         }
 
