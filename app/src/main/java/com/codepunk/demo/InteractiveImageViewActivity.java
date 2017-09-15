@@ -4,12 +4,8 @@ import android.animation.ValueAnimator;
 import android.annotation.TargetApi;
 import android.content.res.Resources;
 import android.graphics.Canvas;
-import android.graphics.Matrix;
 import android.graphics.Point;
 import android.graphics.PointF;
-import android.graphics.Rect;
-import android.graphics.RectF;
-import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.support.constraint.ConstraintLayout.LayoutParams;
@@ -53,58 +49,58 @@ public class InteractiveImageViewActivity
 
     //region Nested classes
     private interface GuidelineAnimateCompatImpl {
-        void animate(final int toValue);
+        void animateControlsDrawer(final int toValue);
     }
 
     private class BaseGuidelineAnimateCompatImpl implements GuidelineAnimateCompatImpl {
-        private Animation mAnimation;
+        private Animation mControlsDrawerAnimation;
 
         @Override
-        public void animate(final int toValue) {
-            if (mAnimation != null) {
-                mAnimation.cancel();
+        public void animateControlsDrawer(final int toValue) {
+            if (mControlsDrawerAnimation != null) {
+                mControlsDrawerAnimation.cancel();
                 mGuideline.clearAnimation();
-                mAnimation = null;
+                mControlsDrawerAnimation = null;
             }
             final LayoutParams lp = (LayoutParams) mGuideline.getLayoutParams();
             final float fraction = Math.abs(lp.guideEnd - toValue) / (float) mShownEnd;
             final float fromValue = lp.guideEnd;
-            mAnimation = new Animation() {
+            mControlsDrawerAnimation = new Animation() {
                 @Override
                 protected void applyTransformation(float interpolatedTime, Transformation t) {
                     lp.guideEnd = (int) (fromValue + (toValue - fromValue) * interpolatedTime);
                     mGuideline.setLayoutParams(lp);
                 }
             };
-            mAnimation.setDuration((int) (mDuration * fraction));
-            mAnimation.setInterpolator(mInterpolator);
-            mMainLayout.startAnimation(mAnimation);
+            mControlsDrawerAnimation.setDuration((int) (mDuration * fraction));
+            mControlsDrawerAnimation.setInterpolator(mInterpolator);
+            mMainLayout.startAnimation(mControlsDrawerAnimation);
         }
     }
 
     @TargetApi(HONEYCOMB)
     private class HoneyCombGuidelineAnimateCompatImpl
             implements GuidelineAnimateCompatImpl {
-        private ValueAnimator mAnimator;
+        private ValueAnimator mControlsDrawerAnimator;
 
         @Override
-        public void animate(final int toValue) {
-            if (mAnimator != null) {
-                mAnimator.cancel();
+        public void animateControlsDrawer(final int toValue) {
+            if (mControlsDrawerAnimator != null) {
+                mControlsDrawerAnimator.cancel();
             }
             final LayoutParams lp = (LayoutParams) mGuideline.getLayoutParams();
             final float fraction = Math.abs(lp.guideEnd - toValue) / (float) mShownEnd;
-            mAnimator = ValueAnimator.ofInt(lp.guideEnd, toValue);
-            mAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            mControlsDrawerAnimator = ValueAnimator.ofInt(lp.guideEnd, toValue);
+            mControlsDrawerAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
                 @Override
                 public void onAnimationUpdate(ValueAnimator animation) {
                     lp.guideEnd = (Integer) animation.getAnimatedValue();
                     mGuideline.setLayoutParams(lp);
                 }
             });
-            mAnimator.setDuration((int) (mDuration * fraction));
-            mAnimator.setInterpolator(mInterpolator);
-            mAnimator.start();
+            mControlsDrawerAnimator.setDuration((int) (mDuration * fraction));
+            mControlsDrawerAnimator.setInterpolator(mInterpolator);
+            mControlsDrawerAnimator.start();
         }
     }
     //endregion Nested classes
@@ -165,8 +161,8 @@ public class InteractiveImageViewActivity
 
     private SeekBar mTrackingSeekBar;
 
-    private final PointF mCenter = new PointF();
-    private final PointF mScale = new PointF();
+    private final PointF mCenterPoint = new PointF();
+    private final PointF mScalePoint = new PointF();
 
     private final NumberFormat mPercentFormat = NumberFormat.getPercentInstance();
     private final NumberFormat mDecimalFormat = new DecimalFormat("#0.00");
@@ -269,7 +265,28 @@ public class InteractiveImageViewActivity
     @Override /* View.OnClickListener */
     public void onClick(View v) {
         if (v == mLockBtn) {
+            final float minScaleX = mImageView.getMinScaleX();
+            final float maxScaleX = mImageView.getMaxScaleX();
+            final float minScaleY = mImageView.getMinScaleY();
+            final float maxScaleY = mImageView.getMaxScaleY();
+            mImageView.getScale(mScalePoint);
+
+            Log.d(TAG,
+                    String.format(
+                            Locale.US,
+                            "minScale=%s, maxScale=%s, mScalePoint=%s",
+                            new PointF(minScaleX, minScaleY),
+                            new PointF(maxScaleX, maxScaleY),
+                            mScalePoint));
+
             if (mLockBtn.isChecked()) {
+                if (mHasIntrinsicSize) {
+                    // TODO NEXT What are the locked bounds?
+                } else {
+
+                }
+
+                /*
                 if (mHasIntrinsicSize) {
                     final float minScaleX = mImageView.getMinScaleX();
                     final float maxScaleX = mImageView.getMaxScaleX();
@@ -321,19 +338,11 @@ public class InteractiveImageViewActivity
                     mScaleXSeekBar.setEnabled(enabled);
                     mScaleYSeekBar.setEnabled(enabled);
 
-                    /*
-                    Log.d(TAG, String.format(
-                            Locale.US,
-                            "minFactorX=%.2f, minFactorY=%.2f, maxFactorX=%.2f, maxFactorY=%.2f",
-                            minFactorX,
-                            minFactorY,
-                            maxFactorX,
-                            maxFactorY));
-                    */
-
                     // Where are we on the scale of minFactor -> maxFactor?
                 }
+                */
             } else {
+                /*
                 mScaleXSeekBar.setEnabled(true);
                 mScaleYSeekBar.setEnabled(true);
 
@@ -357,6 +366,7 @@ public class InteractiveImageViewActivity
 
                 setValue(mScaleXSeekBar, minWidth, maxWidth, mIntrinsicSizePoint.x * mScale.x, true);
                 setValue(mScaleYSeekBar, minHeight, maxHeight, mIntrinsicSizePoint.y * mScale.y, true);
+                */
             }
         }
     }
@@ -524,11 +534,11 @@ public class InteractiveImageViewActivity
     @Override // InteractiveImageView.OnDrawListener
     public void onDraw(InteractiveImageView view, Canvas canvas) {
         // TODO Capture which control(s) the user is manipulating and don't update those
-        mImageView.getRelativeCenter(mCenter);
-        mPanXValueView.setText(mPercentFormat.format(mCenter.x));
-        setValue(mPanXSeekBar, 0.0f, 1.0f, mCenter.x, false);
-        mPanYValueView.setText(mPercentFormat.format(mCenter.y));
-        setValue(mPanYSeekBar, 0.0f, 1.0f, mCenter.y, false);
+        mImageView.getRelativeCenter(mCenterPoint);
+        mPanXValueView.setText(mPercentFormat.format(mCenterPoint.x));
+        setValue(mPanXSeekBar, 0.0f, 1.0f, mCenterPoint.x, false);
+        mPanYValueView.setText(mPercentFormat.format(mCenterPoint.y));
+        setValue(mPanYSeekBar, 0.0f, 1.0f, mCenterPoint.y, false);
 
         final float minScaleX = view.getMinScaleX();
         final float maxScaleX = view.getMaxScaleX();
@@ -538,19 +548,20 @@ public class InteractiveImageViewActivity
         final int maxWidth = Math.round(maxScaleX * mIntrinsicSizePoint.x);
         final int minHeight = Math.round(minScaleY * mIntrinsicSizePoint.y);
         final int maxHeight = Math.round(maxScaleY * mIntrinsicSizePoint.y);
-        mImageView.getScale(mScale);
+        mImageView.getScale(mScalePoint);
 
-        mScaleXValueView.setText(mDecimalFormat.format(mScale.x));
+        mScaleXValueView.setText(mDecimalFormat.format(mScalePoint.x));
         mScaleXMinValueView.setText(mDecimalFormat.format(minScaleX));
         mScaleXMaxValueView.setText(mDecimalFormat.format(maxScaleX));
-        mScaleYValueView.setText(mDecimalFormat.format(mScale.y));
+        mScaleYValueView.setText(mDecimalFormat.format(mScalePoint.y));
         mScaleYMinValueView.setText(mDecimalFormat.format(minScaleY));
         mScaleYMaxValueView.setText(mDecimalFormat.format(maxScaleY));
 
-        setValue(mScaleXSeekBar, minWidth, maxWidth, mIntrinsicSizePoint.x * mScale.x, false);
-        setValue(mScaleYSeekBar, minHeight, maxHeight, mIntrinsicSizePoint.y * mScale.y, false);
+        setValue(mScaleXSeekBar, minWidth, maxWidth, mIntrinsicSizePoint.x * mScalePoint.x, false);
+        setValue(mScaleYSeekBar, minHeight, maxHeight, mIntrinsicSizePoint.y * mScalePoint.y, false);
 
         // TODO TEMP
+        /*
         final float[] values = new float[9];
         mImageView.getImageMatrix().getValues(values);
         final Point size = new Point();
@@ -561,16 +572,16 @@ public class InteractiveImageViewActivity
                 Math.round(values[Matrix.MTRANS_X] + size.x * values[Matrix.MSCALE_X]),
                 Math.round(values[Matrix.MTRANS_Y] + size.y * values[Matrix.MSCALE_Y]));
 
-        final RectF viewRect = new RectF(
-                0.0f,
-                0.0f,
+        final Rect viewRect = new Rect(
+                0,
+                0,
                 mImageView.getWidth() - mImageView.getPaddingLeft() - mImageView.getPaddingRight(),
                 mImageView.getHeight() - mImageView.getPaddingTop() - mImageView.getPaddingBottom());
-        final RectF drawableRect = new RectF(0.0f, 0.0f, size.x, size.y);
-        final RectF scaledRect = new RectF();
-        GraphicsUtils.scale(drawableRect, viewRect, mImageView.getScaleType(), scaledRect);
+        final Rect scaledRect = new Rect();
+        GraphicsUtils.scale(drawnRect, viewRect, mImageView.getScaleType(), scaledRect);
 
         Log.d(TAG, String.format(Locale.US, "drawnRect=%s, scaledRect=%s", drawnRect, scaledRect));
+        */
         // END TEMP
     }
     //endregion Interface methods
@@ -606,7 +617,7 @@ public class InteractiveImageViewActivity
 
     private void showOrHideControls(int toValue, boolean animate) {
         if (animate) {
-            getGuidelineAnimateCompatImpl().animate(toValue);
+            getGuidelineAnimateCompatImpl().animateControlsDrawer(toValue);
         } else {
             final LayoutParams lp = (LayoutParams) mGuideline.getLayoutParams();
             lp.guideEnd = toValue;

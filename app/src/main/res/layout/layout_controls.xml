@@ -82,6 +82,11 @@
         android:orientation="horizontal"
         android:gravity="center_vertical">
 
+        <android.support.v7.widget.AppCompatImageView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:srcCompat="@drawable/ic_swap_horiz_white_24dp"/>
+
         <android.support.v7.widget.AppCompatTextView
             android:id="@+id/text_pan_x_min_value"
             android:layout_width="@dimen/extended_seek_bar_value_view_width"
@@ -114,6 +119,11 @@
         android:layout_marginTop="@dimen/standard_margin"
         android:orientation="horizontal"
         android:gravity="center_vertical">
+
+        <android.support.v7.widget.AppCompatImageView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:srcCompat="@drawable/ic_swap_vert_white_24dp"/>
 
         <android.support.v7.widget.AppCompatTextView
             android:id="@+id/text_pan_y_min_value"
@@ -198,6 +208,11 @@
                 android:orientation="horizontal"
                 android:gravity="center_vertical">
 
+                <android.support.v7.widget.AppCompatImageView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:srcCompat="@drawable/ic_swap_horiz_white_24dp"/>
+
                 <android.support.v7.widget.AppCompatTextView
                     android:id="@+id/text_scale_x_min_value"
                     android:layout_width="@dimen/extended_seek_bar_value_view_width"
@@ -230,6 +245,11 @@
                 android:layout_marginTop="@dimen/standard_margin"
                 android:orientation="horizontal"
                 android:gravity="center_vertical">
+
+                <android.support.v7.widget.AppCompatImageView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:srcCompat="@drawable/ic_swap_vert_white_24dp"/>
 
                 <android.support.v7.widget.AppCompatTextView
                     android:id="@+id/text_scale_y_min_value"

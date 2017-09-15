@@ -1,20 +1,18 @@
 package com.codepunk.demo;
 
-import android.graphics.Matrix;
 import android.graphics.PointF;
 import android.graphics.Rect;
-import android.graphics.RectF;
 import android.widget.ImageView.ScaleType;
 
 import static android.widget.ImageView.ScaleType.CENTER;
 import static android.widget.ImageView.ScaleType.CENTER_INSIDE;
+import static android.widget.ImageView.ScaleType.FIT_XY;
 import static android.widget.ImageView.ScaleType.MATRIX;
 
 @SuppressWarnings("WeakerAccess")
 public class GraphicsUtils {
     //region Fields
-    private static final Matrix sMatrix = new Matrix();
-    private static final float[] sMatrixValues = new float[9];
+    private static final PointF sScalePoint = new PointF();
     //endregion Fields
 
     //region Constructors
@@ -72,85 +70,44 @@ public class GraphicsUtils {
      * @see android.widget.ImageView
      * @see ScaleType
      */
-    public synchronized static void scale(
-            RectF src,
-            RectF dst,
+    public static void scale(
+            Rect src,
+            Rect dst,
             ScaleType scaleType,
-            RectF outRect) {
-        // TODO Do this my own way
-        final float srcWidth = src.width();
-        final float srcHeight = src.height();
-        final float dstWidth = dst.width();
-        final float dstHeight = dst.height();
-        final boolean fits = (srcWidth < 0.0f || dstWidth == srcWidth)
-                && (srcHeight < 0 || dstHeight == srcHeight);
-        if (srcWidth <= 0.0f || srcHeight <= 0.0f) {
+            Rect outRect) {
+        if (src.width() < 0 || src.height() < 0 || scaleType == MATRIX) {
             outRect.set(src);
-        } else if (ScaleType.FIT_XY == scaleType) {
+            return;
+        } else if (scaleType == FIT_XY) {
             outRect.set(dst);
-        } else if (MATRIX == scaleType) {
-            outRect.set(src);
-        } else if (fits) {
-            // The bitmap fits exactly, no transform needed.
-            outRect.set(src);
-        } else if (CENTER == scaleType) {
-            // Center bitmap in view, no scaling.
-            float dx = (dstWidth - srcWidth) * 0.5f;
-            float dy = (dstHeight - srcHeight) * 0.5f;
-            outRect.set(src);
-            outRect.offsetTo(dx, dy);
-        } else if (ScaleType.CENTER_CROP == scaleType) {
-            float scale;
-            float dx = 0, dy = 0;
-            if (srcWidth * dstHeight > dstWidth * srcHeight) {
-                scale = dstHeight / srcHeight;
-                dx = (dstWidth - srcWidth * scale) * 0.5f;
-            } else {
-                scale = dstWidth / srcWidth;
-                dy = (dstHeight - srcHeight * scale) * 0.5f;
+            return;
+        }
+
+        synchronized (sScalePoint) {
+            scale(src, dst, scaleType, sScalePoint);
+            final int width = Math.round(src.width() * sScalePoint.x);
+            final int height = Math.round(src.height() * sScalePoint.y);
+            final int left;
+            final int top;
+            switch (scaleType) {
+                case FIT_END:
+                    left = dst.right - width;
+                    top = dst.bottom - height;
+                    break;
+                case FIT_START:
+                    left = top = 0;
+                    break;
+                case CENTER:
+                case CENTER_INSIDE:
+                case CENTER_CROP:
+                case FIT_CENTER:
+                default:
+                    left = Math.round(dst.left + (dst.width() - width) / 2.0f);
+                    top = Math.round(dst.top + (dst.height() - height) / 2.0f);
+                    break;
             }
-            outRect.set(0.0f, 0.0f, srcWidth * scale, srcHeight * scale);
-            outRect.offsetTo(dx, dy);
-        } else if (ScaleType.CENTER_INSIDE == scaleType) {
-            float scale;
-            float dx;
-            float dy;
-            if (srcWidth <= dstWidth && srcHeight <= dstHeight) {
-                scale = 1.0f;
-            } else {
-                scale = Math.min(dstWidth / srcWidth, dstHeight / srcHeight);
-            }
-            dx = (dstWidth - srcWidth * scale) * 0.5f;
-            dy = (dstHeight - srcHeight * scale) * 0.5f;
-            outRect.set(0.0f, 0.0f, srcWidth * scale, srcHeight * scale);
-            outRect.offsetTo(dx, dy);
-        } else {
-            // Generate the required transform.
-            sMatrix.setRectToRect(src, dst, scaleTypeToScaleToFit(scaleType));
-            sMatrix.getValues(sMatrixValues);
-            outRect.set(
-                    0.0f,
-                    0.0f,
-                    srcWidth * sMatrixValues[Matrix.MSCALE_X],
-                    srcHeight * sMatrixValues[Matrix.MSCALE_Y]);
-            outRect.offsetTo(sMatrixValues[Matrix.MTRANS_X], sMatrixValues[Matrix.MTRANS_Y]);
+            outRect.set(left, top, left + width, top + height);
         }
     }
     //endregion Methods
-
-    //region Private methods
-    private static Matrix.ScaleToFit scaleTypeToScaleToFit(ScaleType scaleType)  {
-        switch (scaleType) {
-            case FIT_XY:
-                return Matrix.ScaleToFit.FILL;
-            case FIT_START:
-                return Matrix.ScaleToFit.START;
-            case FIT_END:
-                return Matrix.ScaleToFit.END;
-            case FIT_CENTER:
-            default:
-                return Matrix.ScaleToFit.CENTER;
-        }
-    }
-    //endregion Private methods
 }
