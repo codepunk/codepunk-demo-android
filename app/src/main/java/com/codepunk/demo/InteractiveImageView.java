@@ -15,14 +15,10 @@ import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
 import android.util.Log;
-import android.util.Size;
 import android.view.Display;
 import android.view.WindowManager;
 
 import com.codepunk.demo.support.DisplayCompat;
-
-import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.apache.commons.lang3.builder.ToStringStyle;
 
 import java.util.Locale;
 
@@ -32,6 +28,7 @@ import static android.widget.ImageView.ScaleType.MATRIX;
 
 // TODO NEXT Figure out how to do "locked" scaling
 
+@SuppressWarnings({"unused", "WeakerAccess"})
 public class InteractiveImageView extends AppCompatImageView {
 
     //region Nested classes
@@ -59,6 +56,10 @@ public class InteractiveImageView extends AppCompatImageView {
 
         private final PointF mMaxScale = new PointF(1.0f, 1.0f);
         private final PointF mMinScale = new PointF(1.0f, 1.0f);
+        private final RectF mSrcRectF = new RectF();
+        private final RectF mDstRectF = new RectF();
+        private final Rect mSrcRect = new Rect();
+        private final Rect mDstRect = new Rect();
 
         private boolean mMaxScaleDirty;
         private boolean mMinScaleDirty;
@@ -143,11 +144,26 @@ public class InteractiveImageView extends AppCompatImageView {
         private synchronized PointF getMinScale() {
             if (mMinScaleDirty) {
                 mMinScaleDirty = false;
-                getScaleForScaleType(mScaleType, mMinScale);
+                if (getIntrinsicImageSize(mPoint)) {
+                    getImageMatrix().getValues(mMatrixValues);
+                    mSrcRect.set(
+                            0,
+                            0,
+                            Math.round(mPoint.x * mMatrixValues[MSCALE_X]),
+                            Math.round(mPoint.y * mMatrixValues[MSCALE_Y]));
+                    mDstRect.set(0, 0, getAvailableWidth(), getAvailableHeight());
+                    GraphicsUtils.scale(mSrcRect, mDstRect, mScaleType, mPointF);
+                    mMinScale.set(
+                            mPointF.x * mMatrixValues[MSCALE_X],
+                            mPointF.y * mMatrixValues[MSCALE_Y]);
+                } else {
+                    mMinScale.set(1.0f, 1.0f);
+                }
             }
             return mMinScale;
         }
 
+        /*
         private synchronized Point getMinSize() {
             return null;
         }
@@ -212,6 +228,7 @@ public class InteractiveImageView extends AppCompatImageView {
                 }
             }
         }
+        */
     }
     //endregion Nested classes
 

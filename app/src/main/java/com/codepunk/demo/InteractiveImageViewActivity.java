@@ -8,6 +8,7 @@ import android.graphics.Matrix;
 import android.graphics.Point;
 import android.graphics.PointF;
 import android.graphics.Rect;
+import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Bundle;
@@ -560,14 +561,14 @@ public class InteractiveImageViewActivity
                 Math.round(values[Matrix.MTRANS_X] + size.x * values[Matrix.MSCALE_X]),
                 Math.round(values[Matrix.MTRANS_Y] + size.y * values[Matrix.MSCALE_Y]));
 
-        final Rect viewRect = new Rect(
-                0,
-                0,
+        final RectF viewRect = new RectF(
+                0.0f,
+                0.0f,
                 mImageView.getWidth() - mImageView.getPaddingLeft() - mImageView.getPaddingRight(),
                 mImageView.getHeight() - mImageView.getPaddingTop() - mImageView.getPaddingBottom());
-        final Rect drawableRect = new Rect(0, 0, size.x, size.y);
-        final Rect scaledRect = new Rect();
-        GraphicsUtils.scale(viewRect, drawableRect, mImageView.getScaleType(), scaledRect);
+        final RectF drawableRect = new RectF(0.0f, 0.0f, size.x, size.y);
+        final RectF scaledRect = new RectF();
+        GraphicsUtils.scale(drawableRect, viewRect, mImageView.getScaleType(), scaledRect);
 
         Log.d(TAG, String.format(Locale.US, "drawnRect=%s, scaledRect=%s", drawnRect, scaledRect));
         // END TEMP
