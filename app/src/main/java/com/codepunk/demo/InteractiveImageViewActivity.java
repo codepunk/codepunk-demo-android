@@ -270,103 +270,32 @@ public class InteractiveImageViewActivity
             final float minScaleY = mImageView.getMinScaleY();
             final float maxScaleY = mImageView.getMaxScaleY();
             mImageView.getScale(mScalePoint);
-
-            Log.d(TAG,
-                    String.format(
-                            Locale.US,
-                            "minScale=%s, maxScale=%s, mScalePoint=%s",
-                            new PointF(minScaleX, minScaleY),
-                            new PointF(maxScaleX, maxScaleY),
-                            mScalePoint));
-
+            mImageView.getDisplayedImageSize(mDisplayedSizePoint);
             if (mLockBtn.isChecked()) {
                 if (mHasIntrinsicSize) {
-                    // TODO NEXT What are the locked bounds?
+                    final float lockedMinPct =
+                            Math.max(minScaleX / mScalePoint.x, minScaleY / mScalePoint.y);
+                    final float lockedMaxPct =
+                            Math.min(maxScaleX / mScalePoint.x, maxScaleY / mScalePoint.y);
+                    final float progress = (1.0f - lockedMinPct) / (lockedMaxPct - lockedMinPct);
+                    setValue(mScaleXSeekBar, progress, true);
+                    setValue(mScaleYSeekBar, progress, true);
                 } else {
-
+                    // TODO ??
                 }
-
-                /*
-                if (mHasIntrinsicSize) {
-                    final float minScaleX = mImageView.getMinScaleX();
-                    final float maxScaleX = mImageView.getMaxScaleX();
-                    final float minScaleY = mImageView.getMinScaleY();
-                    final float maxScaleY = mImageView.getMaxScaleY();
-                    final float minWidth = minScaleX * mIntrinsicSizePoint.x;
-                    final float maxWidth = maxScaleX * mIntrinsicSizePoint.x;
-                    final float minHeight = minScaleY * mIntrinsicSizePoint.y;
-                    final float maxHeight = maxScaleY * mIntrinsicSizePoint.y;
-                    mImageView.getDisplayedImageSize(mDisplayedSizePoint);
-                    mImageView.getScale(mScale);
-
-                    final float minFactorX = minWidth / mDisplayedSizePoint.x;
-                    final float minFactorY = minHeight / mDisplayedSizePoint.y;
-                    final float maxFactorX = maxWidth / mDisplayedSizePoint.x;
-                    final float maxFactorY = maxHeight / mDisplayedSizePoint.y;
-                    // TODO Is this "factor" different than taking minScale & currentScale?
-
-                    final float lockedMinWidth;
-                    final float lockedMinHeight;
-                    if (minFactorX > minFactorY) {
-                        lockedMinWidth = minWidth;
-                        lockedMinHeight = mDisplayedSizePoint.y * minFactorX;
-                    } else {
-                        lockedMinHeight = minHeight;
-                        lockedMinWidth = mDisplayedSizePoint.x * minFactorY;
-                    }
-
-                    final float lockedMaxWidth;
-                    final float lockedMaxHeight;
-                    if (maxFactorX < maxFactorY) {
-                        lockedMaxWidth = maxWidth;
-                        lockedMaxHeight = mDisplayedSizePoint.y * maxFactorX;
-                    } else {
-                        lockedMaxHeight = maxHeight;
-                        lockedMaxWidth = mDisplayedSizePoint.x * maxFactorY;
-                    }
-
-                    final float EPSILON = 0.0001f;
-                    final float pctX = (mDisplayedSizePoint.x - lockedMinWidth) / (lockedMaxWidth - lockedMinWidth);
-                    final float pctY = (mDisplayedSizePoint.y - lockedMinHeight) / (lockedMaxHeight - lockedMinHeight);
-                    if (Math.abs(pctX - pctY) > EPSILON) {
-                        throw new IllegalStateException("pctX and pctY should be equal");
-                    }
-
-                    final boolean enabled = (!Float.isNaN(pctX));
-                    setValue(mScaleXSeekBar, 0.0f, 1.0f, pctX, true);
-                    setValue(mScaleYSeekBar, 0.0f, 1.0f, pctX, true);
-                    mScaleXSeekBar.setEnabled(enabled);
-                    mScaleYSeekBar.setEnabled(enabled);
-
-                    // Where are we on the scale of minFactor -> maxFactor?
-                }
-                */
             } else {
-                /*
-                mScaleXSeekBar.setEnabled(true);
-                mScaleYSeekBar.setEnabled(true);
-
-                // TODO Code duplicated with onDraw
-                final float minScaleX = mImageView.getMinScaleX();
-                final float maxScaleX = mImageView.getMaxScaleX();
-                final float minScaleY = mImageView.getMinScaleY();
-                final float maxScaleY = mImageView.getMaxScaleY();
-                final int minWidth = Math.round(minScaleX * mIntrinsicSizePoint.x);
-                final int maxWidth = Math.round(maxScaleX * mIntrinsicSizePoint.x);
-                final int minHeight = Math.round(minScaleY * mIntrinsicSizePoint.y);
-                final int maxHeight = Math.round(maxScaleY * mIntrinsicSizePoint.y);
-                mImageView.getScale(mScale);
-
-                mScaleXValueView.setText(mDecimalFormat.format(mScale.x));
-                mScaleXMinValueView.setText(mDecimalFormat.format(minScaleX));
-                mScaleXMaxValueView.setText(mDecimalFormat.format(maxScaleX));
-                mScaleYValueView.setText(mDecimalFormat.format(mScale.y));
-                mScaleYMinValueView.setText(mDecimalFormat.format(minScaleY));
-                mScaleYMaxValueView.setText(mDecimalFormat.format(maxScaleY));
-
-                setValue(mScaleXSeekBar, minWidth, maxWidth, mIntrinsicSizePoint.x * mScale.x, true);
-                setValue(mScaleYSeekBar, minHeight, maxHeight, mIntrinsicSizePoint.y * mScale.y, true);
-                */
+                if (mHasIntrinsicSize) {
+                    setValue(
+                            mScaleXSeekBar,
+                            (mScalePoint.x - minScaleX) / (maxScaleX - minScaleX),
+                            true);
+                    setValue(
+                            mScaleYSeekBar,
+                            (mScalePoint.y - minScaleY) / (maxScaleY - minScaleY),
+                            true);
+                } else {
+                    // TODO
+                }
             }
         }
     }
@@ -654,6 +583,20 @@ public class InteractiveImageViewActivity
                 progressBar.getProgress(),
                 minValue,
                 maxValue);
+    }
+
+    private static void setValue(
+            ProgressBar progressBar,
+            float value,
+            boolean animate) {
+        final int minProgress = 0;
+        final int progress = valueToProgress(
+                0.0f,
+                1.0f,
+                value,
+                minProgress,
+                progressBar.getMax());
+        ProgressBarCompat.setProgress(progressBar, progress, animate);
     }
 
     private static void setValue(
