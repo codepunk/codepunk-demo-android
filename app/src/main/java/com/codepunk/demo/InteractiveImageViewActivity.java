@@ -169,6 +169,8 @@ public class InteractiveImageViewActivity
 
     private final Point mIntrinsicSizePoint = new Point();
     private final Point mDisplayedSizePoint = new Point();
+    private final Point mMinScaledSizePoint = new Point();
+    private final Point mMaxScaledSizePoint = new Point(); // TODO Replace these with a point "factory"?
     private boolean mHasIntrinsicSize = false;
     //endregion Fields
 
@@ -270,7 +272,6 @@ public class InteractiveImageViewActivity
             final float minScaleY = mImageView.getMinScaleY();
             final float maxScaleY = mImageView.getMaxScaleY();
             mImageView.getScale(mScalePoint);
-            mImageView.getDisplayedImageSize(mDisplayedSizePoint);
             if (mLockBtn.isChecked()) {
                 if (mHasIntrinsicSize) {
                     final float lockedMinPct =
@@ -281,7 +282,7 @@ public class InteractiveImageViewActivity
                     setValue(mScaleXSeekBar, progress, true);
                     setValue(mScaleYSeekBar, progress, true);
                 } else {
-                    // TODO ??
+                    // TODO ?? Probably disable everything if no intrinsic size
                 }
             } else {
                 if (mHasIntrinsicSize) {
@@ -294,7 +295,7 @@ public class InteractiveImageViewActivity
                             (mScalePoint.y - minScaleY) / (maxScaleY - minScaleY),
                             true);
                 } else {
-                    // TODO
+                    // TODO ?? Probably disable everything if no intrinsic size
                 }
             }
         }
@@ -355,13 +356,28 @@ public class InteractiveImageViewActivity
                     final float maxScaleX = mImageView.getMaxScaleX();
                     final float minScaleY = mImageView.getMinScaleY();
                     final float maxScaleY = mImageView.getMaxScaleY();
-
+                    mImageView.getScale(mScalePoint);
                     final float scaleX;
                     final float scaleY;
 
-                    if (mLockBtn.isChecked() && mHasIntrinsicSize) {
+                    if (mLockBtn.isChecked() && mHasIntrinsicSize /* Probably disable everything if no intrinsic size */) {
+                        if (seekBar == mScaleXSeekBar) {
+                            mScaleYSeekBar.setProgress(progress);
+                        } else {
+                            mScaleXSeekBar.setProgress(progress);
+                        }
 
-                        // TODO !!
+                        final float lockedMinPct =
+                                Math.max(minScaleX / mScalePoint.x, minScaleY / mScalePoint.y);
+                        final float lockedMaxPct =
+                                Math.min(maxScaleX / mScalePoint.x, maxScaleY / mScalePoint.y);
+
+                        // X
+                        // TODO NEXT !!! How do I translate what I have into a resulting scaleX and scaleY?
+
+                        // Y
+
+                        // TODO Values from seek bars represent something different here
                         scaleX = getValue(mScaleXSeekBar, minScaleX, maxScaleX);
                         scaleY = getValue(mScaleYSeekBar, minScaleY, maxScaleY);
 
