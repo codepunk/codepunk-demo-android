@@ -360,17 +360,23 @@ public class InteractiveImageViewActivity
                     final float scaleX;
                     final float scaleY;
 
-                    if (mLockBtn.isChecked() && mHasIntrinsicSize /* Probably disable everything if no intrinsic size */) {
+                    if (mLockBtn.isChecked() && mHasIntrinsicSize /* TODO Probably disable everything if no intrinsic size */) {
                         if (seekBar == mScaleXSeekBar) {
                             mScaleYSeekBar.setProgress(progress);
                         } else {
                             mScaleXSeekBar.setProgress(progress);
                         }
 
-                        final float lockedMinPct =
-                                Math.max(minScaleX / mScalePoint.x, minScaleY / mScalePoint.y);
-                        final float lockedMaxPct =
-                                Math.min(maxScaleX / mScalePoint.x, maxScaleY / mScalePoint.y);
+                        final float minXtoCurXRatio = minScaleX / mScalePoint.x;
+                        final float minYtoCurYRatio = minScaleY / mScalePoint.y;
+                        final float maxXtoCurXRatio = maxScaleX / mScalePoint.x;
+                        final float maxYtoCurYRatio = maxScaleY / mScalePoint.y;
+                        final float lockedMinRatio = Math.max(minXtoCurXRatio, minYtoCurYRatio);
+                        final float lockedMaxRatio = Math.min(maxXtoCurXRatio, maxYtoCurYRatio);
+
+                        // What are the endpoints of the sliders?
+                        final float curRatio = lockedMinRatio + (lockedMaxRatio - lockedMinRatio) * progress;
+                        Log.d(TAG, String.format(Locale.US, "curRatio=%.2f", curRatio));
 
                         // X
                         // TODO NEXT !!! How do I translate what I have into a resulting scaleX and scaleY?
