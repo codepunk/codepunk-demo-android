@@ -21,6 +21,7 @@ import com.codepunk.demo.support.DisplayCompat;
 
 import static android.graphics.Matrix.MSCALE_X;
 import static android.graphics.Matrix.MSCALE_Y;
+import static android.widget.ImageView.ScaleType.FIT_XY;
 import static android.widget.ImageView.ScaleType.MATRIX;
 
 // TODO NEXT Figure out how to do "locked" scaling
@@ -495,12 +496,11 @@ public class InteractiveImageView extends AppCompatImageView {
             return false;
         }
         synchronized (mLock) {
-            final Matrix matrix = getImageMatrix();
             if (super.getScaleType() != MATRIX) {
-                super.setScaleType(MATRIX);
-                setImageMatrix(matrix);
+                internalSetScaleType(MATRIX);
             }
 
+            final Matrix matrix = getImageMatrix();
             mRectF.set(0, 0, intrinsicWidth, intrinsicHeight);
             matrix.mapRect(mRectF);
             mSrcPoints[0] = intrinsicWidth * centerX;
@@ -542,11 +542,10 @@ public class InteractiveImageView extends AppCompatImageView {
             return false;
         }
         synchronized (mLock) {
-            final Matrix matrix = getImageMatrix();
             if (super.getScaleType() != MATRIX) {
-                super.setScaleType(MATRIX);
-                setImageMatrix(matrix);
+                internalSetScaleType(MATRIX);
             }
+            final Matrix matrix = getImageMatrix();
             matrix.getValues(mMatrixValues); // TODO Can I do this without getting values?
 
             matrix.preScale(
@@ -580,6 +579,16 @@ public class InteractiveImageView extends AppCompatImageView {
 
     private int getAvailableWidth() {
         return getWidth() - getPaddingLeft() - getPaddingRight();
+    }
+
+    private void internalSetScaleType(ScaleType scaleType) {
+        if (super.getScaleType() == FIT_XY && scaleType == MATRIX) {
+            final Matrix matrix = getImageMatrix();
+            super.setScaleType(scaleType);
+            setImageMatrix(matrix);
+        } else {
+            super.setScaleType(scaleType);
+        }
     }
     //endregion Private methods
 }
