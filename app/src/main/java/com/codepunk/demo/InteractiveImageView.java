@@ -14,13 +14,10 @@ import android.support.annotation.Px;
 import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
-import android.util.Log;
 import android.view.Display;
 import android.view.WindowManager;
 
 import com.codepunk.demo.support.DisplayCompat;
-
-import java.util.Locale;
 
 import static android.graphics.Matrix.MSCALE_X;
 import static android.graphics.Matrix.MSCALE_Y;
@@ -58,8 +55,6 @@ public class InteractiveImageView extends AppCompatImageView {
         private final PointF mMinScale = new PointF(1.0f, 1.0f);
         private final RectF mSrcRectF = new RectF();
         private final RectF mDstRectF = new RectF();
-        private final Rect mSrcRect = new Rect();
-        private final Rect mDstRect = new Rect();
 
         private boolean mMaxScaleDirty;
         private boolean mMinScaleDirty;
@@ -242,6 +237,8 @@ public class InteractiveImageView extends AppCompatImageView {
     private final Point mPoint = new Point();
     private final PointF mPointF = new PointF();
     private final RectF mRectF = new RectF();
+    private final Rect mSrcRect = new Rect();
+    private final Rect mDstRect = new Rect();
     private final float[] mMatrixValues = new float[9];
     private final float[] mSrcPoints = new float[2];
     private final float[] mDstPoints = new float[2];
@@ -272,6 +269,23 @@ public class InteractiveImageView extends AppCompatImageView {
     @Override
     public ScaleType getScaleType() {
         return mScaleType;
+    }
+
+    @Override
+    public Matrix getImageMatrix() {
+        final Matrix imageMatrix = super.getImageMatrix();
+        if (super.getScaleType() == ScaleType.FIT_XY) {
+            imageMatrix.reset();
+            getIntrinsicImageSize(mPoint);
+            mSrcRect.set(0, 0, mPoint.x, mPoint.y);
+            mDstRect.set(0, 0, getAvailableWidth(), getAvailableHeight());
+            GraphicsUtils.scale(mSrcRect, mDstRect, mScaleType, mPointF);
+            imageMatrix.getValues(mMatrixValues);
+            mMatrixValues[MSCALE_X] = mPointF.x;
+            mMatrixValues[MSCALE_Y] = mPointF.y;
+            imageMatrix.setValues(mMatrixValues);
+        }
+        return imageMatrix;
     }
 
     @Override
@@ -326,6 +340,11 @@ public class InteractiveImageView extends AppCompatImageView {
         return getImageSizeAtScale(mMatrixValues[MSCALE_X], mMatrixValues[MSCALE_Y], outPoint);
     }
 
+    public boolean getDisplayedImageSize(@NonNull PointF outPoint) {
+        getImageMatrix().getValues(mMatrixValues);
+        return getImageSizeAtScale(mMatrixValues[MSCALE_X], mMatrixValues[MSCALE_Y], outPoint);
+    }
+
     public boolean getImageSizeAtScale(float scaleX, float scaleY, @NonNull Point outPoint) {
         boolean retVal = true;
         final Drawable drawable = getDrawable();
@@ -345,6 +364,31 @@ public class InteractiveImageView extends AppCompatImageView {
                 outPoint.y = Math.round(intrinsicHeight * scaleY);
             } else {
                 outPoint.y = -1;
+                retVal = false;
+            }
+        }
+        return retVal;
+    }
+
+    public boolean getImageSizeAtScale(float scaleX, float scaleY, @NonNull PointF outPoint) {
+        boolean retVal = true;
+        final Drawable drawable = getDrawable();
+        if (drawable == null) {
+            outPoint.set(-1.0f, -1.0f);
+            retVal = false;
+        } else {
+            final int intrinsicWidth = drawable.getIntrinsicWidth();
+            if (intrinsicWidth > 0) {
+                outPoint.x = intrinsicWidth * scaleX;
+            } else {
+                outPoint.x = -1.0f;
+                retVal = false;
+            }
+            final int intrinsicHeight = drawable.getIntrinsicHeight();
+            if (intrinsicHeight > 0) {
+                outPoint.y = intrinsicHeight * scaleY;
+            } else {
+                outPoint.y = -1.0f;
                 retVal = false;
             }
         }
@@ -413,7 +457,7 @@ public class InteractiveImageView extends AppCompatImageView {
                 final int intrinsicWidth = d.getIntrinsicWidth();
                 final int intrinsicHeight = d.getIntrinsicHeight();
                 if (intrinsicWidth >= 0 && intrinsicHeight >= 0) {
-                    getImageMatrix().getValues(mMatrixValues); // TODO FIT_XY ?
+                    getImageMatrix().getValues(mMatrixValues);
                     outPoint.x = mMatrixValues[MSCALE_X];
                     outPoint.y = mMatrixValues[MSCALE_Y];
                     return true;
@@ -451,15 +495,13 @@ public class InteractiveImageView extends AppCompatImageView {
             return false;
         }
         synchronized (mLock) {
+            final Matrix matrix = getImageMatrix();
             if (super.getScaleType() != MATRIX) {
                 super.setScaleType(MATRIX);
+                setImageMatrix(matrix);
             }
 
-            // TODO Doing weird things when scale is not "normal"
-            // Changing Y changes X, etc. Maybe using the wrong
-
             mRectF.set(0, 0, intrinsicWidth, intrinsicHeight);
-            final Matrix matrix = getImageMatrix();
             matrix.mapRect(mRectF);
             mSrcPoints[0] = intrinsicWidth * centerX;
             mSrcPoints[1] = intrinsicHeight * centerY;
@@ -500,10 +542,11 @@ public class InteractiveImageView extends AppCompatImageView {
             return false;
         }
         synchronized (mLock) {
+            final Matrix matrix = getImageMatrix();
             if (super.getScaleType() != MATRIX) {
                 super.setScaleType(MATRIX);
+                setImageMatrix(matrix);
             }
-            final Matrix matrix = getImageMatrix();
             matrix.getValues(mMatrixValues); // TODO Can I do this without getting values?
 
             matrix.preScale(

@@ -8,9 +8,7 @@
         <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
         <item name="colorAccent">@color/colorAccent</item>
 
-        <item name="appCompatProgressBarStyle">@style/AppCompatProgressBar</item>
-        <item name="appCompatRatingBarStyle">@style/AppCompatRatingBar</item>
-        <item name="appCompatSeekBarStyle">@style/AppCompatSeekBar</item>
+        <item name="appCompatSeekBarExStyle">@style/AppCompatSeekBarEx</item>
     </style>
 
 </resources>

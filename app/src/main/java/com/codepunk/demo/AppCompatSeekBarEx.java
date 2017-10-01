@@ -1,175 +1,133 @@
 package com.codepunk.demo;
 
 import android.content.Context;
-import android.graphics.Canvas;
-import android.graphics.Rect;
-import android.os.Build;
+import android.content.res.TypedArray;
 import android.support.v4.math.MathUtils;
 import android.support.v7.widget.AppCompatSeekBar;
 import android.util.AttributeSet;
-import android.util.Log;
-import android.view.MotionEvent;
-import android.widget.ProgressBar;
-
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
+import android.widget.SeekBar;
 
 @SuppressWarnings({"unused"})
-public class AppCompatSeekBarEx extends AppCompatSeekBar {
-    //region Nested classes
-    private static abstract class AppCompatSeekBarExImpl {
-        void setProgressInternal(
-                Class<?>[] parameterTypes,
-                AppCompatSeekBarEx seekBar,
-                Object... objects) {
-            try {
-                Method method = ProgressBar.class.getDeclaredMethod(
-                        "setProgressInternal",
-                        parameterTypes);
-                if (method != null) {
-                    if (!method.isAccessible()) {
-                        method.setAccessible(true);
-                    }
-                    method.invoke(seekBar, objects);
-                }
-            } catch (NoSuchMethodException e) {
-                Log.w(TAG, "NoSuchMethodException encountered calling setProgressInternal", e);
-            } catch (IllegalAccessException e) {
-                Log.w(TAG, "IllegalAccessException encountered calling setProgressInternal", e);
-            } catch (InvocationTargetException e) {
-                Log.w(TAG, "InvocationTargetException encountered calling setProgressInternal", e);
-            }
-        }
-
-        protected abstract void setProgressInternal(
-                AppCompatSeekBarEx seekBar,
-                int progress,
-                boolean fromUser,
-                boolean animate);
-    }
-
-    private static class BaseAppCompatSeekBarExImpl extends AppCompatSeekBarExImpl {
-        private static final Class<?>[] SET_PROGRESS_INTERNAL_PARAMETER_TYPES =
-                new Class[] {int.class, boolean.class};
-        @Override
-        protected void setProgressInternal(
-                AppCompatSeekBarEx seekBar,
-                int progress,
-                boolean fromUser,
-                boolean animate) {
-            setProgressInternal(
-                    SET_PROGRESS_INTERNAL_PARAMETER_TYPES,
-                    seekBar,
-                    progress,
-                    fromUser);
-        }
-    }
-
-    private static class NougatAppCompatSeekBarExImpl extends AppCompatSeekBarExImpl {
-        private static final Class<?>[] SET_PROGRESS_INTERNAL_PARAMETER_TYPES =
-                new Class[] {int.class, boolean.class, boolean.class};
-        @Override
-        protected void setProgressInternal(
-                AppCompatSeekBarEx seekBar,
-                int progress,
-                boolean fromUser,
-                boolean animate) {
-            setProgressInternal(
-                    SET_PROGRESS_INTERNAL_PARAMETER_TYPES,
-                    seekBar,
-                    progress,
-                    fromUser,
-                    animate);
-        }
-    }
-    //endregion Nested classes
-
-    //region Constants
-    private static final String TAG = AppCompatSeekBarEx.class.getSimpleName();
-
-    private static final AppCompatSeekBarExImpl IMPL;
-    static {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            IMPL = new NougatAppCompatSeekBarExImpl();
-        } else {
-            IMPL = new BaseAppCompatSeekBarExImpl();
-        }
-    }
-    //endregion Constants
-
+public class AppCompatSeekBarEx extends AppCompatSeekBar implements SeekBar.OnSeekBarChangeListener {
     //region Fields
-    private int mInnerMin = Integer.MIN_VALUE;
-    private int mInnerMax = Integer.MAX_VALUE;
+    private boolean mClampedMaxInitialized;
+    private boolean mClampedMinInitialized;
+    private int mClampedMax = Integer.MAX_VALUE;
+    private int mClampedMin = Integer.MIN_VALUE;
+    private OnSeekBarChangeListener mOnSeekBarChangeListener;
     //endregion Fields
 
     //region Constructors
     public AppCompatSeekBarEx(Context context) {
         super(context);
+        initAppCompatSeekBarEx(context, null, 0);
     }
 
     public AppCompatSeekBarEx(Context context, AttributeSet attrs) {
         super(context, attrs);
+        initAppCompatSeekBarEx(context, attrs, 0);
     }
 
     public AppCompatSeekBarEx(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
+        initAppCompatSeekBarEx(context, attrs, defStyleAttr);
     }
     //endregion Constructors
 
     //region Inherited methods
     @Override
-    public boolean onTouchEvent(MotionEvent event) {
-        final boolean retVal = super.onTouchEvent(event);
-        if (retVal) {
-            clampProgress(true, false);
-        }
-        return retVal;
+    public void setOnSeekBarChangeListener(OnSeekBarChangeListener listener) {
+        mOnSeekBarChangeListener = listener;
     }
-
-    @Override
-    public synchronized void setProgress(int progress) {
-        super.setProgress(progress);
-        clampProgress(false, false);
-    }
-
-    @Override
-    public void setProgress(int progress, boolean animate) {
-        super.setProgress(progress, animate);
-        clampProgress(false, animate);
-    }
-
-    @Override
-    protected synchronized void onDraw(Canvas canvas) {
-        super.onDraw(canvas);
-        Rect r = new Rect();
-    }
-
     //endregion Inherited methods
 
-    //region Methods
-    private void clampProgress(boolean fromUser, boolean animate) {
-        final int progress = getProgress();
-        final int clampedProgress = MathUtils.clamp(progress, mInnerMin, mInnerMax);
+    //region Interface methods
+    @Override // SeekBar.OnSeekBarChangeListener
+    public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+        final int clampedProgress = MathUtils.clamp(progress, mClampedMin, mClampedMax);
         if (progress != clampedProgress) {
-            IMPL.setProgressInternal(this, clampedProgress, fromUser, animate);
-            invalidate();
+            seekBar.setProgress(clampedProgress);
+        }
+
+        if (mOnSeekBarChangeListener != null) {
+            mOnSeekBarChangeListener.onProgressChanged(seekBar, progress, fromUser);
         }
     }
 
-    public int getInnerMin() {
-        return mInnerMin;
+    @Override // SeekBar.OnSeekBarChangeListener
+    public void onStartTrackingTouch(SeekBar seekBar) {
+        if (mOnSeekBarChangeListener != null) {
+            mOnSeekBarChangeListener.onStartTrackingTouch(seekBar);
+        }
     }
 
-    public void setInnerMin(int innerMin) {
-        mInnerMin = innerMin;
+    @Override // SeekBar.OnSeekBarChangeListener
+    public void onStopTrackingTouch(SeekBar seekBar) {
+        if (mOnSeekBarChangeListener != null) {
+            mOnSeekBarChangeListener.onStopTrackingTouch(seekBar);
+        }
     }
+    //endregion Interface methods
 
-    public int getInnerMax() {
-        return mInnerMax;
-    }
-
-    public void setInnerMax(int innerMax) {
-        mInnerMax = innerMax;
-    }
     //region Methods
+    public int getClampedMax() {
+        return mClampedMax;
+    }
+
+    public void setClampedMax(int clampedMax) {
+        if (mClampedMinInitialized) {
+            if (clampedMax < mClampedMin) {
+                clampedMax = mClampedMin;
+            }
+        }
+        mClampedMaxInitialized = true;
+        if (mClampedMinInitialized && clampedMax != mClampedMax) {
+            mClampedMax = clampedMax;
+            if (getProgress() > clampedMax) {
+                setProgress(clampedMax);
+            }
+        } else {
+            mClampedMax = clampedMax;
+        }
+    }
+
+    public int getClampedMin() {
+        return mClampedMin;
+    }
+
+    public void setClampedMin(int clampedMin) {
+        if (mClampedMaxInitialized) {
+            if (clampedMin > mClampedMax) {
+                clampedMin = mClampedMax;
+            }
+        }
+        mClampedMinInitialized = true;
+        if (mClampedMaxInitialized && clampedMin != mClampedMin) {
+            mClampedMin = clampedMin;
+            if (getProgress() < clampedMin) {
+                setProgress(clampedMin);
+            }
+        } else {
+            mClampedMin = clampedMin;
+        }
+    }
+    //endregion Methods
+
+    //region Private methods
+    private void initAppCompatSeekBarEx(Context context, AttributeSet attrs, int defStyleAttr) {
+        TypedArray a = context.obtainStyledAttributes(
+                attrs,
+                R.styleable.AppCompatSeekBarEx,
+                defStyleAttr,
+                0);
+        final int clampedMin =
+                a.getInt(R.styleable.AppCompatProgressBarEx_clampedMin, Integer.MIN_VALUE);
+        final int clampedMax =
+                a.getInt(R.styleable.AppCompatProgressBarEx_clampedMax, Integer.MAX_VALUE);
+        setClampedMin(clampedMin);
+        setClampedMax(clampedMax);
+        a.recycle();
+        super.setOnSeekBarChangeListener(this);
+    }
+    //endregion Private methods
 }

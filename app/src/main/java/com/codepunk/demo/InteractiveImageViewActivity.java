@@ -8,12 +8,12 @@ import android.graphics.Point;
 import android.graphics.PointF;
 import android.os.Build;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
 import android.support.constraint.ConstraintLayout.LayoutParams;
 import android.support.constraint.Guideline;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.AppCompatSeekBar;
 import android.support.v7.widget.AppCompatTextView;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -35,11 +35,9 @@ import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
 
 import static android.os.Build.VERSION_CODES.HONEYCOMB;
 
-@SuppressWarnings({"FieldCanBeLocal", "unused"})
 public class InteractiveImageViewActivity
         extends AppCompatActivity
         implements View.OnClickListener,
@@ -141,11 +139,11 @@ public class InteractiveImageViewActivity
     private AppCompatTextView mPanYMaxValueView;
     private AppCompatTextView mScaleXValueView;
     private AppCompatTextView mScaleXMinValueView;
-    private AppCompatSeekBar mScaleXSeekBar;
+    private AppCompatSeekBarEx mScaleXSeekBar;
     private AppCompatTextView mScaleXMaxValueView;
     private AppCompatTextView mScaleYValueView;
     private AppCompatTextView mScaleYMinValueView;
-    private AppCompatSeekBar mScaleYSeekBar;
+    private AppCompatSeekBarEx mScaleYSeekBar;
     private AppCompatTextView mScaleYMaxValueView;
     private ViewGroup mLockBtnLayout;
     private ToggleButton mLockBtn;
@@ -169,9 +167,12 @@ public class InteractiveImageViewActivity
 
     private final Point mIntrinsicSizePoint = new Point();
     private final Point mDisplayedSizePoint = new Point();
+    private final PointF mDisplayedSizePointF = new PointF();
     private final Point mMinScaledSizePoint = new Point();
     private final Point mMaxScaledSizePoint = new Point(); // TODO Replace these with a point "factory"?
     private boolean mHasIntrinsicSize = false;
+
+    private boolean mPendingResetClamps = false;
     //endregion Fields
 
     //region Lifecycle methods
@@ -264,50 +265,23 @@ public class InteractiveImageViewActivity
     //endregion Lifecycle methods
 
     //region Interface methods
-    @Override /* View.OnClickListener */
+    @Override // View.OnClickListener
     public void onClick(View v) {
         if (v == mLockBtn) {
-            final float minScaleX = mImageView.getMinScaleX();
-            final float maxScaleX = mImageView.getMaxScaleX();
-            final float minScaleY = mImageView.getMinScaleY();
-            final float maxScaleY = mImageView.getMaxScaleY();
-            mImageView.getScale(mScalePoint);
-            if (mLockBtn.isChecked()) {
-                if (mHasIntrinsicSize) {
-                    final float lockedMinPct =
-                            Math.max(minScaleX / mScalePoint.x, minScaleY / mScalePoint.y);
-                    final float lockedMaxPct =
-                            Math.min(maxScaleX / mScalePoint.x, maxScaleY / mScalePoint.y);
-                    final float progress = (1.0f - lockedMinPct) / (lockedMaxPct - lockedMinPct);
-                    setValue(mScaleXSeekBar, progress, true);
-                    setValue(mScaleYSeekBar, progress, true);
-                } else {
-                    // TODO ?? Probably disable everything if no intrinsic size
-                }
-            } else {
-                if (mHasIntrinsicSize) {
-                    setValue(
-                            mScaleXSeekBar,
-                            (mScalePoint.x - minScaleX) / (maxScaleX - minScaleX),
-                            true);
-                    setValue(
-                            mScaleYSeekBar,
-                            (mScalePoint.y - minScaleY) / (maxScaleY - minScaleY),
-                            true);
-                } else {
-                    // TODO ?? Probably disable everything if no intrinsic size
-                }
-            }
+            resetClamps();
         }
     }
 
-    @Override /* AdapterView.OnItemSelectedListener */
+    @Override // AdapterView.OnItemSelectedListener
     public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
         switch (parent.getId()) {
             case R.id.spinner_drawable:
                 final int resId = DRAWABLE_RES_IDS.get(position);
                 mImageView.setImageResource(resId);
                 mHasIntrinsicSize = mImageView.getIntrinsicImageSize(mIntrinsicSizePoint);
+                mPendingResetClamps = true;
+
+                // TODO Enable/disable controls based on intrinsic size
                 /*
                 final Drawable drawable = mImageView.getDrawable();
                 if (drawable == null) {
@@ -326,6 +300,7 @@ public class InteractiveImageViewActivity
                 final String name = mScaleTypeEntryValues[position];
                 ImageView.ScaleType scaleType = ImageView.ScaleType.valueOf(name);
                 mImageView.setScaleType(scaleType);
+                mPendingResetClamps = true;
                 break;
         }
     }
@@ -337,127 +312,34 @@ public class InteractiveImageViewActivity
     @Override // SeekBar.OnSeekBarChangeListener
     public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
         if (fromUser) {
-            /*
-            int startProgress = mTrackingStartValues.containsKey(seekBar) ? mTrackingStartValues.get(seekBar) : 0;
-            float factor = (float) progress / startProgress;
-            Log.d(TAG, String.format(Locale.US, "startProgress=%d, factor=%.2f", startProgress, factor));
-            */
-            final int id = seekBar.getId();
-            switch (id) {
+            mImageView.getScale(mScalePoint);
+            final float minScaleX = mImageView.getMinScaleX();
+            final float maxScaleX = mImageView.getMaxScaleX();
+            final float minScaleY = mImageView.getMinScaleY();
+            final float maxScaleY = mImageView.getMaxScaleY();
+            switch (seekBar.getId()) {
                 case R.id.seek_pan_x_value:
                 case R.id.seek_pan_y_value:
                     float centerX = getValue(mPanXSeekBar, 0.0f, 1.0f);
                     float centerY = getValue(mPanYSeekBar, 0.0f, 1.0f);
                     mImageView.setRelativeCenter(centerX, centerY);
                     break;
-                case R.id.seek_scale_x_value:
-                case R.id.seek_scale_y_value:
-                    final float minScaleX = mImageView.getMinScaleX();
-                    final float maxScaleX = mImageView.getMaxScaleX();
-                    final float minScaleY = mImageView.getMinScaleY();
-                    final float maxScaleY = mImageView.getMaxScaleY();
-                    mImageView.getScale(mScalePoint);
-                    final float scaleX;
-                    final float scaleY;
-
-                    if (mLockBtn.isChecked() && mHasIntrinsicSize /* TODO Probably disable everything if no intrinsic size */) {
-                        if (seekBar == mScaleXSeekBar) {
-                            mScaleYSeekBar.setProgress(progress);
-                        } else {
-                            mScaleXSeekBar.setProgress(progress);
-                        }
-
-                        final float minXtoCurXRatio = minScaleX / mScalePoint.x;
-                        final float minYtoCurYRatio = minScaleY / mScalePoint.y;
-                        final float maxXtoCurXRatio = maxScaleX / mScalePoint.x;
-                        final float maxYtoCurYRatio = maxScaleY / mScalePoint.y;
-                        final float lockedMinRatio = Math.max(minXtoCurXRatio, minYtoCurYRatio);
-                        final float lockedMaxRatio = Math.min(maxXtoCurXRatio, maxYtoCurYRatio);
-
-                        // What are the endpoints of the sliders?
-                        final float curRatio = lockedMinRatio + (lockedMaxRatio - lockedMinRatio) * progress;
-                        Log.d(TAG, String.format(Locale.US, "curRatio=%.2f", curRatio));
-
-                        // X
-                        // TODO NEXT !!! How do I translate what I have into a resulting scaleX and scaleY?
-
-                        // Y
-
-                        // TODO Values from seek bars represent something different here
-                        scaleX = getValue(mScaleXSeekBar, minScaleX, maxScaleX);
-                        scaleY = getValue(mScaleYSeekBar, minScaleY, maxScaleY);
-
-                    } else {
-
-                    /*
-                    if (mScaleLocked &&
-                            mImageView.getIntrinsicImageSize(mIntrinsicSizePoint) &&
-                            mImageView.getDisplayedImageSize(mDisplayedSizePoint)) {
-                        final float whRatio = (float) mDisplayedSizePoint.x / mDisplayedSizePoint.y;
-                        if (id == R.id.seek_scale_x_value) {
-
-                            // TODO We're close. Simplify the logic?
-
-                            final float proposedScaleX = getRangeProgress(mScaleXSeekBar, minScaleX, maxScaleX);
-                            final int proposedSizeX = Math.round(mIntrinsicSizePoint.x * proposedScaleX);
-                            final int proposedSizeY = Math.round(proposedSizeX / whRatio);
-                            final float proposedScaleY = (float) proposedSizeY / mIntrinsicSizePoint.y;
-
-//                            Log.d(TAG, String.format(Locale.US, "before constraint: scaleX=%.2f, scaleY=%.2f", proposedScaleX, proposedScaleY));
-
-
-                            if (proposedScaleY < minScaleY) {
-                                scaleY = minScaleY;
-                                final int newSizeY = Math.round(mIntrinsicSizePoint.y * scaleY);
-                                final int newSizeX = Math.round(newSizeY * whRatio);
-                                scaleX = (float) (newSizeX / mIntrinsicSizePoint.x);
-                            } else if (proposedScaleY > maxScaleY) {
-                                scaleY = maxScaleY;
-                                final int newSizeY = Math.round(mIntrinsicSizePoint.y * scaleY);
-                                final int newSizeX = Math.round(newSizeY * whRatio);
-                                scaleX = (float) (newSizeX / mIntrinsicSizePoint.x);
-                            } else {
-                                scaleY = proposedScaleY;
-                                scaleX = proposedScaleX;
-                            }
-
-//                            Log.d(TAG, String.format(Locale.US, "before constraint: scaleX=%.2f, scaleY=%.2f", scaleX, scaleY));
-
-                        } else {
-                            final float proposedScaleY = getRangeProgress(mScaleYSeekBar, minScaleY, maxScaleY);
-                            final int proposedSizeY = Math.round(mIntrinsicSizePoint.y * proposedScaleY);
-                            final int proposedSizeX = Math.round(proposedSizeY * whRatio);
-                            final float proposedScaleX = (float) proposedSizeX / mIntrinsicSizePoint.x;
-                            if (proposedScaleX < minScaleX) {
-                                scaleX = minScaleX;
-                                final int newSizeX = Math.round(mIntrinsicSizePoint.x * scaleX);
-                                final int newSizeY = Math.round(newSizeX / whRatio);
-                                scaleY = (float) (newSizeY / mIntrinsicSizePoint.y);
-                            } else if (proposedScaleX > maxScaleX) {
-                                scaleX = maxScaleX;
-                                final int newSizeX = Math.round(mIntrinsicSizePoint.x * scaleX);
-                                final int newSizeY = Math.round(newSizeX / whRatio);
-                                scaleY = (float) (newSizeY / mIntrinsicSizePoint.y);
-                            } else {
-                                scaleX = proposedScaleX;
-                                scaleY = proposedScaleY;
-                            }
-                        }
-                    } else {
-                    */
-                        scaleX = getValue(mScaleXSeekBar, minScaleX, maxScaleX);
-                        scaleY = getValue(mScaleYSeekBar, minScaleY, maxScaleY);
-                    }
-
-                    // TODO set the 2 seek bars
-                    //final int progressX = extrapolate(scaleX);
-                    //final int progressY = extrapolate(scaleY);
-                    //if ()
-//                    setRangeProgress(mScaleXSeekBar, minScaleX, maxScaleX, scaleX, false);
-//                    setRangeProgress(mScaleYSeekBar, minScaleX, maxScaleX, scaleX, false);
-
+                case R.id.seek_scale_x_value: {
+                    final float scaleX = getValue(seekBar, minScaleX, maxScaleX);
+                    final float scaleY = (mLockBtn.isChecked() ?
+                            mScalePoint.y * scaleX / mScalePoint.x :
+                            mScalePoint.y);
                     mImageView.setScale(scaleX, scaleY);
                     break;
+                }
+                case R.id.seek_scale_y_value: {
+                    final float scaleY = getValue(seekBar, minScaleY, maxScaleY);
+                    final float scaleX = (mLockBtn.isChecked() ?
+                            mScalePoint.x * scaleY / mScalePoint.y :
+                            mScalePoint.x);
+                    mImageView.setScale(scaleX, scaleY);
+                    break;
+                }
             }
         }
     }
@@ -491,6 +373,13 @@ public class InteractiveImageViewActivity
         mPanYValueView.setText(mPercentFormat.format(mCenterPoint.y));
         setValue(mPanYSeekBar, 0.0f, 1.0f, mCenterPoint.y, false);
 
+        if (mPendingResetClamps) {
+            mScaleXSeekBar.setClampedMin(Integer.MIN_VALUE);
+            mScaleXSeekBar.setClampedMax(Integer.MAX_VALUE);
+            mScaleYSeekBar.setClampedMin(Integer.MIN_VALUE);
+            mScaleYSeekBar.setClampedMax(Integer.MAX_VALUE);
+        }
+
         final float minScaleX = view.getMinScaleX();
         final float maxScaleX = view.getMaxScaleX();
         final float minScaleY = view.getMinScaleY();
@@ -511,29 +400,10 @@ public class InteractiveImageViewActivity
         setValue(mScaleXSeekBar, minWidth, maxWidth, mIntrinsicSizePoint.x * mScalePoint.x, false);
         setValue(mScaleYSeekBar, minHeight, maxHeight, mIntrinsicSizePoint.y * mScalePoint.y, false);
 
-        // TODO TEMP
-        /*
-        final float[] values = new float[9];
-        mImageView.getImageMatrix().getValues(values);
-        final Point size = new Point();
-        mImageView.getIntrinsicImageSize(size);
-        final Rect drawnRect = new Rect(
-                Math.round(values[Matrix.MTRANS_X]),
-                Math.round(values[Matrix.MTRANS_Y]),
-                Math.round(values[Matrix.MTRANS_X] + size.x * values[Matrix.MSCALE_X]),
-                Math.round(values[Matrix.MTRANS_Y] + size.y * values[Matrix.MSCALE_Y]));
-
-        final Rect viewRect = new Rect(
-                0,
-                0,
-                mImageView.getWidth() - mImageView.getPaddingLeft() - mImageView.getPaddingRight(),
-                mImageView.getHeight() - mImageView.getPaddingTop() - mImageView.getPaddingBottom());
-        final Rect scaledRect = new Rect();
-        GraphicsUtils.scale(drawnRect, viewRect, mImageView.getScaleType(), scaledRect);
-
-        Log.d(TAG, String.format(Locale.US, "drawnRect=%s, scaledRect=%s", drawnRect, scaledRect));
-        */
-        // END TEMP
+        if (mPendingResetClamps) {
+            mPendingResetClamps = false;
+            resetClamps();
+        }
     }
     //endregion Interface methods
 
@@ -597,6 +467,14 @@ public class InteractiveImageViewActivity
         return (minValue + (maxValue - minValue) * percent);
     }
 
+    private static int getAbsoluteValue(@NonNull ProgressBar progressBar, float relativeValue) {
+        return Math.round(progressBar.getMax() * relativeValue);
+    }
+
+    private static float getRelativeValue(@NonNull ProgressBar progressBar, int absoluteValue) {
+        return (float) absoluteValue / progressBar.getMax();
+    }
+
     private static float getValue(ProgressBar progressBar, float minValue, float maxValue) {
         final int minProgress = 0;
         return progressToValue(
@@ -605,6 +483,70 @@ public class InteractiveImageViewActivity
                 progressBar.getProgress(),
                 minValue,
                 maxValue);
+    }
+
+    private void resetClamps() {
+        final float minScaleX = mImageView.getMinScaleX();
+        final float maxScaleX = mImageView.getMaxScaleX();
+        final float minScaleY = mImageView.getMinScaleY();
+        final float maxScaleY = mImageView.getMaxScaleY();
+        final int scaleXClampedMin;
+        final int scaleXClampedMax;
+        final int scaleYClampedMin;
+        final int scaleYClampedMax;
+        if (mLockBtn.isChecked()) {
+            final float currentScaleX = getValue(mScaleXSeekBar, minScaleX, maxScaleX);
+            final float currentScaleY = getValue(mScaleYSeekBar, minScaleY, maxScaleY);
+            final float shrinkFactor;
+            final float growFactor;
+            if (getRelativeValue(mScaleXSeekBar, mScaleXSeekBar.getProgress()) <
+                    getRelativeValue(mScaleYSeekBar, mScaleYSeekBar.getProgress())) {
+                shrinkFactor = currentScaleX / minScaleX;
+                growFactor = maxScaleY / currentScaleY;
+                scaleXClampedMin = Integer.MIN_VALUE;
+                scaleXClampedMax = valueToProgress(
+                        minScaleX,
+                        maxScaleX,
+                        currentScaleX * growFactor,
+                        0,
+                        mScaleXSeekBar.getMax());
+                scaleYClampedMin = valueToProgress(
+                        minScaleY,
+                        maxScaleY,
+                        currentScaleY / shrinkFactor,
+                        0,
+                        mScaleYSeekBar.getMax());
+                scaleYClampedMax = Integer.MAX_VALUE;
+            } else {
+                shrinkFactor = currentScaleY / minScaleY;
+                growFactor = maxScaleX / currentScaleX;
+                scaleXClampedMin = valueToProgress(
+                        minScaleX,
+                        maxScaleX,
+                        currentScaleX / shrinkFactor,
+                        0,
+                        mScaleXSeekBar.getMax());
+                scaleXClampedMax = Integer.MAX_VALUE;
+                scaleYClampedMin = Integer.MIN_VALUE;
+                scaleYClampedMax = valueToProgress(
+                        minScaleY,
+                        maxScaleY,
+                        currentScaleY * growFactor,
+                        0,
+                        mScaleYSeekBar.getMax());
+            }
+        } else {
+            scaleXClampedMin = scaleYClampedMin = Integer.MIN_VALUE;
+            scaleXClampedMax = scaleYClampedMax = Integer.MAX_VALUE;
+        }
+        mScaleXSeekBar.setClampedMin(scaleXClampedMin);
+        mScaleXSeekBar.setClampedMax(scaleXClampedMax);
+        mScaleYSeekBar.setClampedMin(scaleYClampedMin);
+        mScaleYSeekBar.setClampedMax(scaleYClampedMax);
+    }
+
+    private static void setProgressPercent(@NonNull ProgressBar progressBar, float progressPercent) {
+        progressBar.setProgress(Math.round(progressBar.getMax() * progressPercent));
     }
 
     private static void setValue(

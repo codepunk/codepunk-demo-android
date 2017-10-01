@@ -1,34 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <declare-styleable name="Theme">
-        <attr name="appCompatProgressBarStyle" format="reference" />
-        <attr name="appCompatRatingBarStyle" format="reference" />
-        <attr name="appCompatSeekBarStyle" format="reference" />
+        <attr name="appCompatSeekBarExStyle" format="reference" />
+        <attr name="clampedMax" format="integer" />
+        <attr name="clampedMin" format="integer" />
     </declare-styleable>
 
-    <attr name="supportMax" format="integer" />
-    <attr name="supportMin" format="integer" />
-    <attr name="supportProgress" format="integer" />
-    <attr name="supportSecondaryProgress" format="integer" />
-
-    <declare-styleable name="AppCompatProgressBar">
-        <attr name="supportMax" />
-        <attr name="supportMin" />
-        <attr name="supportProgress" />
-        <attr name="supportSecondaryProgress" />
+    <declare-styleable name="AppCompatProgressBarEx">
+        <attr name="clampedMax" />
+        <attr name="clampedMin" />
     </declare-styleable>
 
-    <declare-styleable name="AppCompatRatingBar">
-        <attr name="supportMax" />
-        <attr name="supportMin" />
-        <attr name="supportProgress" />
-        <attr name="supportSecondaryProgress" />
+    <declare-styleable name="AppCompatRatingBarEx">
+        <attr name="clampedMax" />
+        <attr name="clampedMin" />
     </declare-styleable>
 
-    <declare-styleable name="AppCompatSeekBar">
-        <attr name="supportMax" />
-        <attr name="supportMin" />
-        <attr name="supportProgress" />
-        <attr name="supportSecondaryProgress" />
+    <declare-styleable name="AppCompatSeekBarEx">
+        <attr name="clampedMax" />
+        <attr name="clampedMin" />
     </declare-styleable>
 </resources>
