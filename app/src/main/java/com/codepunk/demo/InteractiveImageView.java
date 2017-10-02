@@ -24,7 +24,7 @@ import static android.graphics.Matrix.MSCALE_Y;
 import static android.widget.ImageView.ScaleType.FIT_XY;
 import static android.widget.ImageView.ScaleType.MATRIX;
 
-// TODO NEXT Figure out how to do "locked" scaling
+// TODO NEXT SavedState, restore relative center & scale on configuration change
 
 @SuppressWarnings({"unused", "WeakerAccess"})
 public class InteractiveImageView extends AppCompatImageView {
