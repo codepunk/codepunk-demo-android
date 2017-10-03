@@ -1,5 +1,6 @@
 package com.codepunk.demo;
 
+import android.annotation.TargetApi;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
@@ -8,6 +9,9 @@ import android.graphics.PointF;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
+import android.os.Build;
+import android.os.Parcel;
+import android.os.Parcelable;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.annotation.Px;
@@ -15,6 +19,7 @@ import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
 import android.view.Display;
+import android.view.View;
 import android.view.WindowManager;
 
 import com.codepunk.demo.support.DisplayCompat;
@@ -77,22 +82,26 @@ public class InteractiveImageView extends AppCompatImageView {
 
         @Override
         public float getMaxScaleX() {
-            return getMaxScale().x;
+            calcMaxScale();
+            return mMaxScale.x;
         }
 
         @Override
         public float getMaxScaleY() {
-            return getMaxScale().y;
+            calcMaxScale();
+            return mMaxScale.y;
         }
 
         @Override
         public float getMinScaleX() {
-            return getMinScale().x;
+            calcMinScale();
+            return mMinScale.x;
         }
 
         @Override
         public float getMinScaleY() {
-            return getMinScale().y;
+            calcMinScale();
+            return mMinScale.y;
         }
 
         @Override
@@ -105,7 +114,7 @@ public class InteractiveImageView extends AppCompatImageView {
             mMinScaleDirty = true;
         }
 
-        private synchronized PointF getMaxScale() {
+        private synchronized void calcMaxScale() {
             if (mMaxScaleDirty) {
                 mMaxScaleDirty = false;
                 if (getIntrinsicImageSize(mPoint)) {
@@ -134,10 +143,9 @@ public class InteractiveImageView extends AppCompatImageView {
                     mMaxScale.set(1.0f, 1.0f);
                 }
             }
-            return mMaxScale;
         }
 
-        private synchronized PointF getMinScale() {
+        private synchronized void calcMinScale() {
             if (mMinScaleDirty) {
                 mMinScaleDirty = false;
                 if (getIntrinsicImageSize(mPoint)) {
@@ -156,75 +164,60 @@ public class InteractiveImageView extends AppCompatImageView {
                     mMinScale.set(1.0f, 1.0f);
                 }
             }
-            return mMinScale;
         }
+    }
 
-        /*
-        private synchronized Point getMinSize() {
-            return null;
-        }
-
-        private int getCorrespondingDimension(Point point) {
-            if (point.x < point.y) {
-                return getAvailableWidth();
-            } else if (point.x > point.y) {
-                return getAvailableHeight();
-            } else {
-                return Math.min(getAvailableWidth(), getAvailableHeight());
+    private static class SavedState extends View.BaseSavedState {
+        //region Nested classes
+        public static final Parcelable.Creator<SavedState> CREATOR = new Creator<SavedState>() {
+            @Override
+            public SavedState createFromParcel(Parcel in) {
+                return new SavedState(in);
             }
+
+            @Override
+            public SavedState[] newArray(int size) {
+                return new SavedState[size];
+            }
+        };
+        //endregion Nested classes
+
+        //region Fields
+        private float relativeCenterX;
+        private float relativeCenterY;
+        private float scaleX;
+        private float scaleY;
+        //endregion Fields
+
+        //region Constructors
+        public SavedState(Parcel source) {
+            super(source);
         }
 
-        private void getSmallestMaxScaleBasedOnView(PointF outPoint) {
-            if (getIntrinsicImageSize(mPoint)) {
-                getImageMatrix().getValues(mMatrixValues);
-                final int displayedWidth = Math.round(mPoint.x * mMatrixValues[MSCALE_X]);
-                final int displayedHeight = Math.round(mPoint.y * mMatrixValues[MSCALE_Y]);
-                final float scale;
-                if (displayedWidth < displayedHeight) {
-                    scale = (float) getAvailableWidth() / displayedWidth;
-                } else if (displayedWidth > displayedHeight) {
-                    scale = (float) getAvailableHeight() / displayedHeight;
-                } else {
-                    scale = (float) Math.min(getAvailableWidth(), getAvailableHeight()) /
-                            displayedWidth;
-                }
-                outPoint.set(scale * mMatrixValues[MSCALE_X], scale * mMatrixValues[MSCALE_Y]);
-            } else {
-                outPoint.set(1.0f, 1.0f);
-            }
+        @TargetApi(Build.VERSION_CODES.N)
+        public SavedState(Parcel source, ClassLoader loader) {
+            super(source, loader);
+            relativeCenterX = source.readFloat();
+            relativeCenterY = source.readFloat();
+            scaleX = source.readFloat();
+            scaleY = source.readFloat();
         }
 
-        private void getScaleForScaleType(ScaleType scaleType, PointF outPoint) {
-            if (!getIntrinsicImageSize(mPoint) || scaleType == ScaleType.CENTER) {
-                outPoint.set(1.0f, 1.0f);
-            } else if (scaleType == ScaleType.MATRIX) {
-                getImageMatrix().getValues(mMatrixValues);
-                outPoint.set(mMatrixValues[MSCALE_X], mMatrixValues[MSCALE_Y]);
-            } else {
-                final float scaleX = (float) getAvailableWidth() / mPoint.x;
-                final float scaleY = (float) getAvailableHeight() / mPoint.y;
-                final float max = Math.max(scaleX, scaleY);
-                final float min = Math.min(scaleX, scaleY);
-                switch (mScaleType) {
-                    case CENTER_CROP:
-                        outPoint.set(max, max);
-                        break;
-                    case CENTER_INSIDE:
-                        final float scale = Math.min(min, 1.0f);
-                        outPoint.set(scale, scale);
-                        break;
-                    case FIT_CENTER:
-                    case FIT_END:
-                    case FIT_START:
-                        outPoint.set(min, min);
-                        break;
-                    case FIT_XY:
-                        outPoint.set(scaleX, scaleY);
-                        break;
-                }
-            }
+        public SavedState(Parcelable superState) {
+            super(superState);
         }
-        */
+        //endregion Constructors
+
+        //region Inherited methods
+        @Override
+        public void writeToParcel(Parcel out, int flags) {
+            super.writeToParcel(out, flags);
+            out.writeFloat(relativeCenterX);
+            out.writeFloat(relativeCenterY);
+            out.writeFloat(scaleX);
+            out.writeFloat(scaleY);
+        }
+        //endregion Inherited methods
     }
     //endregion Nested classes
 
@@ -266,7 +259,6 @@ public class InteractiveImageView extends AppCompatImageView {
     //endregion Constructors
 
     //region Inherited methods
-
     @Override
     public ScaleType getScaleType() {
         return mScaleType;
@@ -298,9 +290,22 @@ public class InteractiveImageView extends AppCompatImageView {
     }
 
     @Override
+    protected void onRestoreInstanceState(Parcelable state) {
+        super.onRestoreInstanceState(state);
+        // TODO NEXT
+    }
+
+    @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
         invalidateScalingStrategy();
+    }
+
+    @Nullable
+    @Override
+    protected Parcelable onSaveInstanceState() {
+        return super.onSaveInstanceState();
+        // TODO NEXT
     }
 
     @Override

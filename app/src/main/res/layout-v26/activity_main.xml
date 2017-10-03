@@ -26,10 +26,7 @@
         app:layout_constraintTop_toBottomOf="@android:id/text1"
         android:layout_margin="20dp"
         style="@style/Widget.AppCompat.ProgressBar.Horizontal"
-        android:indeterminate="false"
-        app:supportMin="1000"
-        app:supportMax="2000"
-        app:supportProgress="1500"/>
+        android:indeterminate="false"/>
 
     <com.codepunk.demo.support.widget.AppCompatSeekBar
         android:id="@+id/seek_bar"
@@ -40,10 +37,7 @@
         app:layout_constraintTop_toBottomOf="@id/progress_bar"
         android:layout_margin="20dp"
         style="@style/Widget.AppCompat.ProgressBar.Horizontal"
-        android:indeterminate="false"
-        app:supportMin="1000"
-        app:supportMax="2000"
-        app:supportProgress="1500"/>
+        android:indeterminate="false"/>
 
     <SeekBar
         android:id="@+id/seek_bar_2"
