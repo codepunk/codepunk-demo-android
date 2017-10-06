@@ -183,10 +183,12 @@ public class InteractiveImageView extends AppCompatImageView {
         //endregion Nested classes
 
         //region Fields
-        private float relativeCenterX;
-        private float relativeCenterY;
+        private boolean hasCustomPlacement;
+        private ScaleType savedScaleType;
         private float scaleX;
         private float scaleY;
+        private float relativeCenterX;
+        private float relativeCenterY;
         //endregion Fields
 
         //region Constructors
@@ -197,10 +199,12 @@ public class InteractiveImageView extends AppCompatImageView {
         @TargetApi(Build.VERSION_CODES.N)
         public SavedState(Parcel source, ClassLoader loader) {
             super(source, loader);
-            relativeCenterX = source.readFloat();
-            relativeCenterY = source.readFloat();
+            hasCustomPlacement = (source.readByte() != (byte) 0);
+            savedScaleType = (ScaleType) source.readSerializable();
             scaleX = source.readFloat();
             scaleY = source.readFloat();
+            relativeCenterX = source.readFloat();
+            relativeCenterY = source.readFloat();
         }
 
         public SavedState(Parcelable superState) {
@@ -212,10 +216,12 @@ public class InteractiveImageView extends AppCompatImageView {
         @Override
         public void writeToParcel(Parcel out, int flags) {
             super.writeToParcel(out, flags);
-            out.writeFloat(relativeCenterX);
-            out.writeFloat(relativeCenterY);
+            out.writeByte((byte) (hasCustomPlacement ? 1 : 0));
+            out.writeSerializable(savedScaleType);
             out.writeFloat(scaleX);
             out.writeFloat(scaleY);
+            out.writeFloat(relativeCenterX);
+            out.writeFloat(relativeCenterY);
         }
         //endregion Inherited methods
     }
@@ -242,6 +248,8 @@ public class InteractiveImageView extends AppCompatImageView {
     private ScalingStrategy mScalingStrategy;
 
     private OnDrawListener mOnDrawListener;
+
+    private SavedState mPendingSavedState;
     //endregion Fields
 
     //region Constructors
@@ -284,6 +292,19 @@ public class InteractiveImageView extends AppCompatImageView {
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
+
+        // TODO Anywhere else I can do this? *STILL NOT WORKING*
+        /*
+        if (mPendingSavedState != null) {
+            if (mPendingSavedState.hasCustomPlacement) {
+                setScaleType(mPendingSavedState.savedScaleType);
+                setRelativeCenter(mPendingSavedState.relativeCenterX, mPendingSavedState.relativeCenterY);
+                setScale(mPendingSavedState.scaleX, mPendingSavedState.scaleY);
+            }
+            mPendingSavedState = null;
+        }
+        */
+
         if (mOnDrawListener != null) {
             mOnDrawListener.onDraw(this, canvas);
         }
@@ -291,8 +312,14 @@ public class InteractiveImageView extends AppCompatImageView {
 
     @Override
     protected void onRestoreInstanceState(Parcelable state) {
-        super.onRestoreInstanceState(state);
-        // TODO NEXT
+        if (!state.getClass().equals(SavedState.class)) {
+            // Didn't save state for us in onSaveInstanceState
+            super.onRestoreInstanceState(state);
+            return;
+        }
+
+        mPendingSavedState = (SavedState) state;
+        super.onRestoreInstanceState(mPendingSavedState.getSuperState());
     }
 
     @Override
@@ -304,8 +331,40 @@ public class InteractiveImageView extends AppCompatImageView {
     @Nullable
     @Override
     protected Parcelable onSaveInstanceState() {
-        return super.onSaveInstanceState();
-        // TODO NEXT
+        Parcelable superState = super.onSaveInstanceState();
+        SavedState state = new SavedState(superState);
+
+        // TODO Determine if we have custom placement
+        state.hasCustomPlacement = hasCustomPlacement();
+
+        //state.hasPureScaleType = false; // TODO If size is equal to default size for scale type
+        if (state.hasCustomPlacement) {
+            state.savedScaleType = mScaleType;
+            getScale(mPointF);
+            state.scaleX = mPointF.x;
+            state.scaleY = mPointF.y;
+            getRelativeCenter(mPointF);
+            state.relativeCenterX = mPointF.x;
+            state.relativeCenterY = mPointF.y;
+        }
+        return state;
+    }
+
+    @Override
+    public boolean performClick() {
+        final boolean retVal = super.performClick();
+
+        // TODO Where can I restore this so it actually works?
+        if (mPendingSavedState != null) {
+            if (mPendingSavedState.hasCustomPlacement) {
+                setScaleType(mPendingSavedState.savedScaleType);
+                setRelativeCenter(mPendingSavedState.relativeCenterX, mPendingSavedState.relativeCenterY);
+                setScale(mPendingSavedState.scaleX, mPendingSavedState.scaleY);
+            }
+            mPendingSavedState = null;
+        }
+
+        return retVal;
     }
 
     @Override
@@ -584,6 +643,19 @@ public class InteractiveImageView extends AppCompatImageView {
 
     private int getAvailableWidth() {
         return getWidth() - getPaddingLeft() - getPaddingRight();
+    }
+
+    private boolean hasCustomPlacement() {
+        // TODO
+        return true;
+    }
+
+    private boolean hasIntrinsicSize() {
+        final Drawable d = getDrawable();
+        if (d == null) {
+            return false;
+        }
+        return (d.getIntrinsicWidth() > 0 && d.getIntrinsicWidth() > 0);
     }
 
     private void internalSetScaleType(ScaleType scaleType) {
