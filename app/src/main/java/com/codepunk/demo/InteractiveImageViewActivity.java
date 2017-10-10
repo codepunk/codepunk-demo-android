@@ -9,6 +9,7 @@ import android.graphics.PointF;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.support.annotation.DrawableRes;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.constraint.ConstraintLayout.LayoutParams;
@@ -118,8 +119,10 @@ public class InteractiveImageViewActivity
             R.drawable.gradient);
 
     private static final int HIDDEN_END = 0;
-    private static final String KEY_SHOWING_CONTROLS = makeKey("showingControls");
-    private static final String KEY_SCALE_LOCKED = makeKey("scaleLocked");
+    private static final String KEY_SHOWING_CONTROLS =
+            InteractiveImageViewActivity.class.getName() + ".showingControls";
+    private static final String KEY_SCALE_LOCKED =
+            InteractiveImageViewActivity.class.getName() + ".scaleLocked";
     //endregion Constants
 
     //region Fields
@@ -175,22 +178,12 @@ public class InteractiveImageViewActivity
     private boolean mHasIntrinsicSize = false;
 
     private boolean mPendingResetClamps = true;
-    private boolean mIsRestoring = false;
     //endregion Fields
 
     //region Lifecycle methods
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        final boolean scaleLocked;
-        if (savedInstanceState == null) {
-            scaleLocked = true;
-        } else  {
-            mShowingControls = savedInstanceState.getBoolean(KEY_SHOWING_CONTROLS, false);
-            mIsRestoring = true;
-            scaleLocked = savedInstanceState.getBoolean(KEY_SCALE_LOCKED, false);
-        }
 
         setContentView(R.layout.activity_interactive_image_view);
         mMainLayout = findViewById(R.id.layout_main);
@@ -230,6 +223,14 @@ public class InteractiveImageViewActivity
         mDuration = res.getInteger(android.R.integer.config_shortAnimTime);
         mScaleTypeEntryValues = res.getStringArray(R.array.scale_type_values);
 
+        final boolean scaleLocked;
+        if (savedInstanceState == null) {
+            scaleLocked = true;
+        } else  {
+            mShowingControls = savedInstanceState.getBoolean(KEY_SHOWING_CONTROLS, false);
+            scaleLocked = savedInstanceState.getBoolean(KEY_SCALE_LOCKED, false);
+        }
+
         if (mShowingControls) {
             showControls(false);
         } else {
@@ -253,12 +254,10 @@ public class InteractiveImageViewActivity
     }
 
     @Override
-    protected void onPostCreate(@Nullable Bundle savedInstanceState) {
+    protected void onPostCreate(@Nullable final Bundle savedInstanceState) {
         super.onPostCreate(savedInstanceState);
 
         mImageView.setOnDrawListener(this);
-        mDrawableSpinner.setOnItemSelectedListener(this);
-        mScaleTypeSpinner.setOnItemSelectedListener(this);
         mLockBtnLayout.setOnClickListener(this);
         mPanXSeekBar.setOnSeekBarChangeListener(this);
         mPanYSeekBar.setOnSeekBarChangeListener(this);
@@ -266,20 +265,29 @@ public class InteractiveImageViewActivity
         mScaleXSeekBar.setOnSeekBarChangeListener(this);
         mScaleYSeekBar.setOnSeekBarChangeListener(this);
 
-        if (savedInstanceState == null) {
-            final int resId = R.drawable.wilderness_lodge;
-            final int position = DRAWABLE_RES_IDS.indexOf(resId);
-            mDrawableSpinner.setSelection(position);
-            final ImageView.ScaleType scaleType = mImageView.getScaleType();
-            mScaleTypeSpinner.setSelection(scaleType.ordinal());
-        } else {
-            new Handler().post(new Runnable() {
-                @Override
-                public void run() {
-                    mIsRestoring = false;
+        new Handler().post(new Runnable() {
+            @Override
+            public void run() {
+                mDrawableSpinner.setOnItemSelectedListener(InteractiveImageViewActivity.this);
+                mScaleTypeSpinner.setOnItemSelectedListener(InteractiveImageViewActivity.this);
+
+                if (savedInstanceState == null) {
+                    final int position = DRAWABLE_RES_IDS.indexOf(R.drawable.wilderness_lodge);
+                    mDrawableSpinner.setSelection(position, true);
+                } else {
+                    processImageResId(DRAWABLE_RES_IDS.get(mDrawableSpinner.getSelectedItemPosition()));
                 }
-            });
-        }
+
+                if (savedInstanceState == null) {
+                    final ImageView.ScaleType scaleType = mImageView.getScaleType();
+                    mScaleTypeSpinner.setSelection(scaleType.ordinal(), false);
+                } else {
+                    final int position = mScaleTypeSpinner.getSelectedItemPosition();
+                    final ImageView.ScaleType scaleType = ImageView.ScaleType.values()[position];
+                    processScaleType(scaleType);
+                }
+            }
+        });
     }
     //endregion Lifecycle methods
 
@@ -293,37 +301,14 @@ public class InteractiveImageViewActivity
 
     @Override // AdapterView.OnItemSelectedListener
     public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-        if (mIsRestoring) {
-            return;
-        }
-
         switch (parent.getId()) {
             case R.id.spinner_drawable:
-                final int resId = DRAWABLE_RES_IDS.get(position);
-                mImageView.setImageResource(resId);
-                mHasIntrinsicSize = mImageView.getIntrinsicImageSize(mIntrinsicSizePoint);
-                mPendingResetClamps = true;
-
-                // TODO Enable/disable controls based on intrinsic size
-                /*
-                final Drawable drawable = mImageView.getDrawable();
-                if (drawable == null) {
-                    mIntrinsicSizeTextView.setText(
-                            getResources().getString(R.string.intrinsic_size_text, 0, 0));
-                } else {
-                    final int intrinsicWidth = drawable.getIntrinsicWidth();
-                    final int intrinsicHeight = drawable.getIntrinsicHeight();
-                    mIntrinsicSizeTextView.setText(
-                            getResources().getString(
-                                    R.string.intrinsic_size_text, intrinsicWidth, intrinsicHeight));
-                }
-                */
+                processImageResId(DRAWABLE_RES_IDS.get(position));
                 break;
             case R.id.spinner_scale_type:
                 final String name = mScaleTypeEntryValues[position];
                 ImageView.ScaleType scaleType = ImageView.ScaleType.valueOf(name);
-                mImageView.setScaleType(scaleType);
-                mPendingResetClamps = true;
+                processScaleType(scaleType);
                 break;
         }
     }
@@ -455,10 +440,6 @@ public class InteractiveImageViewActivity
     //endregion Methods
 
     //region Private methods
-    private static String makeKey(String key) {
-        return InteractiveImageViewActivity.class.getSimpleName() + "." + key;
-    }
-
     private void showOrHideControls(int toValue, boolean animate) {
         if (animate) {
             getGuidelineAnimateCompatImpl().animateControlsDrawer(toValue);
@@ -478,6 +459,33 @@ public class InteractiveImageViewActivity
             }
         }
         return mGuidelineAnimateCompatImpl;
+    }
+
+    private void processImageResId(@DrawableRes final int resId) {
+        // TODO
+        mImageView.setImageResource(resId);
+        mHasIntrinsicSize = mImageView.getIntrinsicImageSize(mIntrinsicSizePoint);
+        mPendingResetClamps = true;
+
+        // TODO Enable/disable controls based on intrinsic size
+        /*
+        final Drawable drawable = mImageView.getDrawable();
+        if (drawable == null) {
+            mIntrinsicSizeTextView.setText(
+                    getResources().getString(R.string.intrinsic_size_text, 0, 0));
+        } else {
+            final int intrinsicWidth = drawable.getIntrinsicWidth();
+            final int intrinsicHeight = drawable.getIntrinsicHeight();
+            mIntrinsicSizeTextView.setText(
+                    getResources().getString(
+                            R.string.intrinsic_size_text, intrinsicWidth, intrinsicHeight));
+        }
+        */
+    }
+
+    private void processScaleType(final ImageView.ScaleType scaleType) {
+        mImageView.setScaleType(scaleType);
+        mPendingResetClamps = true;
     }
 
     private static float progressToValue(
