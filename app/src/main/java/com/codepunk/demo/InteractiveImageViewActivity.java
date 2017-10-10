@@ -8,7 +8,9 @@ import android.graphics.Point;
 import android.graphics.PointF;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.constraint.ConstraintLayout.LayoutParams;
 import android.support.constraint.Guideline;
 import android.support.v7.app.AppCompatActivity;
@@ -172,13 +174,24 @@ public class InteractiveImageViewActivity
     private final Point mMaxScaledSizePoint = new Point(); // TODO Replace these with a point "factory"?
     private boolean mHasIntrinsicSize = false;
 
-    private boolean mPendingResetClamps = false;
+    private boolean mPendingResetClamps = true;
+    private boolean mIsRestoring = false;
     //endregion Fields
 
     //region Lifecycle methods
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        final boolean scaleLocked;
+        if (savedInstanceState == null) {
+            scaleLocked = true;
+        } else  {
+            mShowingControls = savedInstanceState.getBoolean(KEY_SHOWING_CONTROLS, false);
+            mIsRestoring = true;
+            scaleLocked = savedInstanceState.getBoolean(KEY_SCALE_LOCKED, false);
+        }
+
         setContentView(R.layout.activity_interactive_image_view);
         mMainLayout = findViewById(R.id.layout_main);
         mGuideline = findViewById(R.id.guideline);
@@ -217,30 +230,6 @@ public class InteractiveImageViewActivity
         mDuration = res.getInteger(android.R.integer.config_shortAnimTime);
         mScaleTypeEntryValues = res.getStringArray(R.array.scale_type_values);
 
-        final int resId = R.drawable.wilderness_lodge;
-        final int position = DRAWABLE_RES_IDS.indexOf(resId);
-        mDrawableSpinner.setSelection(position);
-        final ImageView.ScaleType scaleType = mImageView.getScaleType();
-        mScaleTypeSpinner.setSelection(scaleType.ordinal());
-
-        mImageView.setOnDrawListener(this);
-        mDrawableSpinner.setOnItemSelectedListener(this);
-        mScaleTypeSpinner.setOnItemSelectedListener(this);
-        mLockBtnLayout.setOnClickListener(this);
-        mPanXSeekBar.setOnSeekBarChangeListener(this);
-        mPanYSeekBar.setOnSeekBarChangeListener(this);
-        mLockBtn.setOnClickListener(this);
-        mScaleXSeekBar.setOnSeekBarChangeListener(this);
-        mScaleYSeekBar.setOnSeekBarChangeListener(this);
-
-        final boolean scaleLocked;
-        if (savedInstanceState == null) {
-            scaleLocked = true;
-        } else  {
-            mShowingControls = savedInstanceState.getBoolean(KEY_SHOWING_CONTROLS, false);
-            scaleLocked = savedInstanceState.getBoolean(KEY_SCALE_LOCKED, false);
-        }
-
         if (mShowingControls) {
             showControls(false);
         } else {
@@ -262,6 +251,36 @@ public class InteractiveImageViewActivity
         outState.putBoolean(KEY_SHOWING_CONTROLS, mShowingControls);
         outState.putBoolean(KEY_SCALE_LOCKED, mLockBtn.isChecked());
     }
+
+    @Override
+    protected void onPostCreate(@Nullable Bundle savedInstanceState) {
+        super.onPostCreate(savedInstanceState);
+
+        mImageView.setOnDrawListener(this);
+        mDrawableSpinner.setOnItemSelectedListener(this);
+        mScaleTypeSpinner.setOnItemSelectedListener(this);
+        mLockBtnLayout.setOnClickListener(this);
+        mPanXSeekBar.setOnSeekBarChangeListener(this);
+        mPanYSeekBar.setOnSeekBarChangeListener(this);
+        mLockBtn.setOnClickListener(this);
+        mScaleXSeekBar.setOnSeekBarChangeListener(this);
+        mScaleYSeekBar.setOnSeekBarChangeListener(this);
+
+        if (savedInstanceState == null) {
+            final int resId = R.drawable.wilderness_lodge;
+            final int position = DRAWABLE_RES_IDS.indexOf(resId);
+            mDrawableSpinner.setSelection(position);
+            final ImageView.ScaleType scaleType = mImageView.getScaleType();
+            mScaleTypeSpinner.setSelection(scaleType.ordinal());
+        } else {
+            new Handler().post(new Runnable() {
+                @Override
+                public void run() {
+                    mIsRestoring = false;
+                }
+            });
+        }
+    }
     //endregion Lifecycle methods
 
     //region Interface methods
@@ -274,6 +293,10 @@ public class InteractiveImageViewActivity
 
     @Override // AdapterView.OnItemSelectedListener
     public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+        if (mIsRestoring) {
+            return;
+        }
+
         switch (parent.getId()) {
             case R.id.spinner_drawable:
                 final int resId = DRAWABLE_RES_IDS.get(position);

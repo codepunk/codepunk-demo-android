@@ -18,6 +18,7 @@ import android.support.annotation.Px;
 import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.view.Display;
 import android.view.View;
 import android.view.WindowManager;
@@ -312,6 +313,8 @@ public class InteractiveImageView extends AppCompatImageView {
 
     @Override
     protected void onRestoreInstanceState(Parcelable state) {
+        Log.i(TAG, "onRestoreInstanceState");
+
         if (!state.getClass().equals(SavedState.class)) {
             // Didn't save state for us in onSaveInstanceState
             super.onRestoreInstanceState(state);
@@ -369,6 +372,7 @@ public class InteractiveImageView extends AppCompatImageView {
 
     @Override
     public void setImageDrawable(@Nullable Drawable drawable) {
+        Log.i(TAG, "setImageDrawable");
         super.setImageDrawable(drawable);
         super.setScaleType(mScaleType);
         invalidateScalingStrategy();
@@ -376,6 +380,7 @@ public class InteractiveImageView extends AppCompatImageView {
 
     @Override
     public void setImageMatrix(Matrix matrix) {
+        Log.i(TAG, "setImageMatrix");
         setImageMatrix(matrix, true);
     }
 
@@ -393,9 +398,14 @@ public class InteractiveImageView extends AppCompatImageView {
 
     @Override
     public void setScaleType(ScaleType scaleType) {
-        mScaleType = scaleType;
+        final ScaleType oldScaleType = super.getScaleType();
         super.setScaleType(scaleType);
-        invalidateScalingStrategy();
+        final boolean changed = (oldScaleType != super.getScaleType());
+        if (changed) {
+            Log.i(TAG, "setScaleType: scaleType=" + scaleType);
+            mScaleType = scaleType;
+            invalidateScalingStrategy();
+        }
     }
     //endregion Inherited methods
 
