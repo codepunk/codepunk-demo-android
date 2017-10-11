@@ -1,6 +1,5 @@
 package com.codepunk.demo;
 
-import android.annotation.TargetApi;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
@@ -9,9 +8,6 @@ import android.graphics.PointF;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
-import android.os.Build;
-import android.os.Parcel;
-import android.os.Parcelable;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.annotation.Px;
@@ -20,7 +16,6 @@ import android.util.AttributeSet;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
-import android.view.View;
 import android.view.WindowManager;
 
 import com.codepunk.demo.support.DisplayCompat;
@@ -168,6 +163,7 @@ public class InteractiveImageView extends AppCompatImageView {
         }
     }
 
+    /*
     private static class SavedState extends View.BaseSavedState {
         //region Nested classes
         public static final Parcelable.Creator<SavedState> CREATOR = new Creator<SavedState>() {
@@ -226,6 +222,7 @@ public class InteractiveImageView extends AppCompatImageView {
         }
         //endregion Inherited methods
     }
+    */
     //endregion Nested classes
 
     //region Constants
@@ -250,7 +247,7 @@ public class InteractiveImageView extends AppCompatImageView {
 
     private OnDrawListener mOnDrawListener;
 
-    private SavedState mPendingSavedState;
+    /* private SavedState mPendingSavedState; */
     //endregion Fields
 
     //region Constructors
@@ -311,6 +308,7 @@ public class InteractiveImageView extends AppCompatImageView {
         }
     }
 
+    /*
     @Override
     protected void onRestoreInstanceState(Parcelable state) {
         Log.i(TAG, "onRestoreInstanceState");
@@ -324,6 +322,7 @@ public class InteractiveImageView extends AppCompatImageView {
         mPendingSavedState = (SavedState) state;
         super.onRestoreInstanceState(mPendingSavedState.getSuperState());
     }
+    */
 
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
@@ -331,6 +330,7 @@ public class InteractiveImageView extends AppCompatImageView {
         invalidateScalingStrategy();
     }
 
+    /*
     @Nullable
     @Override
     protected Parcelable onSaveInstanceState() {
@@ -369,6 +369,7 @@ public class InteractiveImageView extends AppCompatImageView {
 
         return retVal;
     }
+    */
 
     @Override
     public void setImageDrawable(@Nullable Drawable drawable) {
@@ -542,6 +543,11 @@ public class InteractiveImageView extends AppCompatImageView {
         return false;
     }
 
+    public boolean hasCustomPlacement() {
+        // TODO -- compare exact values
+        return (mScaleType != super.getScaleType());
+    }
+
     public void invalidateScalingStrategy() {
         final ScalingStrategy scalingStrategy = getScalingStrategy();
         scalingStrategy.invalidateMaxScale();
@@ -653,11 +659,6 @@ public class InteractiveImageView extends AppCompatImageView {
 
     private int getAvailableWidth() {
         return getWidth() - getPaddingLeft() - getPaddingRight();
-    }
-
-    private boolean hasCustomPlacement() {
-        // TODO
-        return true;
     }
 
     private boolean hasIntrinsicSize() {

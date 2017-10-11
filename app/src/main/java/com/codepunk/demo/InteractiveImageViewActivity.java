@@ -11,7 +11,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.support.annotation.DrawableRes;
 import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 import android.support.constraint.ConstraintLayout.LayoutParams;
 import android.support.constraint.Guideline;
 import android.support.v7.app.AppCompatActivity;
@@ -26,7 +25,7 @@ import android.view.animation.DecelerateInterpolator;
 import android.view.animation.Interpolator;
 import android.view.animation.Transformation;
 import android.widget.AdapterView;
-import android.widget.ImageView;
+import android.widget.ImageView.ScaleType;
 import android.widget.ProgressBar;
 import android.widget.SeekBar;
 import android.widget.Spinner;
@@ -109,6 +108,8 @@ public class InteractiveImageViewActivity
     //region Constants
     private static final String TAG = "tag_" + InteractiveImageViewActivity.class.getSimpleName();
 
+    private static final @DrawableRes int DEFAULT_DRAWABLE_RES_ID = R.drawable.wilderness_lodge;
+
     private static final double INTERPOLATION_FACTOR = 3.0d;
 
     private final List<Integer> DRAWABLE_RES_IDS = Arrays.asList(
@@ -119,10 +120,16 @@ public class InteractiveImageViewActivity
             R.drawable.gradient);
 
     private static final int HIDDEN_END = 0;
-    private static final String KEY_SHOWING_CONTROLS =
-            InteractiveImageViewActivity.class.getName() + ".showingControls";
-    private static final String KEY_SCALE_LOCKED =
-            InteractiveImageViewActivity.class.getName() + ".scaleLocked";
+    private static final String CLASS_NAME = InteractiveImageViewActivity.class.getName();
+    private static final String KEY_DRAWABLE_RES_ID = CLASS_NAME + ".drawableResId";
+    private static final String KEY_SCALE_TYPE = CLASS_NAME + ".scaleType";
+    private static final String KEY_RELATIVE_CENTER_X = CLASS_NAME + ".relativeCenterX";
+    private static final String KEY_RELATIVE_CENTER_Y = CLASS_NAME + ".relativeCenterY";
+    private static final String KEY_SCALE_X = CLASS_NAME + ".scaleX";
+    private static final String KEY_SCALE_Y = CLASS_NAME + ".scaleY";
+    private static final String KEY_HAS_CUSTOM_PLACEMENT = CLASS_NAME + ".hasCustomPlacement";
+    private static final String KEY_SHOWING_CONTROLS = CLASS_NAME + ".showingControls";
+    private static final String KEY_SCALE_LOCKED = CLASS_NAME + ".scaleLocked";
     //endregion Constants
 
     //region Fields
@@ -223,10 +230,44 @@ public class InteractiveImageViewActivity
         mDuration = res.getInteger(android.R.integer.config_shortAnimTime);
         mScaleTypeEntryValues = res.getStringArray(R.array.scale_type_values);
 
+        mImageView.setOnDrawListener(this);
+        mLockBtnLayout.setOnClickListener(this);
+        mPanXSeekBar.setOnSeekBarChangeListener(this);
+        mPanYSeekBar.setOnSeekBarChangeListener(this);
+        mLockBtn.setOnClickListener(this);
+        mScaleXSeekBar.setOnSeekBarChangeListener(this);
+        mScaleYSeekBar.setOnSeekBarChangeListener(this);
+
         final boolean scaleLocked;
         if (savedInstanceState == null) {
+            // Set up initial values
+            mImageView.setImageResource(DEFAULT_DRAWABLE_RES_ID);
+            final int position = DRAWABLE_RES_IDS.indexOf(DEFAULT_DRAWABLE_RES_ID);
+            mDrawableSpinner.setSelection(position);
+            final ScaleType scaleType = mImageView.getScaleType();
+            mScaleTypeSpinner.setSelection(scaleType.ordinal());
             scaleLocked = true;
-        } else  {
+        } else {
+            final @DrawableRes int drawableResId =
+                    savedInstanceState.getInt(KEY_DRAWABLE_RES_ID, DEFAULT_DRAWABLE_RES_ID);
+            mImageView.setImageResource(drawableResId);
+            final ScaleType scaleType =
+                    (ScaleType) savedInstanceState.getSerializable(KEY_SCALE_TYPE);
+            mImageView.setScaleType(scaleType);
+            final boolean hasCustomPlacement =
+                    savedInstanceState.getBoolean(KEY_HAS_CUSTOM_PLACEMENT, false);
+            if (hasCustomPlacement) {
+                mImageView.setRelativeCenter(
+                        savedInstanceState.getFloat(KEY_RELATIVE_CENTER_X, 0.5f),
+                        savedInstanceState.getFloat(KEY_RELATIVE_CENTER_Y, 0.5f));
+                if (savedInstanceState.containsKey(KEY_SCALE_X) &&
+                        savedInstanceState.containsKey(KEY_SCALE_Y)) {
+                    // TODO How to handle incomplete
+                    mImageView.setScale(
+                            savedInstanceState.getFloat(KEY_SCALE_X),
+                            savedInstanceState.getFloat(KEY_SCALE_Y));
+                }
+            }
             mShowingControls = savedInstanceState.getBoolean(KEY_SHOWING_CONTROLS, false);
             scaleLocked = savedInstanceState.getBoolean(KEY_SCALE_LOCKED, false);
         }
@@ -238,6 +279,15 @@ public class InteractiveImageViewActivity
         }
 
         mLockBtn.setChecked(scaleLocked);
+
+        new Handler().post(new Runnable() {
+            @Override
+            public void run() {
+                // TODO Any better way?
+                mDrawableSpinner.setOnItemSelectedListener(InteractiveImageViewActivity.this);
+                mScaleTypeSpinner.setOnItemSelectedListener(InteractiveImageViewActivity.this);
+            }
+        });
     }
 
     @Override
@@ -249,45 +299,21 @@ public class InteractiveImageViewActivity
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
+        final int position = mDrawableSpinner.getSelectedItemPosition();
+        outState.putInt(KEY_DRAWABLE_RES_ID, DRAWABLE_RES_IDS.get(position));
+        outState.putSerializable(KEY_SCALE_TYPE, mImageView.getScaleType());
+        final boolean hasCustomPlacement = mImageView.hasCustomPlacement();
+        outState.putBoolean(KEY_HAS_CUSTOM_PLACEMENT, hasCustomPlacement);
+        if (hasCustomPlacement) {
+            mImageView.getRelativeCenter(mCenterPoint);
+            outState.putFloat(KEY_RELATIVE_CENTER_X, mCenterPoint.x);
+            outState.putFloat(KEY_RELATIVE_CENTER_Y, mCenterPoint.y);
+            mImageView.getScale(mScalePoint);
+            outState.putFloat(KEY_SCALE_X, mScalePoint.x);
+            outState.putFloat(KEY_SCALE_Y, mScalePoint.y);
+        }
         outState.putBoolean(KEY_SHOWING_CONTROLS, mShowingControls);
         outState.putBoolean(KEY_SCALE_LOCKED, mLockBtn.isChecked());
-    }
-
-    @Override
-    protected void onPostCreate(@Nullable final Bundle savedInstanceState) {
-        super.onPostCreate(savedInstanceState);
-
-        mImageView.setOnDrawListener(this);
-        mLockBtnLayout.setOnClickListener(this);
-        mPanXSeekBar.setOnSeekBarChangeListener(this);
-        mPanYSeekBar.setOnSeekBarChangeListener(this);
-        mLockBtn.setOnClickListener(this);
-        mScaleXSeekBar.setOnSeekBarChangeListener(this);
-        mScaleYSeekBar.setOnSeekBarChangeListener(this);
-
-        new Handler().post(new Runnable() {
-            @Override
-            public void run() {
-                mDrawableSpinner.setOnItemSelectedListener(InteractiveImageViewActivity.this);
-                mScaleTypeSpinner.setOnItemSelectedListener(InteractiveImageViewActivity.this);
-
-                if (savedInstanceState == null) {
-                    final int position = DRAWABLE_RES_IDS.indexOf(R.drawable.wilderness_lodge);
-                    mDrawableSpinner.setSelection(position, true);
-                } else {
-                    processImageResId(DRAWABLE_RES_IDS.get(mDrawableSpinner.getSelectedItemPosition()));
-                }
-
-                if (savedInstanceState == null) {
-                    final ImageView.ScaleType scaleType = mImageView.getScaleType();
-                    mScaleTypeSpinner.setSelection(scaleType.ordinal(), false);
-                } else {
-                    final int position = mScaleTypeSpinner.getSelectedItemPosition();
-                    final ImageView.ScaleType scaleType = ImageView.ScaleType.values()[position];
-                    processScaleType(scaleType);
-                }
-            }
-        });
     }
     //endregion Lifecycle methods
 
@@ -303,12 +329,30 @@ public class InteractiveImageViewActivity
     public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
         switch (parent.getId()) {
             case R.id.spinner_drawable:
-                processImageResId(DRAWABLE_RES_IDS.get(position));
+                // TODO
+                mPendingResetClamps = true;
+                mImageView.setImageResource(DRAWABLE_RES_IDS.get(position));
+                mHasIntrinsicSize = mImageView.getIntrinsicImageSize(mIntrinsicSizePoint);
+
+                // TODO Enable/disable controls based on intrinsic size
+                /*
+                final Drawable drawable = mImageView.getDrawable();
+                if (drawable == null) {
+                    mIntrinsicSizeTextView.setText(
+                            getResources().getString(R.string.intrinsic_size_text, 0, 0));
+                } else {
+                    final int intrinsicWidth = drawable.getIntrinsicWidth();
+                    final int intrinsicHeight = drawable.getIntrinsicHeight();
+                    mIntrinsicSizeTextView.setText(
+                            getResources().getString(
+                                    R.string.intrinsic_size_text, intrinsicWidth, intrinsicHeight));
+                }
+                */
                 break;
             case R.id.spinner_scale_type:
+                mPendingResetClamps = true;
                 final String name = mScaleTypeEntryValues[position];
-                ImageView.ScaleType scaleType = ImageView.ScaleType.valueOf(name);
-                processScaleType(scaleType);
+                mImageView.setScaleType(ScaleType.valueOf(name));
                 break;
         }
     }
@@ -459,33 +503,6 @@ public class InteractiveImageViewActivity
             }
         }
         return mGuidelineAnimateCompatImpl;
-    }
-
-    private void processImageResId(@DrawableRes final int resId) {
-        // TODO
-        mImageView.setImageResource(resId);
-        mHasIntrinsicSize = mImageView.getIntrinsicImageSize(mIntrinsicSizePoint);
-        mPendingResetClamps = true;
-
-        // TODO Enable/disable controls based on intrinsic size
-        /*
-        final Drawable drawable = mImageView.getDrawable();
-        if (drawable == null) {
-            mIntrinsicSizeTextView.setText(
-                    getResources().getString(R.string.intrinsic_size_text, 0, 0));
-        } else {
-            final int intrinsicWidth = drawable.getIntrinsicWidth();
-            final int intrinsicHeight = drawable.getIntrinsicHeight();
-            mIntrinsicSizeTextView.setText(
-                    getResources().getString(
-                            R.string.intrinsic_size_text, intrinsicWidth, intrinsicHeight));
-        }
-        */
-    }
-
-    private void processScaleType(final ImageView.ScaleType scaleType) {
-        mImageView.setScaleType(scaleType);
-        mPendingResetClamps = true;
     }
 
     private static float progressToValue(
