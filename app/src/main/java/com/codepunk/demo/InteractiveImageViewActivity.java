@@ -123,8 +123,8 @@ public class InteractiveImageViewActivity
     private static final String CLASS_NAME = InteractiveImageViewActivity.class.getName();
     private static final String KEY_DRAWABLE_RES_ID = CLASS_NAME + ".drawableResId";
     private static final String KEY_SCALE_TYPE = CLASS_NAME + ".scaleType";
-    private static final String KEY_RELATIVE_CENTER_X = CLASS_NAME + ".relativeCenterX";
-    private static final String KEY_RELATIVE_CENTER_Y = CLASS_NAME + ".relativeCenterY";
+    private static final String KEY_CENTER_X = CLASS_NAME + ".centerX";
+    private static final String KEY_CENTER_Y = CLASS_NAME + ".centerY";
     private static final String KEY_SCALE_X = CLASS_NAME + ".scaleX";
     private static final String KEY_SCALE_Y = CLASS_NAME + ".scaleY";
     private static final String KEY_HAS_CUSTOM_PLACEMENT = CLASS_NAME + ".hasCustomPlacement";
@@ -182,14 +182,13 @@ public class InteractiveImageViewActivity
     private final PointF mDisplayedSizePointF = new PointF();
     private final Point mMinScaledSizePoint = new Point();
     private final Point mMaxScaledSizePoint = new Point(); // TODO Replace these with a point "factory"?
-    private boolean mHasIntrinsicSize = false;
 
     private boolean mPendingResetClamps = true;
     //endregion Fields
 
     //region Lifecycle methods
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    protected void onCreate(final Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         setContentView(R.layout.activity_interactive_image_view);
@@ -257,19 +256,33 @@ public class InteractiveImageViewActivity
             final boolean hasCustomPlacement =
                     savedInstanceState.getBoolean(KEY_HAS_CUSTOM_PLACEMENT, false);
             if (hasCustomPlacement) {
-                mImageView.setRelativeCenter(
-                        savedInstanceState.getFloat(KEY_RELATIVE_CENTER_X, 0.5f),
-                        savedInstanceState.getFloat(KEY_RELATIVE_CENTER_Y, 0.5f));
-                if (savedInstanceState.containsKey(KEY_SCALE_X) &&
-                        savedInstanceState.containsKey(KEY_SCALE_Y)) {
-                    // TODO How to handle incomplete
-                    mImageView.setScale(
-                            savedInstanceState.getFloat(KEY_SCALE_X),
-                            savedInstanceState.getFloat(KEY_SCALE_Y));
-                }
+                final float centerX = savedInstanceState.getFloat(KEY_CENTER_X, 0.5f);
+                final float centerY = savedInstanceState.getFloat(KEY_CENTER_Y, 0.5f);
+                final float scaleX = savedInstanceState.getFloat(KEY_SCALE_X);
+                final float scaleY = savedInstanceState.getFloat(KEY_SCALE_Y);
+                mImageView.setPlacement(centerX, centerY, scaleX, scaleY);
             }
             mShowingControls = savedInstanceState.getBoolean(KEY_SHOWING_CONTROLS, false);
             scaleLocked = savedInstanceState.getBoolean(KEY_SCALE_LOCKED, false);
+
+            /*
+            Log.d(TAG, "onCreate:");
+            final PointF center = new PointF();
+            final boolean retVal = mImageView.getCenter(center);
+            Log.d(TAG, String.format(Locale.US, "onCreate: getCenter() returned %b, center=(%.2f, %.2f)", retVal, center.x, center.y));
+
+            // TODO TEMP
+            new Handler().postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    Log.d(TAG, "onCreate, 2-second delay:");
+                    final PointF center = new PointF();
+                    final boolean retVal = mImageView.getCenter(center);
+                    Log.d(TAG, String.format(Locale.US, "onCreate, 2-second delay: getCenter() returned %b, center=(%.2f, %.2f)", retVal, center.x, center.y));
+                }
+            }, 2000);
+            // END TEMP
+            */
         }
 
         if (mShowingControls) {
@@ -305,9 +318,9 @@ public class InteractiveImageViewActivity
         final boolean hasCustomPlacement = mImageView.hasCustomPlacement();
         outState.putBoolean(KEY_HAS_CUSTOM_PLACEMENT, hasCustomPlacement);
         if (hasCustomPlacement) {
-            mImageView.getRelativeCenter(mCenterPoint);
-            outState.putFloat(KEY_RELATIVE_CENTER_X, mCenterPoint.x);
-            outState.putFloat(KEY_RELATIVE_CENTER_Y, mCenterPoint.y);
+            mImageView.getCenter(mCenterPoint);
+            outState.putFloat(KEY_CENTER_X, mCenterPoint.x);
+            outState.putFloat(KEY_CENTER_Y, mCenterPoint.y);
             mImageView.getScale(mScalePoint);
             outState.putFloat(KEY_SCALE_X, mScalePoint.x);
             outState.putFloat(KEY_SCALE_Y, mScalePoint.y);
@@ -332,7 +345,7 @@ public class InteractiveImageViewActivity
                 // TODO
                 mPendingResetClamps = true;
                 mImageView.setImageResource(DRAWABLE_RES_IDS.get(position));
-                mHasIntrinsicSize = mImageView.getIntrinsicImageSize(mIntrinsicSizePoint);
+                // mHasIntrinsicSize = mImageView.getIntrinsicImageSize(mIntrinsicSizePoint);
 
                 // TODO Enable/disable controls based on intrinsic size
                 /*
@@ -374,7 +387,7 @@ public class InteractiveImageViewActivity
                 case R.id.seek_pan_y_value:
                     float centerX = getValue(mPanXSeekBar, 0.0f, 1.0f);
                     float centerY = getValue(mPanYSeekBar, 0.0f, 1.0f);
-                    mImageView.setRelativeCenter(centerX, centerY);
+                    mImageView.setCenter(centerX, centerY);
                     break;
                 case R.id.seek_scale_x_value: {
                     final float scaleX = getValue(seekBar, minScaleX, maxScaleX);
@@ -419,7 +432,7 @@ public class InteractiveImageViewActivity
     @Override // InteractiveImageView.OnDrawListener
     public void onDraw(InteractiveImageView view, Canvas canvas) {
         // TODO Capture which control(s) the user is manipulating and don't update those
-        mImageView.getRelativeCenter(mCenterPoint);
+        mImageView.getCenter(mCenterPoint);
         mPanXValueView.setText(mPercentFormat.format(mCenterPoint.x));
         setValue(mPanXSeekBar, 0.0f, 1.0f, mCenterPoint.x, false);
         mPanYValueView.setText(mPercentFormat.format(mCenterPoint.y));
