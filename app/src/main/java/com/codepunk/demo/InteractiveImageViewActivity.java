@@ -4,18 +4,22 @@ import android.animation.ValueAnimator;
 import android.annotation.TargetApi;
 import android.content.res.Resources;
 import android.graphics.Canvas;
+import android.graphics.Matrix;
 import android.graphics.Point;
 import android.graphics.PointF;
+import android.graphics.Rect;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.annotation.DrawableRes;
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.constraint.ConstraintLayout.LayoutParams;
 import android.support.constraint.Guideline;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.AppCompatSeekBar;
 import android.support.v7.widget.AppCompatTextView;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -37,6 +41,7 @@ import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 
 import static android.os.Build.VERSION_CODES.HONEYCOMB;
 
@@ -171,13 +176,10 @@ public class InteractiveImageViewActivity
 
     private SeekBar mTrackingSeekBar;
 
-    private final PointF mCenterPoint = new PointF();
-    private final PointF mScalePoint = new PointF();
-
     private final NumberFormat mPercentFormat = NumberFormat.getPercentInstance();
     private final NumberFormat mDecimalFormat = new DecimalFormat("#0.00");
 
-    private final Point mIntrinsicSizePoint = new Point();
+    private final Rect mIntrinsicSizeRect = new Rect();
     private final Point mDisplayedSizePoint = new Point();
     private final PointF mDisplayedSizePointF = new PointF();
     private final Point mMinScaledSizePoint = new Point();
@@ -242,10 +244,21 @@ public class InteractiveImageViewActivity
             // Set up initial values
             mImageView.setImageResource(DEFAULT_DRAWABLE_RES_ID);
             final int position = DRAWABLE_RES_IDS.indexOf(DEFAULT_DRAWABLE_RES_ID);
-            mDrawableSpinner.setSelection(position);
+            mDrawableSpinner.setSelection(position, false);
             final ScaleType scaleType = mImageView.getScaleType();
-            mScaleTypeSpinner.setSelection(scaleType.ordinal());
+            mScaleTypeSpinner.setSelection(scaleType.ordinal(), false);
             scaleLocked = true;
+
+            // TODO TEMP
+            mImageView.setScaleType(ScaleType.MATRIX);
+            final Matrix matrix = mImageView.getImageMatrix();
+            final float[] values = new float[9];
+            matrix.getValues(values);
+            values[Matrix.MSCALE_X] = 0.2f;
+            values[Matrix.MSCALE_Y] = 0.5f;
+            matrix.setValues(values);
+            mImageView.setImageMatrix(matrix);
+            // END TEMP
         } else {
             final @DrawableRes int drawableResId =
                     savedInstanceState.getInt(KEY_DRAWABLE_RES_ID, DEFAULT_DRAWABLE_RES_ID);
@@ -260,7 +273,8 @@ public class InteractiveImageViewActivity
                 final float centerY = savedInstanceState.getFloat(KEY_CENTER_Y, 0.5f);
                 final float scaleX = savedInstanceState.getFloat(KEY_SCALE_X);
                 final float scaleY = savedInstanceState.getFloat(KEY_SCALE_Y);
-                mImageView.setPlacement(centerX, centerY, scaleX, scaleY);
+                mImageView.setCenter(centerX, centerY);
+                mImageView.setScale(scaleX, scaleY);
             }
             mShowingControls = savedInstanceState.getBoolean(KEY_SHOWING_CONTROLS, false);
             scaleLocked = savedInstanceState.getBoolean(KEY_SCALE_LOCKED, false);
@@ -318,12 +332,10 @@ public class InteractiveImageViewActivity
         final boolean hasCustomPlacement = mImageView.hasCustomPlacement();
         outState.putBoolean(KEY_HAS_CUSTOM_PLACEMENT, hasCustomPlacement);
         if (hasCustomPlacement) {
-            mImageView.getCenter(mCenterPoint);
-            outState.putFloat(KEY_CENTER_X, mCenterPoint.x);
-            outState.putFloat(KEY_CENTER_Y, mCenterPoint.y);
-            mImageView.getScale(mScalePoint);
-            outState.putFloat(KEY_SCALE_X, mScalePoint.x);
-            outState.putFloat(KEY_SCALE_Y, mScalePoint.y);
+            outState.putFloat(KEY_CENTER_X, mImageView.getCenterX());
+            outState.putFloat(KEY_CENTER_Y, mImageView.getCenterY());
+            outState.putFloat(KEY_SCALE_X, mImageView.getScaleX());
+            outState.putFloat(KEY_SCALE_Y, mImageView.getScaleY());
         }
         outState.putBoolean(KEY_SHOWING_CONTROLS, mShowingControls);
         outState.putBoolean(KEY_SCALE_LOCKED, mLockBtn.isChecked());
@@ -377,7 +389,8 @@ public class InteractiveImageViewActivity
     @Override // SeekBar.OnSeekBarChangeListener
     public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
         if (fromUser) {
-            mImageView.getScale(mScalePoint);
+            final float scaleX = mImageView.getScaleX();
+            final float scaleY = mImageView.getScaleY();
             final float minScaleX = mImageView.getMinScaleX();
             final float maxScaleX = mImageView.getMaxScaleX();
             final float minScaleY = mImageView.getMinScaleY();
@@ -390,19 +403,20 @@ public class InteractiveImageViewActivity
                     mImageView.setCenter(centerX, centerY);
                     break;
                 case R.id.seek_scale_x_value: {
-                    final float scaleX = getValue(seekBar, minScaleX, maxScaleX);
-                    final float scaleY = (mLockBtn.isChecked() ?
-                            mScalePoint.y * scaleX / mScalePoint.x :
-                            mScalePoint.y);
-                    mImageView.setScale(scaleX, scaleY);
+                    final float newScaleX = getValue(seekBar, minScaleX, maxScaleX);
+                    final float newScaleY = (
+                            mLockBtn.isChecked() ?
+                            scaleY * newScaleX / scaleX :
+                            scaleY);
+                    mImageView.setScale(newScaleX, newScaleY);
                     break;
                 }
                 case R.id.seek_scale_y_value: {
-                    final float scaleY = getValue(seekBar, minScaleY, maxScaleY);
-                    final float scaleX = (mLockBtn.isChecked() ?
-                            mScalePoint.x * scaleY / mScalePoint.y :
-                            mScalePoint.x);
-                    mImageView.setScale(scaleX, scaleY);
+                    final float newScaleY = getValue(seekBar, minScaleY, maxScaleY);
+                    final float newScaleX = (mLockBtn.isChecked() ?
+                            scaleX * newScaleY / scaleY :
+                            scaleX);
+                    mImageView.setScale(newScaleX, newScaleY);
                     break;
                 }
             }
@@ -432,11 +446,12 @@ public class InteractiveImageViewActivity
     @Override // InteractiveImageView.OnDrawListener
     public void onDraw(InteractiveImageView view, Canvas canvas) {
         // TODO Capture which control(s) the user is manipulating and don't update those
-        mImageView.getCenter(mCenterPoint);
-        mPanXValueView.setText(mPercentFormat.format(mCenterPoint.x));
-        setValue(mPanXSeekBar, 0.0f, 1.0f, mCenterPoint.x, false);
-        mPanYValueView.setText(mPercentFormat.format(mCenterPoint.y));
-        setValue(mPanYSeekBar, 0.0f, 1.0f, mCenterPoint.y, false);
+        final float centerX = mImageView.getCenterX();
+        final float centerY = mImageView.getCenterY();
+        mPanXValueView.setText(mPercentFormat.format(centerX));
+        setValue(mPanXSeekBar, 0.0f, 1.0f, centerX, false);
+        mPanYValueView.setText(mPercentFormat.format(centerY));
+        setValue(mPanYSeekBar, 0.0f, 1.0f, centerY, false);
 
         if (mPendingResetClamps) {
             mScaleXSeekBar.setClampedMin(Integer.MIN_VALUE);
@@ -445,25 +460,29 @@ public class InteractiveImageViewActivity
             mScaleYSeekBar.setClampedMax(Integer.MAX_VALUE);
         }
 
+        final float scaleX = mImageView.getScaleX();
+        final float scaleY = mImageView.getScaleY();
         final float minScaleX = view.getMinScaleX();
         final float maxScaleX = view.getMaxScaleX();
         final float minScaleY = view.getMinScaleY();
         final float maxScaleY = view.getMaxScaleY();
-        final int minWidth = Math.round(minScaleX * mIntrinsicSizePoint.x);
-        final int maxWidth = Math.round(maxScaleX * mIntrinsicSizePoint.x);
-        final int minHeight = Math.round(minScaleY * mIntrinsicSizePoint.y);
-        final int maxHeight = Math.round(maxScaleY * mIntrinsicSizePoint.y);
-        mImageView.getScale(mScalePoint);
+        mImageView.getIntrinsicImageRect(mIntrinsicSizeRect);
+        final int minWidth = Math.round(minScaleX * mIntrinsicSizeRect.width());
+        final int maxWidth = Math.round(maxScaleX * mIntrinsicSizeRect.width());
+        final int minHeight = Math.round(minScaleY * mIntrinsicSizeRect.height());
+        final int maxHeight = Math.round(maxScaleY * mIntrinsicSizeRect.height());
 
-        mScaleXValueView.setText(mDecimalFormat.format(mScalePoint.x));
+        mScaleXValueView.setText(mDecimalFormat.format( scaleX));
         mScaleXMinValueView.setText(mDecimalFormat.format(minScaleX));
         mScaleXMaxValueView.setText(mDecimalFormat.format(maxScaleX));
-        mScaleYValueView.setText(mDecimalFormat.format(mScalePoint.y));
+        mScaleYValueView.setText(mDecimalFormat.format( scaleY));
         mScaleYMinValueView.setText(mDecimalFormat.format(minScaleY));
         mScaleYMaxValueView.setText(mDecimalFormat.format(maxScaleY));
 
-        setValue(mScaleXSeekBar, minWidth, maxWidth, mIntrinsicSizePoint.x * mScalePoint.x, false);
-        setValue(mScaleYSeekBar, minHeight, maxHeight, mIntrinsicSizePoint.y * mScalePoint.y, false);
+        Log.d(TAG, String.format(Locale.US, "onDraw: minWidth=%d, maxWidth=%d, width=%.2f", minWidth, maxWidth, mIntrinsicSizeRect.width() * scaleX));
+        Log.d(TAG, String.format(Locale.US, "onDraw: minHeight=%d, maxHeight=%d, height=%.2f", minHeight, maxHeight, mIntrinsicSizeRect.height() * scaleX));
+        setValue(mScaleXSeekBar, minWidth, maxWidth, mIntrinsicSizeRect.width() *  scaleX, false);
+        setValue(mScaleYSeekBar, minHeight, maxHeight, mIntrinsicSizeRect.height() *  scaleY, false);
 
         if (mPendingResetClamps) {
             mPendingResetClamps = false;
