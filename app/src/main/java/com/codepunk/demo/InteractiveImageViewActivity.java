@@ -13,7 +13,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.support.annotation.DrawableRes;
 import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 import android.support.constraint.ConstraintLayout.LayoutParams;
 import android.support.constraint.Guideline;
 import android.support.v7.app.AppCompatActivity;
@@ -250,6 +249,7 @@ public class InteractiveImageViewActivity
             scaleLocked = true;
 
             // TODO TEMP
+            /*
             mImageView.setScaleType(ScaleType.MATRIX);
             final Matrix matrix = mImageView.getImageMatrix();
             final float[] values = new float[9];
@@ -258,6 +258,7 @@ public class InteractiveImageViewActivity
             values[Matrix.MSCALE_Y] = 0.5f;
             matrix.setValues(values);
             mImageView.setImageMatrix(matrix);
+            */
             // END TEMP
         } else {
             final @DrawableRes int drawableResId =
