@@ -4,7 +4,6 @@ import android.animation.ValueAnimator;
 import android.annotation.TargetApi;
 import android.content.res.Resources;
 import android.graphics.Canvas;
-import android.graphics.Matrix;
 import android.graphics.Point;
 import android.graphics.PointF;
 import android.graphics.Rect;
@@ -18,7 +17,6 @@ import android.support.constraint.Guideline;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.AppCompatSeekBar;
 import android.support.v7.widget.AppCompatTextView;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -40,7 +38,6 @@ import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
 
 import static android.os.Build.VERSION_CODES.HONEYCOMB;
 
@@ -238,7 +235,6 @@ public class InteractiveImageViewActivity
         mScaleXSeekBar.setOnSeekBarChangeListener(this);
         mScaleYSeekBar.setOnSeekBarChangeListener(this);
 
-        final boolean scaleLocked;
         if (savedInstanceState == null) {
             // Set up initial values
             mImageView.setImageResource(DEFAULT_DRAWABLE_RES_ID);
@@ -246,7 +242,6 @@ public class InteractiveImageViewActivity
             mDrawableSpinner.setSelection(position, false);
             final ScaleType scaleType = mImageView.getScaleType();
             mScaleTypeSpinner.setSelection(scaleType.ordinal(), false);
-            scaleLocked = true;
 
             // TODO TEMP
             /*
@@ -261,6 +256,9 @@ public class InteractiveImageViewActivity
             */
             // END TEMP
         } else {
+            mLockBtn.setChecked(savedInstanceState.getBoolean(KEY_SCALE_LOCKED, false));
+            mShowingControls = savedInstanceState.getBoolean(KEY_SHOWING_CONTROLS, false);
+
             final @DrawableRes int drawableResId =
                     savedInstanceState.getInt(KEY_DRAWABLE_RES_ID, DEFAULT_DRAWABLE_RES_ID);
             mImageView.setImageResource(drawableResId);
@@ -277,27 +275,8 @@ public class InteractiveImageViewActivity
                 mImageView.setCenter(centerX, centerY);
                 mImageView.setScale(scaleX, scaleY);
             }
-            mShowingControls = savedInstanceState.getBoolean(KEY_SHOWING_CONTROLS, false);
-            scaleLocked = savedInstanceState.getBoolean(KEY_SCALE_LOCKED, false);
 
-            /*
-            Log.d(TAG, "onCreate:");
-            final PointF center = new PointF();
-            final boolean retVal = mImageView.getCenter(center);
-            Log.d(TAG, String.format(Locale.US, "onCreate: getCenter() returned %b, center=(%.2f, %.2f)", retVal, center.x, center.y));
-
-            // TODO TEMP
-            new Handler().postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    Log.d(TAG, "onCreate, 2-second delay:");
-                    final PointF center = new PointF();
-                    final boolean retVal = mImageView.getCenter(center);
-                    Log.d(TAG, String.format(Locale.US, "onCreate, 2-second delay: getCenter() returned %b, center=(%.2f, %.2f)", retVal, center.x, center.y));
-                }
-            }, 2000);
-            // END TEMP
-            */
+            // TODO The two scale sliders have different lower/upper bounds -- querying the wrong scale type?
         }
 
         if (mShowingControls) {
@@ -305,8 +284,6 @@ public class InteractiveImageViewActivity
         } else {
             hideControls(false);
         }
-
-        mLockBtn.setChecked(scaleLocked);
 
         new Handler().post(new Runnable() {
             @Override
@@ -480,8 +457,6 @@ public class InteractiveImageViewActivity
         mScaleYMinValueView.setText(mDecimalFormat.format(minScaleY));
         mScaleYMaxValueView.setText(mDecimalFormat.format(maxScaleY));
 
-        Log.d(TAG, String.format(Locale.US, "onDraw: minWidth=%d, maxWidth=%d, width=%.2f", minWidth, maxWidth, mIntrinsicSizeRect.width() * scaleX));
-        Log.d(TAG, String.format(Locale.US, "onDraw: minHeight=%d, maxHeight=%d, height=%.2f", minHeight, maxHeight, mIntrinsicSizeRect.height() * scaleX));
         setValue(mScaleXSeekBar, minWidth, maxWidth, mIntrinsicSizeRect.width() *  scaleX, false);
         setValue(mScaleYSeekBar, minHeight, maxHeight, mIntrinsicSizeRect.height() *  scaleY, false);
 

@@ -20,7 +20,6 @@ import android.view.WindowManager;
 
 import com.codepunk.demo.support.DisplayCompat;
 
-import java.util.Arrays;
 import java.util.Locale;
 
 import static android.graphics.Matrix.MSCALE_X;
@@ -71,14 +70,9 @@ public class InteractiveImageView extends AppCompatImageView {
 
         private final PointF mMaxScale = new PointF(1.0f, 1.0f);
         private final PointF mMinScale = new PointF(1.0f, 1.0f);
-        private final RectF mSrcRectF = new RectF();
-        private final RectF mDstRectF = new RectF();
 
         private boolean mMaxScaleDirty;
         private boolean mMinScaleDirty;
-
-        private PointF mPendingRelativeCenter;
-        private PointF mPendingScale;
 
         public DefaultScalingStrategy() {
             super();
@@ -134,7 +128,11 @@ public class InteractiveImageView extends AppCompatImageView {
                 mMaxScaleDirty = false;
                 final RectF intrinsicRect = mRectFPool.acquire();
                 if (getIntrinsicImageRect(intrinsicRect)) {
-                    getImageMatrix().getValues(mMatrixValues);
+
+                    // TODO NEXT -- don't look directly at matrix values here. Start with mScaleType
+                    mImageMatrix.set(getImageMatrixInternal());
+                    mImageMatrix.getValues(mMatrixValues);
+
                     final int displayedWidth =
                             Math.round(intrinsicRect.width() * mMatrixValues[MSCALE_X]);
                     final int displayedHeight =
@@ -168,15 +166,45 @@ public class InteractiveImageView extends AppCompatImageView {
             if (mMinScaleDirty) {
                 mMinScaleDirty = false;
 
-                final RectF displayedRect = mRectFPool.acquire();
-                if (getDisplayedImageRect(displayedRect)) {
+                // TODO Can I simplify this?
+
+                // TODO TEMP
+                /*
+                final RectF intrinsicRect = mRectFPool.acquire();
+                if (getIntrinsicImageRect(intrinsicRect)) {
                     final RectF dstRect = mRectFPool.acquire();
                     dstRect.set(0.0f, 0.0f, getAvailableWidth(), getAvailableHeight());
-                    mImageMatrix.set(getImageMatrixInternal());
+
+                    mImageMatrix.setRectToRect(intrinsicRect, dstRect, Matrix.ScaleToFit.FILL);
                     mImageMatrix.getValues(mMatrixValues);
 
+                    final float newScaleX = mMatrixValues[Matrix.MSCALE_X];
+                    final float newScaleY = mMatrixValues[Matrix.MSCALE_Y];
+
+                    switch (mScaleType) {
+
+                    }
+
+                    mRectFPool.release(dstRect);
+                }
+                mRectFPool.release(intrinsicRect);
+                */
+                // END TEMP
+
+
+                final RectF displayedRect = mRectFPool.acquire();
+                if (getIntrinsicImageRect(displayedRect)) { //getDisplayedImageRect(displayedRect)) {
+                    final RectF dstRect = mRectFPool.acquire();
+                    final int availableWidth = getAvailableWidth();
+                    final int availableHeight = getAvailableHeight();
+                    dstRect.set(0.0f, 0.0f, getAvailableWidth(), getAvailableHeight());
+
+                    /* TODO remove
+                    mImageMatrix.set(getImageMatrixInternal());
+                    mImageMatrix.getValues(mMatrixValues);
                     final float origScaleX = mMatrixValues[Matrix.MSCALE_X];
                     final float origScaleY = mMatrixValues[Matrix.MSCALE_Y];
+                    */
 
                     mImageMatrix.setRectToRect(displayedRect, dstRect, Matrix.ScaleToFit.FILL);
                     mImageMatrix.getValues(mMatrixValues);
@@ -184,27 +212,24 @@ public class InteractiveImageView extends AppCompatImageView {
                     final float newScaleX = mMatrixValues[Matrix.MSCALE_X];
                     final float newScaleY = mMatrixValues[Matrix.MSCALE_Y];
 
-                    // So what do I have now?
-
-                    // TODO Expand this for other ScaleTypes ??
                     switch (mScaleType) {
                         case CENTER_CROP:
                             final float max = Math.max(newScaleX, newScaleY);
-                            mMinScale.set(origScaleX * max, origScaleY * max);
+                            mMinScale.set(max, max); //(origScaleX * max, origScaleY * max);
                             break;
                         case CENTER_INSIDE:
                         case MATRIX:
                             // TODO ???
                             if (newScaleX >= 1.0f && newScaleY >= 1.0f) {
-                                mMinScale.set(origScaleX, origScaleY);
+                                mMinScale.set(1.0f, 1.0f); //(origScaleX, origScaleY);
                             } else {
                                 // Like FIT_xyz
                                 final float min = Math.min(newScaleX, newScaleY);
-                                mMinScale.set(origScaleX * min, origScaleY * min);
+                                mMinScale.set(min, min); //(origScaleX * min, origScaleY * min);
                             }
                             break;
                         case FIT_XY:
-                            mMinScale.set(origScaleX * newScaleX, origScaleY * newScaleY);
+                            mMinScale.set(newScaleX, newScaleY); //(origScaleX * newScaleX, origScaleY * newScaleY);
                             break;
                         case CENTER:
                         case FIT_CENTER:
@@ -212,33 +237,12 @@ public class InteractiveImageView extends AppCompatImageView {
                         case FIT_START:
                         default:
                             final float min = Math.min(newScaleX, newScaleY);
-                            mMinScale.set(origScaleX * min, origScaleY * min);
+                            mMinScale.set(min, min); //(origScaleX * min, origScaleY * min);
                     }
-
 
                     mRectFPool.release(dstRect);
                 }
                 mRectFPool.release(displayedRect);
-
-                /*
-                final RectF intrinsicRect = mRectFPool.acquire();
-                if (getIntrinsicImageRect(intrinsicRect)) {
-                    getImageMatrix().getValues(mMatrixValues);
-                    mSrcRect.set(
-                            0,
-                            0,
-                            Math.round(mPoint.x * mMatrixValues[MSCALE_X]),
-                            Math.round(mPoint.y * mMatrixValues[MSCALE_Y]));
-                    mDstRect.set(0, 0, getAvailableWidth(), getAvailableHeight());
-                    GraphicsUtils.scale(mSrcRect, mDstRect, mScaleType, mPointF);
-                    mMinScale.set(
-                            mPointF.x * mMatrixValues[MSCALE_X],
-                            mPointF.y * mMatrixValues[MSCALE_Y]);
-                } else {
-                    mMinScale.set(1.0f, 1.0f);
-                }
-                mRectFPool.release(intrinsicRect);
-                */
             }
         }
     }
@@ -594,7 +598,7 @@ public class InteractiveImageView extends AppCompatImageView {
             mImageMatrix.getValues(mMatrixValues);
             mMatrixValues[Matrix.MSCALE_X] = scaleX;
             mMatrixValues[Matrix.MSCALE_Y] = scaleY;
-            // TODO Skew / Persp
+            // TODO Skew / Perspective?
             mImageMatrix.setValues(mMatrixValues);
 
             mPts[0] = intrinsicRect.width() * centerX;

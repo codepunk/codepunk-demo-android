@@ -291,7 +291,8 @@
                 android:layout_gravity="center"
                 android:background="@drawable/ic_lock_white_24dp"
                 android:textOff=""
-                android:textOn="" />
+                android:textOn=""
+                android:checked="true" />
 
         </FrameLayout>
 
