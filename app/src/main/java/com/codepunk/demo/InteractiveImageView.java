@@ -167,21 +167,12 @@ public class InteractiveImageView extends AppCompatImageView {
                 mMinScaleDirty = false;
 
                 // TODO Can I simplify this?
-                final RectF displayedRect = mRectFPool.acquire();
-                if (getIntrinsicImageRect(displayedRect)) { //getDisplayedImageRect(displayedRect)) {
+                final RectF intrinsicRect = mRectFPool.acquire();
+                if (getIntrinsicImageRect(intrinsicRect)) { //getDisplayedImageRect(intrinsicRect)) {
                     final RectF dstRect = mRectFPool.acquire();
-                    final int availableWidth = getAvailableWidth();
-                    final int availableHeight = getAvailableHeight();
                     dstRect.set(0.0f, 0.0f, getAvailableWidth(), getAvailableHeight());
 
-                    /* TODO remove
-                    mImageMatrix.set(getImageMatrixInternal());
-                    mImageMatrix.getValues(mMatrixValues);
-                    final float origScaleX = mMatrixValues[Matrix.MSCALE_X];
-                    final float origScaleY = mMatrixValues[Matrix.MSCALE_Y];
-                    */
-
-                    mImageMatrix.setRectToRect(displayedRect, dstRect, Matrix.ScaleToFit.FILL);
+                    mImageMatrix.setRectToRect(intrinsicRect, dstRect, Matrix.ScaleToFit.FILL);
                     mImageMatrix.getValues(mMatrixValues);
 
                     final float newScaleX = mMatrixValues[Matrix.MSCALE_X];
@@ -217,7 +208,7 @@ public class InteractiveImageView extends AppCompatImageView {
 
                     mRectFPool.release(dstRect);
                 }
-                mRectFPool.release(displayedRect);
+                mRectFPool.release(intrinsicRect);
             }
         }
     }
