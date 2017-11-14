@@ -4,6 +4,7 @@ import android.animation.ValueAnimator;
 import android.annotation.TargetApi;
 import android.content.res.Resources;
 import android.graphics.Canvas;
+import android.graphics.Matrix;
 import android.graphics.Point;
 import android.graphics.PointF;
 import android.graphics.Rect;
@@ -128,7 +129,7 @@ public class InteractiveImageViewActivity
     private static final String KEY_CENTER_Y = CLASS_NAME + ".centerY";
     private static final String KEY_SCALE_X = CLASS_NAME + ".scaleX";
     private static final String KEY_SCALE_Y = CLASS_NAME + ".scaleY";
-    private static final String KEY_HAS_CUSTOM_PLACEMENT = CLASS_NAME + ".hasCustomPlacement";
+    private static final String KEY_HAS_CUSTOM_PLACEMENT = CLASS_NAME + ".hasCustomPlacement"; // TODO Can I move HAS_CUSTOM_PLACEMENT and CENTER/SCALE keys to the widget itself?
     private static final String KEY_SHOWING_CONTROLS = CLASS_NAME + ".showingControls";
     private static final String KEY_SCALE_LOCKED = CLASS_NAME + ".scaleLocked";
     //endregion Constants
@@ -278,6 +279,19 @@ public class InteractiveImageViewActivity
 
             // TODO The two scale sliders have different lower/upper bounds -- querying the wrong scale type?
         }
+
+        // TODO TEMP
+        Matrix matrix = new Matrix();
+        matrix.setScale(3.0f, 3.0f);
+        mImageView.setImageMatrix(matrix);
+
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                mImageView.setScaleType(ScaleType.MATRIX);
+            }
+        }, 2000);
+        // END TEMP
 
         if (mShowingControls) {
             showControls(false);
