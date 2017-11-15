@@ -4,7 +4,6 @@ import android.animation.ValueAnimator;
 import android.annotation.TargetApi;
 import android.content.res.Resources;
 import android.graphics.Canvas;
-import android.graphics.Matrix;
 import android.graphics.Point;
 import android.graphics.PointF;
 import android.graphics.Rect;
@@ -125,10 +124,10 @@ public class InteractiveImageViewActivity
     private static final String CLASS_NAME = InteractiveImageViewActivity.class.getName();
     private static final String KEY_DRAWABLE_RES_ID = CLASS_NAME + ".drawableResId";
     private static final String KEY_SCALE_TYPE = CLASS_NAME + ".scaleType";
-    private static final String KEY_CENTER_X = CLASS_NAME + ".centerX";
-    private static final String KEY_CENTER_Y = CLASS_NAME + ".centerY";
-    private static final String KEY_SCALE_X = CLASS_NAME + ".scaleX";
-    private static final String KEY_SCALE_Y = CLASS_NAME + ".scaleY";
+    private static final String KEY_APPLIED_CENTER_X = CLASS_NAME + ".appliedCenterX";
+    private static final String KEY_APPLIED_CENTER_Y = CLASS_NAME + ".appliedCenterY";
+    private static final String KEY_APPLIED_SCALE_X = CLASS_NAME + ".appliedScaleX";
+    private static final String KEY_APPLIED_SCALE_Y = CLASS_NAME + ".appliedScaleY";
     private static final String KEY_HAS_CUSTOM_PLACEMENT = CLASS_NAME + ".hasCustomPlacement"; // TODO Can I move HAS_CUSTOM_PLACEMENT and CENTER/SCALE keys to the widget itself?
     private static final String KEY_SHOWING_CONTROLS = CLASS_NAME + ".showingControls";
     private static final String KEY_SCALE_LOCKED = CLASS_NAME + ".scaleLocked";
@@ -243,19 +242,6 @@ public class InteractiveImageViewActivity
             mDrawableSpinner.setSelection(position, false);
             final ScaleType scaleType = mImageView.getScaleType();
             mScaleTypeSpinner.setSelection(scaleType.ordinal(), false);
-
-            // TODO TEMP
-            /*
-            mImageView.setScaleType(ScaleType.MATRIX);
-            final Matrix matrix = mImageView.getImageMatrix();
-            final float[] values = new float[9];
-            matrix.getValues(values);
-            values[Matrix.MSCALE_X] = 0.2f;
-            values[Matrix.MSCALE_Y] = 0.5f;
-            matrix.setValues(values);
-            mImageView.setImageMatrix(matrix);
-            */
-            // END TEMP
         } else {
             mLockBtn.setChecked(savedInstanceState.getBoolean(KEY_SCALE_LOCKED, false));
             mShowingControls = savedInstanceState.getBoolean(KEY_SHOWING_CONTROLS, false);
@@ -269,29 +255,15 @@ public class InteractiveImageViewActivity
             final boolean hasCustomPlacement =
                     savedInstanceState.getBoolean(KEY_HAS_CUSTOM_PLACEMENT, false);
             if (hasCustomPlacement) {
-                final float centerX = savedInstanceState.getFloat(KEY_CENTER_X, 0.5f);
-                final float centerY = savedInstanceState.getFloat(KEY_CENTER_Y, 0.5f);
-                final float scaleX = savedInstanceState.getFloat(KEY_SCALE_X);
-                final float scaleY = savedInstanceState.getFloat(KEY_SCALE_Y);
-                mImageView.setCenter(centerX, centerY);
-                mImageView.setScale(scaleX, scaleY);
+                final float centerX = savedInstanceState.getFloat(KEY_APPLIED_CENTER_X, 0.5f);
+                final float centerY = savedInstanceState.getFloat(KEY_APPLIED_CENTER_Y, 0.5f);
+                final float scaleX = savedInstanceState.getFloat(KEY_APPLIED_SCALE_X);
+                final float scaleY = savedInstanceState.getFloat(KEY_APPLIED_SCALE_Y);
+                mImageView.setPlacement(scaleX, scaleY, centerX, centerY);
             }
 
             // TODO The two scale sliders have different lower/upper bounds -- querying the wrong scale type?
         }
-
-        // TODO TEMP
-        Matrix matrix = new Matrix();
-        matrix.setScale(3.0f, 3.0f);
-        mImageView.setImageMatrix(matrix);
-
-        new Handler().postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                mImageView.setScaleType(ScaleType.MATRIX);
-            }
-        }, 2000);
-        // END TEMP
 
         if (mShowingControls) {
             showControls(false);
@@ -324,10 +296,10 @@ public class InteractiveImageViewActivity
         final boolean hasCustomPlacement = mImageView.hasCustomPlacement();
         outState.putBoolean(KEY_HAS_CUSTOM_PLACEMENT, hasCustomPlacement);
         if (hasCustomPlacement) {
-            outState.putFloat(KEY_CENTER_X, mImageView.getCenterX());
-            outState.putFloat(KEY_CENTER_Y, mImageView.getCenterY());
-            outState.putFloat(KEY_SCALE_X, mImageView.getScaleX());
-            outState.putFloat(KEY_SCALE_Y, mImageView.getScaleY());
+            outState.putFloat(KEY_APPLIED_CENTER_X, mImageView.getAppliedCenterX());
+            outState.putFloat(KEY_APPLIED_CENTER_Y, mImageView.getAppliedCenterY());
+            outState.putFloat(KEY_APPLIED_SCALE_X, mImageView.getAppliedScaleX());
+            outState.putFloat(KEY_APPLIED_SCALE_Y, mImageView.getAppliedScaleY());
         }
         outState.putBoolean(KEY_SHOWING_CONTROLS, mShowingControls);
         outState.putBoolean(KEY_SCALE_LOCKED, mLockBtn.isChecked());

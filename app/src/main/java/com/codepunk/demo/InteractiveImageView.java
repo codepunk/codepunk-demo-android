@@ -4,18 +4,17 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
 import android.graphics.Matrix.ScaleToFit;
-import android.graphics.Point;
 import android.graphics.PointF;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.support.annotation.Nullable;
-import android.support.v4.util.Pools.SynchronizedPool;
+import android.support.v4.math.MathUtils;
+import android.support.v4.util.Pools.SimplePool;
 import android.support.v4.view.ViewCompat;
 import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
-import android.view.Display;
 import android.view.WindowManager;
 
 import com.codepunk.demo.support.DisplayCompat;
@@ -23,8 +22,8 @@ import com.codepunk.demo.support.DisplayCompat;
 import static android.graphics.Matrix.MSCALE_X;
 import static android.graphics.Matrix.MSCALE_Y;
 
-// TODO I might not need base matrix at all. Especially if I also allow setting of
-// skew, perspective, etc.
+// TODO Next Differentiate between "applied" center/scale and actual/current center/scale
+// TODO Next 2 observe limits when setting center/scale
 // TODO Handle skew, perspective
 
 public class InteractiveImageView extends AppCompatImageView {
@@ -59,15 +58,17 @@ public class InteractiveImageView extends AppCompatImageView {
 
         public DefaultScalingStrategy() {
             super();
+            final DisplayMetrics dm;
             WindowManager manager =
                     (WindowManager) getContext().getSystemService(Context.WINDOW_SERVICE);
-            Display display = manager.getDefaultDisplay();
-            Point point = new Point();
-            DisplayCompat.getRealSize(display, point);
-            DisplayMetrics dm = new DisplayMetrics();
-            DisplayCompat.getRealMetrics(display, dm);
-            mScreenBreadth = Math.min(point.x, point.y);
-            mScreenLength = Math.max(point.x, point.y);
+            if (manager == null) {
+                dm = getContext().getResources().getDisplayMetrics();
+            } else {
+                dm = new DisplayMetrics();
+                DisplayCompat.getRealMetrics(manager.getDefaultDisplay(), dm);
+            }
+            mScreenBreadth = Math.min(dm.widthPixels, dm.heightPixels);
+            mScreenLength = Math.max(dm.widthPixels, dm.heightPixels);
             mMaxBreadth = Math.round(BREADTH_MULTIPLIER * mScreenBreadth);
             mMaxLength = Math.round(LENGTH_MULTIPLIER * mScreenLength);
         }
@@ -110,14 +111,10 @@ public class InteractiveImageView extends AppCompatImageView {
             if (mMaxScaleDirty) {
                 mMaxScaleDirty = false;
 
-                // TODO NEXT -- Can I use what I did in calcMinScale?
-
                 final RectF intrinsicRect = mRectFPool.acquire();
                 if (getIntrinsicImageRect(intrinsicRect)) {
-
-                    // TODO NEXT -- don't look directly at matrix values here. Start with mScaleType
-                    mImageMatrix.set(getImageMatrixInternal());
-                    mImageMatrix.getValues(mMatrixValues);
+                    final Matrix baseImageMatrix = getBaseImageMatrix();
+                    baseImageMatrix.getValues(mMatrixValues);
 
                     final int displayedWidth =
                             Math.round(intrinsicRect.width() * mMatrixValues[MSCALE_X]);
@@ -157,61 +154,11 @@ public class InteractiveImageView extends AppCompatImageView {
                 mMinScale.set(mMatrixValues[MSCALE_X], mMatrixValues[MSCALE_Y]);
 
                 // TODO Make sure it's ok I'm not checking if imageHasIntrinsicSize here
-
-                /*
-                // TODO Can I simplify this?
-                final RectF intrinsicRect = mRectFPool.acquire();
-                if (getIntrinsicImageRect(intrinsicRect)) { //getDisplayedImageRect(intrinsicRect)) {
-
-                    final RectF dstRect = mRectFPool.acquire();
-                    dstRect.set(0.0f, 0.0f, getAvailableWidth(), getAvailableHeight());
-
-                    mImageMatrix.setRectToRect(intrinsicRect, dstRect, ScaleToFit.FILL);
-                    mImageMatrix.getValues(mMatrixValues);
-
-                    final float newScaleX = mMatrixValues[Matrix.MSCALE_X];
-                    final float newScaleY = mMatrixValues[Matrix.MSCALE_Y];
-
-                    switch (mScaleType) {
-                        case CENTER_CROP:
-                            final float max = Math.max(newScaleX, newScaleY);
-                            mMinScale.set(max, max); //(origScaleX * max, origScaleY * max);
-                            break;
-                        case CENTER_INSIDE:
-                        case MATRIX:
-                            // TODO The problem with MATRIX is that we could set the size with
-                            // setImageMatrix, then it can be modified so we've lost the "original".
-                            // So for all scale types we need the "original" matrix and we need
-                            // to pass it in savedInstanceState.
-                            if (newScaleX >= 1.0f && newScaleY >= 1.0f) {
-                                mMinScale.set(1.0f, 1.0f); //(origScaleX, origScaleY);
-                            } else {
-                                // Like FIT_xyz
-                                final float min = Math.min(newScaleX, newScaleY);
-                                mMinScale.set(min, min); //(origScaleX * min, origScaleY * min);
-                            }
-                            break;
-                        case FIT_XY:
-                            mMinScale.set(newScaleX, newScaleY); //(origScaleX * newScaleX, origScaleY * newScaleY);
-                            break;
-                        case CENTER:
-                        case FIT_CENTER:
-                        case FIT_END:
-                        case FIT_START:
-                        default:
-                            final float min = Math.min(newScaleX, newScaleY);
-                            mMinScale.set(min, min); //(origScaleX * min, origScaleY * min);
-                    }
-
-                    mRectFPool.release(dstRect);
-                }
-                mRectFPool.release(intrinsicRect);
-                */
             }
         }
     }
 
-    private class RectFPool extends SynchronizedPool<RectF> {
+    private class RectFPool extends SimplePool<RectF> {
         public RectFPool(int maxPoolSize) {
             super(maxPoolSize);
         }
@@ -239,12 +186,14 @@ public class InteractiveImageView extends AppCompatImageView {
     // For state
     private final Matrix mBaseImageMatrix = new Matrix();
     private boolean mBaseImageMatrixDirty = false;
-    private boolean mCenterDirty = false;
-    private boolean mScaleDirty = false;
+    private boolean mCenterDirty = false; // TODO Rethink this
+    private boolean mScaleDirty = false;  // TODO Rethink this
     private boolean mImageMatrixDirty = false;
 
     // Object pools and buckets
     private RectFPool mRectFPool = new RectFPool(10);
+    private final PointF mAppliedCenter = new PointF();
+    private final PointF mAppliedScale = new PointF();
     private final PointF mCenter = new PointF();
     private final PointF mScale = new PointF();
     private final Matrix mImageMatrix = new Matrix();
@@ -356,23 +305,22 @@ public class InteractiveImageView extends AppCompatImageView {
             if (imageHasIntrinsicSize()) {
                 final RectF intrinsicRect = mRectFPool.acquire();
                 getIntrinsicImageRect(intrinsicRect);
-                final ScaleType scaleType = super.getScaleType();
-                if (ScaleType.MATRIX == scaleType) {
+                if (ScaleType.MATRIX == mScaleType) {
                     mBaseImageMatrix.set(getImageMatrix());
                 } else {
                     final RectF dstRect = mRectFPool.acquire();
                     dstRect.set(0.0f, 0.0f, getAvailableWidth(), getAvailableHeight());
-                    final ScaleToFit scaleToFit = scaleTypeToScaleToFit(scaleType);
+                    final ScaleToFit scaleToFit = scaleTypeToScaleToFit(mScaleType);
                     if (scaleToFit != null) {
                         mBaseImageMatrix.setRectToRect(intrinsicRect, dstRect, scaleToFit);
                     } else {
                         final float scale;
-                        if (ScaleType.CENTER == scaleType) {
+                        if (ScaleType.CENTER == mScaleType) {
                             scale = 1.0f;
                         } else {
                             final float scaleX = dstRect.width() / intrinsicRect.width();
                             final float scaleY = dstRect.height() / intrinsicRect.height();
-                            if (ScaleType.CENTER_CROP == scaleType) {
+                            if (ScaleType.CENTER_CROP == mScaleType) {
                                 scale = Math.max(scaleX, scaleY);
                             } else {
                                 scale = Math.min(Math.min(scaleX, scaleY), 1.0f);
@@ -393,7 +341,23 @@ public class InteractiveImageView extends AppCompatImageView {
         return mBaseImageMatrix;
     }
 
-    public synchronized boolean getCenter(PointF outPoint) {
+    public float getAppliedCenterX() {
+        return mAppliedCenter.x;
+    }
+
+    public float getAppliedCenterY() {
+        return mAppliedCenter.y;
+    }
+
+    public float getAppliedScaleX() {
+        return mAppliedScale.x;
+    }
+
+    public float getAppliedScaleY() {
+        return mAppliedScale.y;
+    }
+
+    public synchronized boolean getCenter(PointF outPoint) { // TODO Make protected/private?
         if (imageHasIntrinsicSize()) {
             if (mCenterDirty) {
                 if (ViewCompat.isLaidOut(this)) {
@@ -483,7 +447,7 @@ public class InteractiveImageView extends AppCompatImageView {
         return getScalingStrategy().getMinScaleY();
     }
 
-    public synchronized boolean getScale(PointF outPoint) {
+    public synchronized boolean getScale(PointF outPoint) { // TODO Make protected/private?
         if (imageHasIntrinsicSize()) {
             if (mScaleDirty) {
                 if (ViewCompat.isLaidOut(this)) {
@@ -613,29 +577,43 @@ public class InteractiveImageView extends AppCompatImageView {
             float scaleY,
             float centerX,
             float centerY) {
+
+        mAppliedScale.set(scaleX, scaleY);
+        mAppliedCenter.set(centerX, centerY);
+
         if (imageHasIntrinsicSize()) {
             final RectF intrinsicRect = mRectFPool.acquire();
             getIntrinsicImageRect(intrinsicRect);
 
-            final Matrix baseImageMatrix = getBaseImageMatrix();
+            // TODO NEXT observe boundaries!! How do I best do this, especially with skew, persp?
+            final float constrainedScaleX = MathUtils.clamp(scaleX, getMinScaleX(), getMaxScaleX());
+            final float constrainedScaleY = MathUtils.clamp(scaleY, getMinScaleY(), getMaxScaleY());
+            final float constrainedCenterX = centerX; // TODO NEXT
+            final float constrainedCenterY = centerY; // TODO NEXT
+
+            mScale.set(constrainedScaleX, constrainedScaleY);
+            mCenter.set(constrainedCenterX, constrainedCenterY);
 
             mImageMatrix.set(getImageMatrixInternal());
             mImageMatrix.getValues(mMatrixValues);
-            mMatrixValues[Matrix.MSCALE_X] = scaleX;
-            mMatrixValues[Matrix.MSCALE_Y] = scaleY;
+            mMatrixValues[Matrix.MSCALE_X] = constrainedScaleX;
+            mMatrixValues[Matrix.MSCALE_Y] = constrainedScaleY;
             // TODO Skew / Perspective?
             mImageMatrix.setValues(mMatrixValues);
 
-            mPts[0] = intrinsicRect.width() * centerX;
-            mPts[1] = intrinsicRect.height() * centerY;
+            mPts[0] = intrinsicRect.width() * constrainedCenterX;
+            mPts[1] = intrinsicRect.height() * constrainedCenterY;
             mImageMatrix.mapPoints(mPts);
 
             final float viewCenterX = getAvailableWidth() / 2.0f;
             final float viewCenterY = getAvailableHeight() / 2.0f;
             final float deltaTransX = mPts[0] - mMatrixValues[Matrix.MTRANS_X];
             final float deltaTransY = mPts[1] - mMatrixValues[Matrix.MTRANS_Y];
-            mMatrixValues[Matrix.MTRANS_X] = viewCenterX - deltaTransX;
-            mMatrixValues[Matrix.MTRANS_Y] = viewCenterY - deltaTransY;
+            final float transX = viewCenterX - deltaTransX;
+            final float transY = viewCenterY - deltaTransY;
+
+            mMatrixValues[Matrix.MTRANS_X] = transX;
+            mMatrixValues[Matrix.MTRANS_Y] = transY;
             mImageMatrix.setValues(mMatrixValues);
 
             if (!ScaleType.MATRIX.equals(super.getScaleType())) {
