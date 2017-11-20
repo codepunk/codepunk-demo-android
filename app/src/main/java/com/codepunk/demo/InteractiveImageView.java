@@ -583,13 +583,21 @@ public class InteractiveImageView extends AppCompatImageView {
 
         if (imageHasIntrinsicSize()) {
             final RectF intrinsicRect = mRectFPool.acquire();
+            final RectF matrixRect = mRectFPool.acquire();
             getIntrinsicImageRect(intrinsicRect);
 
             // TODO NEXT observe boundaries!! How do I best do this, especially with skew, persp?
             final float constrainedScaleX = MathUtils.clamp(scaleX, getMinScaleX(), getMaxScaleX());
             final float constrainedScaleY = MathUtils.clamp(scaleY, getMinScaleY(), getMaxScaleY());
+
+            final Matrix matrix = getImageMatrixInternal();
+            matrix.setScale(scaleX, scaleY);
+            matrix.mapRect(matrixRect, intrinsicRect);
+
             final float constrainedCenterX = centerX; // TODO NEXT
             final float constrainedCenterY = centerY; // TODO NEXT
+
+
 
             mScale.set(constrainedScaleX, constrainedScaleY);
             mCenter.set(constrainedCenterX, constrainedCenterY);
@@ -620,6 +628,7 @@ public class InteractiveImageView extends AppCompatImageView {
                 super.setScaleType(ScaleType.MATRIX);
             }
             setImageMatrixInternal(mImageMatrix);
+            mRectFPool.release(matrixRect);
             mRectFPool.release(intrinsicRect);
             return true;
         } else {
