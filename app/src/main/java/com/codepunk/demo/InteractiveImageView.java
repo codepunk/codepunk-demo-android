@@ -22,7 +22,8 @@ import com.codepunk.demo.support.DisplayCompat;
 import static android.graphics.Matrix.MSCALE_X;
 import static android.graphics.Matrix.MSCALE_Y;
 
-// TODO Next Differentiate between "applied" center/scale and actual/current center/scale
+// TODO Next helper methods to get min/maxCenterX, min/maxCenterY, min/maxTransX/Y based on current scale
+// TODO Next Differentiate between "applied" center/scale and actual/current center/scale -- Done??
 // TODO Next 2 observe limits when setting center/scale
 // TODO Handle skew, perspective
 // TODO Do *I* have to figure out when to invalidate strategies? Or can I just override invalidate()?
