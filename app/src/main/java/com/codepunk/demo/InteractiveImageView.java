@@ -25,11 +25,20 @@ import static android.graphics.Matrix.MSCALE_Y;
 // TODO Next Differentiate between "applied" center/scale and actual/current center/scale
 // TODO Next 2 observe limits when setting center/scale
 // TODO Handle skew, perspective
+// TODO Do *I* have to figure out when to invalidate strategies? Or can I just override invalidate()?
 
 public class InteractiveImageView extends AppCompatImageView {
     //region Nested classes
     public interface OnDrawListener {
         void onDraw(InteractiveImageView view, Canvas canvas);
+    }
+
+    public interface PanningStrategy {
+        float getMaxTransX(float scaleX);
+        float getMinTransX(float scaleX);
+        float getMaxTransY(float scaleY);
+        float getMinTransY(float scaleY);
+        void invalidate();
     }
 
     public interface ScalingStrategy {
@@ -39,6 +48,102 @@ public class InteractiveImageView extends AppCompatImageView {
         float getMinScaleY();
         void invalidateMaxScale();
         void invalidateMinScale();
+    }
+
+    private class DefaultPanningStrategy implements PanningStrategy {
+        private boolean mDirty = true;
+
+        private boolean mImageHasIntrinsicSize;
+        private Rect mIntrinsicImageRect = new Rect();
+
+        private boolean getIntrinsicImageRect() {
+            if (mDirty) {
+                mImageHasIntrinsicSize =
+                        InteractiveImageView.this.getIntrinsicImageRect(mIntrinsicImageRect);
+            }
+            return mImageHasIntrinsicSize;
+        }
+
+        private float calculateTrans(float displayedSize, int availableSize, boolean min) {
+            final float trans;
+            final float diff = (displayedSize - availableSize);
+            if (diff < 0) {
+                switch (mScaleType) {
+                    case FIT_START:
+                        trans = 0.0f;
+                        break;
+                    case FIT_END:
+                        trans = diff;
+                        break;
+                    default:
+                        trans = diff / 2.0f;
+                }
+            } else {
+                trans = (min ? -diff : 0.0f);
+            }
+            return trans;
+        }
+
+        @Override
+        public float getMaxTransX(float scaleX) {
+            final float maxTransX;
+            if (getIntrinsicImageRect()) {
+                maxTransX = calculateTrans(
+                        mIntrinsicImageRect.width() * scaleX,
+                        getAvailableWidth(),
+                        false);
+            } else {
+                maxTransX = 0.0f;
+            }
+            return maxTransX;
+        }
+
+        @Override
+        public float getMinTransX(float scaleX) {
+            final float minTransX;
+            if (getIntrinsicImageRect()) {
+                minTransX = calculateTrans(
+                        mIntrinsicImageRect.width() * scaleX,
+                        getAvailableWidth(),
+                        true);
+            } else {
+                minTransX = 0.0f;
+            }
+            return minTransX;
+        }
+
+        @Override
+        public float getMaxTransY(float scaleY) {
+            final float maxTransY;
+            if (getIntrinsicImageRect()) {
+                maxTransY = calculateTrans(
+                        mIntrinsicImageRect.height() * scaleY,
+                        getAvailableHeight(),
+                        false);
+            } else {
+                maxTransY = 0.0f;
+            }
+            return maxTransY;
+        }
+
+        @Override
+        public float getMinTransY(float scaleY) {
+            final float maxTransY;
+            if (getIntrinsicImageRect()) {
+                maxTransY = calculateTrans(
+                        mIntrinsicImageRect.height() * scaleY,
+                        getAvailableHeight(),
+                        true);
+            } else {
+                maxTransY = 0.0f;
+            }
+            return maxTransY;
+        }
+
+        @Override
+        public void invalidate() {
+            mDirty = true;
+        }
     }
 
     private class DefaultScalingStrategy implements ScalingStrategy {
@@ -53,8 +158,8 @@ public class InteractiveImageView extends AppCompatImageView {
         private final PointF mMaxScale = new PointF(1.0f, 1.0f);
         private final PointF mMinScale = new PointF(1.0f, 1.0f);
 
-        private boolean mMaxScaleDirty;
-        private boolean mMinScaleDirty;
+        private boolean mMaxScaleDirty = true;
+        private boolean mMinScaleDirty = true;
 
         public DefaultScalingStrategy() {
             super();
@@ -180,6 +285,7 @@ public class InteractiveImageView extends AppCompatImageView {
 
     //region Fields
     private ScaleType mScaleType;
+    private PanningStrategy mPanningStrategy;
     private ScalingStrategy mScalingStrategy;
     private OnDrawListener mOnDrawListener;
 
@@ -244,6 +350,8 @@ public class InteractiveImageView extends AppCompatImageView {
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
+        // TODO Examine all these invalidates. Maybe just override invalidate() and invalidate everything?
+        invalidatePanningStrategy();
         invalidateScalingStrategy();
         invalidateBaseMatrix();
     }
@@ -251,6 +359,7 @@ public class InteractiveImageView extends AppCompatImageView {
     @Override
     public void setImageDrawable(@Nullable Drawable drawable) {
         super.setImageDrawable(drawable);
+        invalidatePanningStrategy();
         invalidateScalingStrategy();
         invalidateBaseMatrix();
         invalidatePlacement();
@@ -262,6 +371,7 @@ public class InteractiveImageView extends AppCompatImageView {
         if (ScaleType.MATRIX == super.getScaleType()) {
             mBaseImageMatrix.set(matrix);
             mBaseImageMatrixDirty = false;
+            invalidatePanningStrategy();
             invalidateScalingStrategy(); // TODO Inside or outside this block??
             invalidatePlacement(); // TODO Inside or outside this block??
         }
@@ -270,6 +380,7 @@ public class InteractiveImageView extends AppCompatImageView {
     @Override
     public void setPadding(int left, int top, int right, int bottom) {
         super.setPadding(left, top, right, bottom);
+        invalidatePanningStrategy();
         invalidateScalingStrategy();
         invalidateBaseMatrix();
     }
@@ -277,6 +388,7 @@ public class InteractiveImageView extends AppCompatImageView {
     @Override
     public void setPaddingRelative(int start, int top, int end, int bottom) {
         super.setPaddingRelative(start, top, end, bottom);
+        invalidatePanningStrategy();
         invalidateScalingStrategy();
         invalidateBaseMatrix();
     }
@@ -287,6 +399,7 @@ public class InteractiveImageView extends AppCompatImageView {
         super.setScaleType(scaleType);
         if (oldScaleType != super.getScaleType()) {
             mScaleType = scaleType;
+            invalidatePanningStrategy();
             invalidateScalingStrategy();
             invalidateBaseMatrix();
             invalidatePlacement();
@@ -448,7 +561,8 @@ public class InteractiveImageView extends AppCompatImageView {
     }
 
     public synchronized boolean getScale(PointF outPoint) { // TODO Make protected/private?
-        if (imageHasIntrinsicSize()) {
+        final boolean imageHasIntrinsicSize = imageHasIntrinsicSize();
+        if (imageHasIntrinsicSize) {
             if (mScaleDirty) {
                 if (ViewCompat.isLaidOut(this)) {
                     mScaleDirty = false;
@@ -457,7 +571,7 @@ public class InteractiveImageView extends AppCompatImageView {
                     mScale.set(mMatrixValues[Matrix.MSCALE_X], mMatrixValues[Matrix.MSCALE_Y]);
                 } else {
                     if (outPoint != null) {
-                        outPoint.set(-1.0f, -1.0f);
+                        outPoint.set(1.0f, 1.0f);
                     }
                     return false;
                 }
@@ -465,18 +579,17 @@ public class InteractiveImageView extends AppCompatImageView {
             if (outPoint != null) {
                 outPoint.set(mScale);
             }
-            return true;
         } else {
             if (outPoint != null) {
-                outPoint.set(-1.0f, -1.0f);
+                outPoint.set(1.0f, 1.0f);
             }
-            return false;
         }
+        return imageHasIntrinsicSize;
     }
 
     public boolean getScaledImageRect(float scaleX, float scaleY, Rect outRect) {
         final RectF rect = mRectFPool.acquire();
-        final boolean retVal = getScaledImageRect(scaleX, scaleY, rect);
+        final boolean imageHasIntrinsicSize = getScaledImageRect(scaleX, scaleY, rect);
         if (outRect != null) {
             outRect.set(
                     Math.round(rect.left),
@@ -485,35 +598,29 @@ public class InteractiveImageView extends AppCompatImageView {
                     Math.round(rect.bottom));
         }
         mRectFPool.release(rect);
-        return retVal;
+        return imageHasIntrinsicSize;
     }
 
     public boolean getScaledImageRect(float scaleX, float scaleY, RectF outRect) {
-        final boolean retVal;
+        final boolean imageHasIntrinsicSize;
         final float right;
         final float bottom;
         final Drawable dr = getDrawable();
         if (dr == null) {
             right = 0.0f;
             bottom = 0.0f;
-            retVal = false;
+            imageHasIntrinsicSize = false;
         } else {
             final int intrinsicWidth = dr.getIntrinsicWidth();
             final int intrinsicHeight = dr.getIntrinsicHeight();
-            if (intrinsicWidth < 0 || intrinsicHeight < 0) {
-                right = -1.0f;
-                bottom = -1.0f;
-                retVal = false;
-            } else {
-                right = (intrinsicWidth < 0 ? intrinsicWidth : intrinsicWidth * scaleX);
-                bottom = (intrinsicHeight < 0 ? intrinsicHeight : intrinsicHeight * scaleY);
-                retVal = true;
-            }
+            imageHasIntrinsicSize = !(intrinsicWidth < 0 || intrinsicHeight < 0);
+            right = (imageHasIntrinsicSize ? intrinsicWidth * scaleX : 0.0f);
+            bottom = (imageHasIntrinsicSize ? intrinsicHeight * scaleY : 0.0f);
         }
         if (outRect != null) {
             outRect.set(0, 0, right, bottom);
         }
-        return retVal;
+        return imageHasIntrinsicSize;
     }
 
     public float getScaleX() {
@@ -531,6 +638,10 @@ public class InteractiveImageView extends AppCompatImageView {
         return (mScaleType != super.getScaleType());
     }
 
+    public void invalidatePanningStrategy() {
+        getPanningStrategy().invalidate();
+    }
+
     public void invalidateScalingStrategy() {
         final ScalingStrategy scalingStrategy = getScalingStrategy();
         scalingStrategy.invalidateMaxScale();
@@ -543,6 +654,10 @@ public class InteractiveImageView extends AppCompatImageView {
 
     public void setOnDrawListener(OnDrawListener onDrawListener) {
         mOnDrawListener = onDrawListener;
+    }
+
+    public void setPanningStrategy(PanningStrategy panningStrategy) {
+        mPanningStrategy = panningStrategy;
     }
 
     public boolean setPlacement(float scaleX, float scaleY, float centerX, float centerY) {
@@ -590,12 +705,13 @@ public class InteractiveImageView extends AppCompatImageView {
             final float constrainedScaleX = MathUtils.clamp(scaleX, getMinScaleX(), getMaxScaleX());
             final float constrainedScaleY = MathUtils.clamp(scaleY, getMinScaleY(), getMaxScaleY());
 
-            final Matrix matrix = getImageMatrixInternal();
-            matrix.setScale(scaleX, scaleY);
-            matrix.mapRect(matrixRect, intrinsicRect);
-
             final float constrainedCenterX = centerX; // TODO NEXT
             final float constrainedCenterY = centerY; // TODO NEXT
+
+            final Matrix matrix = getImageMatrixInternal();
+            matrix.setScale(scaleX, scaleY);  // TODO Use constrained
+            matrix.mapRect(matrixRect, intrinsicRect);
+
 
 
 
@@ -619,6 +735,8 @@ public class InteractiveImageView extends AppCompatImageView {
             final float deltaTransY = mPts[1] - mMatrixValues[Matrix.MTRANS_Y];
             final float transX = viewCenterX - deltaTransX;
             final float transY = viewCenterY - deltaTransY;
+            // TODO Calculating trans here but maybe I do it in panning strategy?
+            // What should a panning strategy be able to do?
 
             mMatrixValues[Matrix.MTRANS_X] = transX;
             mMatrixValues[Matrix.MTRANS_Y] = transY;
@@ -628,6 +746,7 @@ public class InteractiveImageView extends AppCompatImageView {
                 super.setScaleType(ScaleType.MATRIX);
             }
             setImageMatrixInternal(mImageMatrix);
+
             mRectFPool.release(matrixRect);
             mRectFPool.release(intrinsicRect);
             return true;
@@ -659,6 +778,13 @@ public class InteractiveImageView extends AppCompatImageView {
             }
         }
         return matrix;
+    }
+
+    private PanningStrategy getPanningStrategy() {
+        if (mPanningStrategy == null) {
+            mPanningStrategy = new DefaultPanningStrategy();
+        }
+        return mPanningStrategy;
     }
 
     private ScalingStrategy getScalingStrategy() {
