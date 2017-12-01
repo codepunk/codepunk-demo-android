@@ -5,9 +5,9 @@ import android.graphics.Canvas;
 import android.graphics.Matrix;
 import android.graphics.Matrix.ScaleToFit;
 import android.graphics.PointF;
-import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.math.MathUtils;
 import android.support.v4.util.Pools.SimplePool;
@@ -22,9 +22,7 @@ import com.codepunk.demo.support.DisplayCompat;
 import static android.graphics.Matrix.MSCALE_X;
 import static android.graphics.Matrix.MSCALE_Y;
 
-// TODO Get rid of getScaledImageRect, getIntrinsicImageRect and replace with
-// getScaledImageWidth/Height, getIntrinsicImageWidth/Height (and private getScaledImageDimension(width/height)
-// -- Too many calls to Rect Pool
+// TODO NEXT REPAIR!!!!
 // TODO Next Differentiate between "applied" center/scale and actual/current center/scale -- Done??
 // TODO Next 2 observe limits when setting center/scale
 // TODO Handle skew, perspective
@@ -32,15 +30,25 @@ import static android.graphics.Matrix.MSCALE_Y;
 
 public class InteractiveImageView extends AppCompatImageView {
     //region Nested classes
+    private enum Boundary {
+        MIN,
+        MAX
+    }
+
+    private enum Orientation {
+        HORIZONTAL,
+        VERTICAL
+    }
+
     public interface OnDrawListener {
         void onDraw(InteractiveImageView view, Canvas canvas);
     }
 
     public interface PanningStrategy {
-        float getMaxTransX(float scaleX);
-        float getMinTransX(float scaleX);
-        float getMaxTransY(float scaleY);
-        float getMinTransY(float scaleY);
+        int getMaxTransX(float scale);
+        int getMinTransX(float scale);
+        int getMaxTransY(float scale);
+        int getMinTransY(float scale);
         void invalidate();
     }
 
@@ -54,100 +62,71 @@ public class InteractiveImageView extends AppCompatImageView {
     }
 
     private class DefaultPanningStrategy implements PanningStrategy {
-        private boolean mDirty = true;
-
-        private boolean mImageHasIntrinsicSize;
-        private Rect mIntrinsicImageRect = new Rect();
-
-        private boolean getIntrinsicImageRect() {
-            if (mDirty) {
-                mImageHasIntrinsicSize =
-                        InteractiveImageView.this.getIntrinsicImageRect(mIntrinsicImageRect);
-            }
-            return mImageHasIntrinsicSize;
+        private int getScaledImageDimension(@NonNull Orientation orientation, float scale) {
+            final int dimension = (orientation == Orientation.VERTICAL ?
+                    getIntrinsicImageHeight() :
+                    getIntrinsicImageWidth());
+            return (dimension == -1 ? -1 : Math.round(dimension * scale));
         }
 
         // TODO NEXT Can I replace some of this with Matrix operations?
         // Answer: NO. But I also need to query LTR to get the correct side :(
-        private float calculateTrans(float displayedSize, int availableSize, boolean min) {
-            final float trans;
-            final float diff = (displayedSize - availableSize);
-            if (diff < 0) {
-                switch (mScaleType) {
-                    case FIT_START:
-                        trans = 0.0f;
-                        break;
-                    case FIT_END:
-                        trans = diff;
-                        break;
-                    default:
-                        trans = diff / 2.0f;
+        private int getTrans(
+                float scale,
+                @NonNull Orientation orientation,
+                @NonNull Boundary boundary) {
+            final int scaledDimension = getScaledImageDimension(orientation, scale);
+            if (scaledDimension < 0) {
+                return 0;
+            } else {
+                final int availableDimension = (orientation == Orientation.VERTICAL ?
+                        getAvailableHeight() :
+                        getAvailableWidth());
+                if (scaledDimension < availableDimension) {
+                    // If image is smaller than available dimension, min and max are the same
+                    if (mScaleType == ScaleType.FIT_START || mScaleType == ScaleType.FIT_END) {
+                        final boolean reversed = (orientation == Orientation.HORIZONTAL &&
+                                ViewCompat.getLayoutDirection(InteractiveImageView.this) ==
+                                        ViewCompat.LAYOUT_DIRECTION_RTL);
+                        final boolean useStart = ((mScaleType == ScaleType.FIT_END) == reversed);
+                        return (useStart ? 0 : availableDimension - scaledDimension);
+                    } else {
+                        // Center image for anything other than FIT_START or FIT_END
+                        return Math.round((availableDimension - scaledDimension) / 2.0f);
+                    }
+                } else if (boundary == Boundary.MIN) {
+                    // If image is larger than available dimension, the minimum is the difference
+                    return availableDimension - scaledDimension;
+                } else {
+                    // If image is larger than available dimension, the maximum is always 0
+                    return 0;
                 }
-            } else {
-                trans = (min ? -diff : 0.0f);
             }
-            return trans;
         }
 
         @Override
-        public float getMaxTransX(float scaleX) {
-            final float maxTransX;
-            if (getIntrinsicImageRect()) {
-                maxTransX = calculateTrans(
-                        mIntrinsicImageRect.width() * scaleX,
-                        getAvailableWidth(),
-                        false);
-            } else {
-                maxTransX = 0.0f;
-            }
-            return maxTransX;
+        public int getMaxTransX(float scale) {
+            return getTrans(scale, Orientation.HORIZONTAL, Boundary.MAX);
         }
 
         @Override
-        public float getMinTransX(float scaleX) {
-            final float minTransX;
-            if (getIntrinsicImageRect()) {
-                minTransX = calculateTrans(
-                        mIntrinsicImageRect.width() * scaleX,
-                        getAvailableWidth(),
-                        true);
-            } else {
-                minTransX = 0.0f;
-            }
-            return minTransX;
+        public int getMinTransX(float scale) {
+            return getTrans(scale, Orientation.HORIZONTAL, Boundary.MIN);
         }
 
         @Override
-        public float getMaxTransY(float scaleY) {
-            final float maxTransY;
-            if (getIntrinsicImageRect()) {
-                maxTransY = calculateTrans(
-                        mIntrinsicImageRect.height() * scaleY,
-                        getAvailableHeight(),
-                        false);
-            } else {
-                maxTransY = 0.0f;
-            }
-            return maxTransY;
+        public int getMaxTransY(float scale) {
+            return getTrans(scale, Orientation.VERTICAL, Boundary.MAX);
         }
 
         @Override
-        public float getMinTransY(float scaleY) {
-            final float maxTransY;
-            if (getIntrinsicImageRect()) {
-                maxTransY = calculateTrans(
-                        mIntrinsicImageRect.height() * scaleY,
-                        getAvailableHeight(),
-                        true);
-            } else {
-                maxTransY = 0.0f;
-            }
-            return maxTransY;
+        public int getMinTransY(float scale) {
+            return getTrans(scale, Orientation.VERTICAL, Boundary.MIN);
         }
 
         @Override
         public void invalidate() {
-            mDirty = true;
+            // no-op
         }
     }
 
@@ -166,7 +145,7 @@ public class InteractiveImageView extends AppCompatImageView {
         private boolean mMaxScaleDirty = true;
         private boolean mMinScaleDirty = true;
 
-        public DefaultScalingStrategy() {
+        DefaultScalingStrategy() {
             super();
             final DisplayMetrics dm;
             WindowManager manager =
@@ -412,6 +391,19 @@ public class InteractiveImageView extends AppCompatImageView {
     }
     //endregion Inherited methods
 
+    //region Private methods
+    private int getIntrinsicImageDimension(@NonNull Orientation orientation) {
+        final Drawable dr = getDrawable();
+        if (dr == null) {
+            return -1;
+        } else if (orientation == Orientation.VERTICAL) {
+            return dr.getIntrinsicHeight();
+        } else {
+            return dr.getIntrinsicWidth();
+        }
+    }
+    //endregion Private methods
+
     //region Methods
     /**
      * Returns the view's base matrix. Do not change this matrix in place but make a copy.
@@ -518,6 +510,7 @@ public class InteractiveImageView extends AppCompatImageView {
         return mCenter.y;
     }
 
+    /*
     public boolean getDisplayedImageRect(Rect outRect) {
         final RectF rect = mRectFPool.acquire();
         final boolean retVal = getDisplayedImageRect(rect);
@@ -547,6 +540,27 @@ public class InteractiveImageView extends AppCompatImageView {
 
     public boolean getIntrinsicImageRect(RectF outRect) {
         return getScaledImageRect(1.0f, 1.0f, outRect);
+    }
+    */
+
+    public synchronized int getDisplayedImageHeight() {
+        mImageMatrix.set(getImageMatrixInternal());
+        mImageMatrix.getValues(mMatrixValues);
+        return Math.round(getScaledImageHeight(mMatrixValues[MSCALE_Y]));
+    }
+
+    public synchronized int getDisplayedImageWidth() {
+        mImageMatrix.set(getImageMatrixInternal());
+        mImageMatrix.getValues(mMatrixValues);
+        return Math.round(getScaledImageWidth(mMatrixValues[MSCALE_X]));
+    }
+
+    public int getIntrinsicImageHeight() {
+        return getIntrinsicImageDimension(Orientation.VERTICAL);
+    }
+
+    public int getIntrinsicImageWidth() {
+        return getIntrinsicImageDimension(Orientation.HORIZONTAL);
     }
 
     public float getMaxCenterX() {
@@ -681,6 +695,17 @@ public class InteractiveImageView extends AppCompatImageView {
         return imageHasIntrinsicSize;
     }
 
+    public float getScaledImageHeight(float scale) {
+        final int intrinsicHeight = getIntrinsicImageDimension(Orientation.VERTICAL);
+        return (intrinsicHeight < 0 ? -1.0f : intrinsicHeight * scale);
+    }
+
+    public float getScaledImageWidth(float scale) {
+        final int intrinsicWidth = getIntrinsicImageDimension(Orientation.HORIZONTAL);
+        return (intrinsicWidth < 0 ? -1.0f : intrinsicWidth * scale);
+    }
+
+    /*
     public boolean getScaledImageRect(float scaleX, float scaleY, Rect outRect) {
         final RectF rect = mRectFPool.acquire();
         final boolean imageHasIntrinsicSize = getScaledImageRect(scaleX, scaleY, rect);
@@ -716,6 +741,7 @@ public class InteractiveImageView extends AppCompatImageView {
         }
         return imageHasIntrinsicSize;
     }
+    */
 
     public float getScaleX() {
         getScale(null);
