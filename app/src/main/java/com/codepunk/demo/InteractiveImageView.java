@@ -22,7 +22,9 @@ import com.codepunk.demo.support.DisplayCompat;
 import static android.graphics.Matrix.MSCALE_X;
 import static android.graphics.Matrix.MSCALE_Y;
 
-// TODO Next helper methods to get min/maxCenterX, min/maxCenterY, min/maxTransX/Y based on current scale
+// TODO Get rid of getScaledImageRect, getIntrinsicImageRect and replace with
+// getScaledImageWidth/Height, getIntrinsicImageWidth/Height (and private getScaledImageDimension(width/height)
+// -- Too many calls to Rect Pool
 // TODO Next Differentiate between "applied" center/scale and actual/current center/scale -- Done??
 // TODO Next 2 observe limits when setting center/scale
 // TODO Handle skew, perspective
@@ -65,6 +67,8 @@ public class InteractiveImageView extends AppCompatImageView {
             return mImageHasIntrinsicSize;
         }
 
+        // TODO NEXT Can I replace some of this with Matrix operations?
+        // Answer: NO. But I also need to query LTR to get the correct side :(
         private float calculateTrans(float displayedSize, int availableSize, boolean min) {
             final float trans;
             final float diff = (displayedSize - availableSize);
@@ -545,12 +549,101 @@ public class InteractiveImageView extends AppCompatImageView {
         return getScaledImageRect(1.0f, 1.0f, outRect);
     }
 
+    public float getMaxCenterX() {
+        final float maxCenterX;
+        final RectF displayedRect = mRectFPool.acquire();
+        if (getDisplayedImageRect(displayedRect)) {
+            final float displayedWidth = displayedRect.width();
+            final int availableWidth = getAvailableWidth();
+            if (displayedWidth > availableWidth) {
+                maxCenterX = 1.0f - (availableWidth / 2.0f) / displayedWidth;
+            } else {
+                maxCenterX = 0.5f;
+            }
+        } else {
+            maxCenterX = 0.5f;
+        }
+        mRectFPool.release(displayedRect);
+        return maxCenterX;
+    }
+
+    public float getMaxCenterY() {
+        final float maxCenterY;
+        final RectF displayedRect = mRectFPool.acquire();
+        if (getDisplayedImageRect(displayedRect)) {
+            final float displayedHeight = displayedRect.height();
+            final int availableHeight = getAvailableHeight();
+            if (displayedHeight > availableHeight) {
+                maxCenterY = 1.0f - (availableHeight / 2.0f) / displayedHeight;
+            } else {
+                maxCenterY = 0.5f;
+            }
+        } else {
+            maxCenterY = 0.5f;
+        }
+        mRectFPool.release(displayedRect);
+        return maxCenterY;
+    }
+
+    // TODO Do I need versions of this where I explicitly pass a scale?
+    public float getMaxTransX() {
+        return getPanningStrategy().getMaxTransX(getScaleX());
+    }
+
+    public float getMaxTransY() {
+        return getPanningStrategy().getMaxTransY(getScaleY());
+    }
+
     public float getMaxScaleX() {
         return getScalingStrategy().getMaxScaleX();
     }
 
     public float getMaxScaleY() {
         return getScalingStrategy().getMaxScaleY();
+    }
+
+    public float getMinCenterX() {
+        final float minCenterX;
+        final RectF displayedRect = mRectFPool.acquire();
+        if (getDisplayedImageRect(displayedRect)) {
+            final float displayedWidth = displayedRect.width();
+            final int availableWidth = getAvailableWidth();
+            if (displayedWidth > availableWidth) {
+                minCenterX = (availableWidth / 2.0f) / displayedWidth;
+            } else {
+                minCenterX = 0.5f;
+            }
+        } else {
+            minCenterX = 0.5f;
+        }
+        mRectFPool.release(displayedRect);
+        return minCenterX;
+    }
+
+    public float getMinCenterY() {
+        final float minCenterY;
+        final RectF displayedRect = mRectFPool.acquire();
+        if (getDisplayedImageRect(displayedRect)) {
+            final float displayedHeight = displayedRect.height();
+            final int availableHeight = getAvailableHeight();
+            if (displayedHeight > availableHeight) {
+                minCenterY = (availableHeight / 2.0f) / displayedHeight;
+            } else {
+                minCenterY = 0.5f;
+            }
+        } else {
+            minCenterY = 0.5f;
+        }
+        mRectFPool.release(displayedRect);
+        return minCenterY;
+    }
+
+    public float getMinTransX() {
+        return getPanningStrategy().getMinTransX(getScaleX());
+    }
+
+    public float getMinTransY() {
+        return getPanningStrategy().getMinTransY(getScaleY());
     }
 
     public float getMinScaleX() {

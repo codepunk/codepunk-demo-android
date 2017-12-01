@@ -3,10 +3,8 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/Codepunk.iml" filepath="$PROJECT_DIR$/Codepunk.iml" />
-      <module fileurl="file://$PROJECT_DIR$/CodepunkDemo.iml" filepath="$PROJECT_DIR$/CodepunkDemo.iml" />
       <module fileurl="file://C:\Users\slate\Development\Android\Codepunk\CodepunkDemo.iml" filepath="C:\Users\slate\Development\Android\Codepunk\CodepunkDemo.iml" />
       <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
-      <module fileurl="file://C:\Users\slate\Development\Android\Codepunk\app\app.iml" filepath="C:\Users\slate\Development\Android\Codepunk\app\app.iml" />
     </modules>
   </component>
 </project>
