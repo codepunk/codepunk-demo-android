@@ -199,16 +199,11 @@ public class InteractiveImageView extends AppCompatImageView {
         private synchronized void calcMaxScale() {
             if (mMaxScaleDirty) {
                 mMaxScaleDirty = false;
-
-                final RectF intrinsicRect = mRectFPool.acquire();
-                if (getIntrinsicImageRect(intrinsicRect)) {
+                final int displayedWidth = getDisplayedImageWidth();
+                final int displayedHeight = getDisplayedImageHeight();
+                if (displayedWidth > 0 && displayedHeight > 0) {
                     final Matrix baseImageMatrix = getBaseImageMatrix();
                     baseImageMatrix.getValues(mMatrixValues);
-
-                    final int displayedWidth =
-                            Math.round(intrinsicRect.width() * mMatrixValues[MSCALE_X]);
-                    final int displayedHeight =
-                            Math.round(intrinsicRect.height() * mMatrixValues[MSCALE_Y]);
                     final int displayedBreadth = Math.min(displayedWidth, displayedHeight);
                     final int displayedLength = Math.max(displayedWidth, displayedHeight);
                     final float screenBasedScale = Math.min(
@@ -230,7 +225,6 @@ public class InteractiveImageView extends AppCompatImageView {
                 } else {
                     mMaxScale.set(1.0f, 1.0f);
                 }
-                mRectFPool.release(intrinsicRect);
             }
         }
 
