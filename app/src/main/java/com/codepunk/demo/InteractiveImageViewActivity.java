@@ -7,6 +7,7 @@ import android.graphics.Canvas;
 import android.graphics.Point;
 import android.graphics.PointF;
 import android.graphics.Rect;
+import android.graphics.RectF;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -175,7 +176,6 @@ public class InteractiveImageViewActivity
     private final NumberFormat mPercentFormat = NumberFormat.getPercentInstance();
     private final NumberFormat mDecimalFormat = new DecimalFormat("#0.00");
 
-    private final Rect mIntrinsicSizeRect = new Rect();
     private final Point mDisplayedSizePoint = new Point();
     private final PointF mDisplayedSizePointF = new PointF();
     private final Point mMinScaledSizePoint = new Point();
@@ -430,11 +430,13 @@ public class InteractiveImageViewActivity
         final float maxScaleX = view.getMaxScaleX();
         final float minScaleY = view.getMinScaleY();
         final float maxScaleY = view.getMaxScaleY();
-        mImageView.getIntrinsicImageRect(mIntrinsicSizeRect);
-        final int minWidth = Math.round(minScaleX * mIntrinsicSizeRect.width());
-        final int maxWidth = Math.round(maxScaleX * mIntrinsicSizeRect.width());
-        final int minHeight = Math.round(minScaleY * mIntrinsicSizeRect.height());
-        final int maxHeight = Math.round(maxScaleY * mIntrinsicSizeRect.height());
+//        mImageView.getIntrinsicImageRect(mIntrinsicRect);
+        final int intrinsicImageWidth = mImageView.getIntrinsicImageWidth();
+        final int intrinsicImageHeight = mImageView.getIntrinsicImageHeight();
+        final int minWidth = Math.round(minScaleX * intrinsicImageWidth);
+        final int maxWidth = Math.round(maxScaleX * intrinsicImageWidth);
+        final int minHeight = Math.round(minScaleY * intrinsicImageHeight);
+        final int maxHeight = Math.round(maxScaleY * intrinsicImageHeight);
 
         mScaleXValueView.setText(mDecimalFormat.format( scaleX));
         mScaleXMinValueView.setText(mDecimalFormat.format(minScaleX));
@@ -443,8 +445,8 @@ public class InteractiveImageViewActivity
         mScaleYMinValueView.setText(mDecimalFormat.format(minScaleY));
         mScaleYMaxValueView.setText(mDecimalFormat.format(maxScaleY));
 
-        setValue(mScaleXSeekBar, minWidth, maxWidth, mIntrinsicSizeRect.width() *  scaleX, false);
-        setValue(mScaleYSeekBar, minHeight, maxHeight, mIntrinsicSizeRect.height() *  scaleY, false);
+        setValue(mScaleXSeekBar, minWidth, maxWidth, intrinsicImageWidth *  scaleX, false);
+        setValue(mScaleYSeekBar, minHeight, maxHeight, intrinsicImageHeight*  scaleY, false);
 
         if (mPendingResetClamps) {
             mPendingResetClamps = false;
