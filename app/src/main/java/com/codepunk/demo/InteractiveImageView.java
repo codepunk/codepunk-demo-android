@@ -22,6 +22,9 @@ import com.codepunk.demo.support.DisplayCompat;
 import static android.graphics.Matrix.MSCALE_X;
 import static android.graphics.Matrix.MSCALE_Y;
 
+// TODO Rethink displayedImageWidth (and possibly scaledImageWidth) to use Matrix instead of scale?
+// (this will also affect getMinCenterX/Y, PanningStrategy, etc.)
+// TODO Clear applied stuff when setting image, matrix, scaleType, etc.
 // TODO Next Differentiate between "applied" center/scale and actual/current center/scale -- Done??
 // TODO Next 2 observe limits when setting center/scale
 // TODO Handle skew, perspective
@@ -506,6 +509,7 @@ public class InteractiveImageView extends AppCompatImageView {
     }
 
     // TODO Do I need versions of this where I explicitly pass a scale?
+    /*
     public float getMaxTransX() {
         return getPanningStrategy().getMaxTransX(getScaleX());
     }
@@ -513,6 +517,7 @@ public class InteractiveImageView extends AppCompatImageView {
     public float getMaxTransY() {
         return getPanningStrategy().getMaxTransY(getScaleY());
     }
+    */
 
     public float getMaxScaleX() {
         return getScalingStrategy().getMaxScaleX();
@@ -542,6 +547,7 @@ public class InteractiveImageView extends AppCompatImageView {
         }
     }
 
+    /*
     public float getMinTransX() {
         return getPanningStrategy().getMinTransX(getScaleX());
     }
@@ -549,6 +555,7 @@ public class InteractiveImageView extends AppCompatImageView {
     public float getMinTransY() {
         return getPanningStrategy().getMinTransY(getScaleY());
     }
+    */
 
     public float getMinScaleX() {
         return getScalingStrategy().getMinScaleX();
@@ -670,9 +677,18 @@ public class InteractiveImageView extends AppCompatImageView {
         if (!getIntrinsicImageRect(mIntrinsicRect)) {
             return false;
         }
+
         // TODO NEXT observe boundaries!! How do I best do this, especially with skew, persp?
         final float constrainedScaleX = MathUtils.clamp(scaleX, getMinScaleX(), getMaxScaleX());
         final float constrainedScaleY = MathUtils.clamp(scaleY, getMinScaleY(), getMaxScaleY());
+
+        /*
+        final float constrainedCenterXTemp =
+                MathUtils.clamp(
+                        centerX,
+                        getMinCenterX(constrainedScaleX),
+                        getMinCenterY(constrainedScaleY));
+        */
 
         final float constrainedCenterX = centerX; // TODO NEXT
         final float constrainedCenterY = centerY; // TODO NEXT
