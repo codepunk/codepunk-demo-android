@@ -6,6 +6,7 @@ import android.graphics.Matrix;
 import android.graphics.Matrix.ScaleToFit;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.view.ViewCompat;
 import android.support.v7.widget.AppCompatImageView;
@@ -15,11 +16,59 @@ import android.util.Log;
 import java.util.HashMap;
 import java.util.Map;
 
-// TODO NEXT Continue on applyPlacement
+// TODO NEXT Panning strategy, scaling strategy
 public class StagingInteractiveImageView extends AppCompatImageView {
     //region Nested classes
     public interface OnDrawListener {
         void onDraw(StagingInteractiveImageView view, Canvas canvas);
+    }
+
+    public interface PanningStrategy {
+        float clampTransX(float transX);
+        float clampTransY(float transY);
+    }
+
+    public interface ScalingStrategy {
+        float clampScaleX(float scaleX);
+        float clampScaleY(float scaleY);
+    }
+
+    private static class DefaultPanningStrategy implements PanningStrategy {
+        private @NonNull final StagingInteractiveImageView mImageView;
+
+        public DefaultPanningStrategy(@NonNull StagingInteractiveImageView imageView) {
+            super();
+            mImageView = imageView;
+        }
+
+        @Override
+        public float clampTransX(float transX) {
+            return transX;
+        }
+
+        @Override
+        public float clampTransY(float transY) {
+            return transY;
+        }
+    }
+
+    private static class DefaultScalingStrategy implements ScalingStrategy {
+        private @NonNull final StagingInteractiveImageView mImageView;
+
+        public DefaultScalingStrategy(@NonNull StagingInteractiveImageView imageView) {
+            super();
+            mImageView = imageView;
+        }
+
+        @Override
+        public float clampScaleX(float scaleX) {
+            return scaleX;
+        }
+
+        @Override
+        public float clampScaleY(float scaleY) {
+            return scaleY;
+        }
     }
     //endregion Nested classes
 
@@ -36,6 +85,9 @@ public class StagingInteractiveImageView extends AppCompatImageView {
     private float mImageScaleY = 1.0f;
     private float mImageCenterX = 0.5f;
     private float mImageCenterY = 0.5f;
+
+    private PanningStrategy mPanningStrategy;
+    private ScalingStrategy mScalingStrategy;
 
     // Buckets
     private final Matrix mBaseImageMatrix = new Matrix();
@@ -196,6 +248,10 @@ public class StagingInteractiveImageView extends AppCompatImageView {
         mOnDrawListener = onDrawListener;
     }
 
+    public void setPanningStrategy(PanningStrategy panningStrategy) {
+        mPanningStrategy = panningStrategy;
+    }
+
     public void setPlacement(float scaleX, float scaleY, float centerX, float centerY) {
         mImageCenterDirty = false;
         mImageScaleDirty = false;
@@ -213,48 +269,57 @@ public class StagingInteractiveImageView extends AppCompatImageView {
             }
         }
     }
+
+    public void setScalingStrategy(ScalingStrategy scalingStrategy) {
+        mScalingStrategy = scalingStrategy;
+    }
     //endregion Methods
+
+    //region Protected methods
+    private PanningStrategy getPanningStrategy() {
+        if (mPanningStrategy == null) {
+            mPanningStrategy = new DefaultPanningStrategy(this);
+        }
+        return mPanningStrategy;
+    }
+
+    private ScalingStrategy getScalingStrategy() {
+        if (mScalingStrategy == null) {
+            mScalingStrategy = new DefaultScalingStrategy(this);
+        }
+        return mScalingStrategy;
+    }
+    //endregion Protected methods
 
     //region Private methods
     private void applyPlacement(float scaleX, float scaleY, float centerX, float centerY) {
-        // TODO Get clamped scale from scaling strategy
-        // First, we can clamp scale (this is based on mBaseImageMatrix)
-        //final float clampedScaleX = scaleX; //MathUtils.clamp(scaleX, getMinScaleX(), getMaxScaleX());
-        //final float clampedScaleY = scaleY; //MathUtils.clamp(scaleY, getMinScaleY(), getMaxScaleY());
+        final ScalingStrategy scalingStrategy = getScalingStrategy();
+        final PanningStrategy panningStrategy = getPanningStrategy();
 
-        final int intrinsicWidth = getDrawableIntrinsicWidth();
-        final int intrinsicHeight = getDrawableIntrinsicHeight();
-
-        // First, let's get the requested scale into the matrix:
         mTempMatrix.set(getBaseImageMatrix());
         mTempMatrix.getValues(mMatrixValues);
-        mMatrixValues[Matrix.MSCALE_X] = scaleX; //clampedScaleX;
-        mMatrixValues[Matrix.MSCALE_Y] = scaleY; //clampedScaleY;
+        mMatrixValues[Matrix.MSCALE_X] = scalingStrategy.clampScaleX(scaleX);
+        mMatrixValues[Matrix.MSCALE_Y] = scalingStrategy.clampScaleY(scaleY);
         mTempMatrix.setValues(mMatrixValues);
 
         // Second, get the size of the resulting rectangle:
         /*
+        Not necessary? Or do I want to pass to panning strategy?
         mTempSrc.set(0.0f, 0.0f, intrinsicWidth, intrinsicHeight);
         imageMatrix.mapRect(mTempDst, mTempSrc);
         */
 
         // Last, convert center % into points in the transformed image rect
-        mPts[0] = intrinsicWidth * centerX;
-        mPts[1] = intrinsicHeight * centerY;
+        mPts[0] = getDrawableIntrinsicWidth() * centerX;
+        mPts[1] = getDrawableIntrinsicHeight() * centerY;
         mTempMatrix.mapPoints(mPts);
 
         // Move the actual matrix
-        final int availableWidth = getWidth() - getPaddingLeft() - getPaddingBottom();
-        final int availableHeight = getHeight() - getPaddingTop() - getPaddingBottom();
-        final float transX;
-        final float transY;
+        final float transX = (getWidth() - getPaddingLeft() - getPaddingBottom()) * 0.5f - mPts[0];
+        final float transY = (getHeight() - getPaddingTop() - getPaddingBottom()) * 0.5f - mPts[1];
 
-        // TODO Account for scaleType in placement (get this from panning strategy)
-        transX = (availableWidth * 0.5f) - mPts[0];
-        transY = (availableHeight * 0.5f) - mPts[1];
-
-        mMatrixValues[Matrix.MTRANS_X] = transX;
-        mMatrixValues[Matrix.MTRANS_Y] = transY;
+        mMatrixValues[Matrix.MTRANS_X] = panningStrategy.clampTransX(transX);
+        mMatrixValues[Matrix.MTRANS_Y] = panningStrategy.clampTransY(transY);
         mTempMatrix.setValues(mMatrixValues);
 
         if (ScaleType.MATRIX != super.getScaleType()) {
