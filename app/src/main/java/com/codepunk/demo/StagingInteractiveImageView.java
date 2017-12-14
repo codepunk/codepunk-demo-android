@@ -24,13 +24,13 @@ public class StagingInteractiveImageView extends AppCompatImageView {
     }
 
     public interface PanningStrategy {
-        float clampTransX(float transX);
-        float clampTransY(float transY);
+        float clampTransX(float transX, boolean fromUser);
+        float clampTransY(float transY, boolean fromUser);
     }
 
     public interface ScalingStrategy {
-        float clampScaleX(float scaleX);
-        float clampScaleY(float scaleY);
+        float clampScaleX(float scaleX, boolean fromUser);
+        float clampScaleY(float scaleY, boolean fromUser);
     }
 
     private static class DefaultPanningStrategy implements PanningStrategy {
@@ -42,12 +42,12 @@ public class StagingInteractiveImageView extends AppCompatImageView {
         }
 
         @Override
-        public float clampTransX(float transX) {
+        public float clampTransX(float transX, boolean fromUser) {
             return transX;
         }
 
         @Override
-        public float clampTransY(float transY) {
+        public float clampTransY(float transY, boolean fromUser) {
             return transY;
         }
     }
@@ -61,12 +61,12 @@ public class StagingInteractiveImageView extends AppCompatImageView {
         }
 
         @Override
-        public float clampScaleX(float scaleX) {
+        public float clampScaleX(float scaleX, boolean fromUser) {
             return scaleX;
         }
 
         @Override
-        public float clampScaleY(float scaleY) {
+        public float clampScaleY(float scaleY, boolean fromUser) {
             return scaleY;
         }
     }
@@ -138,7 +138,12 @@ public class StagingInteractiveImageView extends AppCompatImageView {
 
         if (mPlacementDirty) {
             mPlacementDirty = false;
-            applyPlacement(mImageScaleX, mImageScaleY, mImageCenterX, mImageCenterY);
+            applyPlacement(
+                    mImageScaleX,
+                    mImageScaleY,
+                    mImageCenterX,
+                    mImageCenterY,
+                    false);
         }
     }
 
@@ -262,7 +267,7 @@ public class StagingInteractiveImageView extends AppCompatImageView {
         if (drawableHasIntrinsicSize()) {
             if (ViewCompat.isLaidOut(this)) {
                 mPlacementDirty = false;
-                applyPlacement(scaleX, scaleY, centerX, centerY);
+                applyPlacement(scaleX, scaleY, centerX, centerY, false);
                 invalidate();
             } else {
                 mPlacementDirty = true;
@@ -292,14 +297,19 @@ public class StagingInteractiveImageView extends AppCompatImageView {
     //endregion Protected methods
 
     //region Private methods
-    private void applyPlacement(float scaleX, float scaleY, float centerX, float centerY) {
+    private void applyPlacement(
+            float scaleX,
+            float scaleY,
+            float centerX,
+            float centerY,
+            boolean fromUser) {
         final ScalingStrategy scalingStrategy = getScalingStrategy();
         final PanningStrategy panningStrategy = getPanningStrategy();
 
         mTempMatrix.set(getBaseImageMatrix());
         mTempMatrix.getValues(mMatrixValues);
-        mMatrixValues[Matrix.MSCALE_X] = scalingStrategy.clampScaleX(scaleX);
-        mMatrixValues[Matrix.MSCALE_Y] = scalingStrategy.clampScaleY(scaleY);
+        mMatrixValues[Matrix.MSCALE_X] = scalingStrategy.clampScaleX(scaleX, fromUser);
+        mMatrixValues[Matrix.MSCALE_Y] = scalingStrategy.clampScaleY(scaleY, fromUser);
         mTempMatrix.setValues(mMatrixValues);
 
         // Second, get the size of the resulting rectangle:
@@ -318,8 +328,8 @@ public class StagingInteractiveImageView extends AppCompatImageView {
         final float transX = (getWidth() - getPaddingLeft() - getPaddingBottom()) * 0.5f - mPts[0];
         final float transY = (getHeight() - getPaddingTop() - getPaddingBottom()) * 0.5f - mPts[1];
 
-        mMatrixValues[Matrix.MTRANS_X] = panningStrategy.clampTransX(transX);
-        mMatrixValues[Matrix.MTRANS_Y] = panningStrategy.clampTransY(transY);
+        mMatrixValues[Matrix.MTRANS_X] = panningStrategy.clampTransX(transX, fromUser);
+        mMatrixValues[Matrix.MTRANS_Y] = panningStrategy.clampTransY(transY, fromUser);
         mTempMatrix.setValues(mMatrixValues);
 
         if (ScaleType.MATRIX != super.getScaleType()) {
