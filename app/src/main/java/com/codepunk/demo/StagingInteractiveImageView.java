@@ -12,9 +12,7 @@ import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
 import android.util.Log;
 
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
 
 // TODO NEXT Continue on applyPlacement
@@ -41,6 +39,7 @@ public class StagingInteractiveImageView extends AppCompatImageView {
 
     // Buckets
     private final Matrix mBaseImageMatrix = new Matrix();
+    private final Matrix mTempMatrix = new Matrix();
     private final RectF mTempSrc = new RectF();
     private final RectF mTempDst = new RectF();
     private final float[] mMatrixValues = new float[9];
@@ -218,27 +217,51 @@ public class StagingInteractiveImageView extends AppCompatImageView {
 
     //region Private methods
     private void applyPlacement(float scaleX, float scaleY, float centerX, float centerY) {
+        // TODO Get clamped scale from scaling strategy
         // First, we can clamp scale (this is based on mBaseImageMatrix)
-        final float clampedScaleX = scaleX; //MathUtils.clamp(scaleX, getMinScaleX(), getMaxScaleX());
-        final float clampedScaleY = scaleY; //MathUtils.clamp(scaleY, getMinScaleY(), getMaxScaleY());
+        //final float clampedScaleX = scaleX; //MathUtils.clamp(scaleX, getMinScaleX(), getMaxScaleX());
+        //final float clampedScaleY = scaleY; //MathUtils.clamp(scaleY, getMinScaleY(), getMaxScaleY());
 
         final int intrinsicWidth = getDrawableIntrinsicWidth();
         final int intrinsicHeight = getDrawableIntrinsicHeight();
-        final Matrix baseImageMatrix = getBaseImageMatrix();
-        baseImageMatrix.getValues(mMatrixValues);
-        mMatrixValues[Matrix.MSCALE_X] = clampedScaleX;
-        mMatrixValues[Matrix.MSCALE_Y] = clampedScaleY;
-        baseImageMatrix.setValues(mMatrixValues);
-        // Maybe need to put our clamped scaleX/scaleY into imageMatrix before mapping points?
 
-        // Now, convert center % into points in the transformed image rect
+        // First, let's get the requested scale into the matrix:
+        mTempMatrix.set(getBaseImageMatrix());
+        mTempMatrix.getValues(mMatrixValues);
+        mMatrixValues[Matrix.MSCALE_X] = scaleX; //clampedScaleX;
+        mMatrixValues[Matrix.MSCALE_Y] = scaleY; //clampedScaleY;
+        mTempMatrix.setValues(mMatrixValues);
+
+        // Second, get the size of the resulting rectangle:
+        /*
+        mTempSrc.set(0.0f, 0.0f, intrinsicWidth, intrinsicHeight);
+        imageMatrix.mapRect(mTempDst, mTempSrc);
+        */
+
+        // Last, convert center % into points in the transformed image rect
         mPts[0] = intrinsicWidth * centerX;
         mPts[1] = intrinsicHeight * centerY;
-        baseImageMatrix.mapPoints(mPts);
+        mTempMatrix.mapPoints(mPts);
 
-        final String format = "scale=(%.2f, %.2f), center=(%.2f, %.2f), drawable=%dx%d, mPts=%s";
-        final String msg = String.format(Locale.US, format, scaleX, scaleY, centerX, centerY, intrinsicWidth, intrinsicHeight, Arrays.toString(mPts));
-        Log.d(TAG, msg);
+        // Move the actual matrix
+        final int availableWidth = getWidth() - getPaddingLeft() - getPaddingBottom();
+        final int availableHeight = getHeight() - getPaddingTop() - getPaddingBottom();
+        final float transX;
+        final float transY;
+
+        // TODO Account for scaleType in placement (get this from panning strategy)
+        transX = (availableWidth * 0.5f) - mPts[0];
+        transY = (availableHeight * 0.5f) - mPts[1];
+
+        mMatrixValues[Matrix.MTRANS_X] = transX;
+        mMatrixValues[Matrix.MTRANS_Y] = transY;
+        mTempMatrix.setValues(mMatrixValues);
+
+        if (ScaleType.MATRIX != super.getScaleType()) {
+            super.setScaleType(ScaleType.MATRIX);
+        }
+        super.setImageMatrix(mTempMatrix);
+        invalidate();
     }
 
     private boolean drawableHasIntrinsicSize() {
@@ -251,6 +274,8 @@ public class StagingInteractiveImageView extends AppCompatImageView {
         synchronized (mBaseImageMatrix) {
             if (mBaseImageMatrixDirty) {
                 mBaseImageMatrixDirty = false;
+
+                Log.d(TAG, "StagingInteractiveImageView#getBaseImageMatrix: ");
 
                 // See ImageView#configureBounds() for the basis for the following logic.
                 if (!drawableHasIntrinsicSize()) {
