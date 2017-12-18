@@ -407,8 +407,8 @@ public class StagingInteractiveImageViewActivity
     @Override // InteractiveImageView.OnDrawListener
     public void onDraw(StagingInteractiveImageView view, Canvas canvas) {
         // TODO Capture which control(s) the user is manipulating and don't update those
-        final float centerX = mImageView.getImageCenterX();
-        final float centerY = mImageView.getImageCenterY();
+        final float centerX = view.getImageCenterX();
+        final float centerY = view.getImageCenterY();
         mPanXValueView.setText(mPercentFormat.format(centerX));
         setValue(mPanXSeekBar, 0.0f, 1.0f, centerX, false);
         mPanYValueView.setText(mPercentFormat.format(centerY));
@@ -421,15 +421,15 @@ public class StagingInteractiveImageViewActivity
             mScaleYSeekBar.setClampedMax(Integer.MAX_VALUE);
         }
 
-        final float scaleX = mImageView.getImageScaleX();
-        final float scaleY = mImageView.getImageScaleY();
+        final float scaleX = view.getImageScaleX();
+        final float scaleY = view.getImageScaleY();
         final float minScaleX = view.getMinScaleX();
         final float maxScaleX = view.getMaxScaleX();
         final float minScaleY = view.getMinScaleY();
         final float maxScaleY = view.getMaxScaleY();
         final int intrinsicImageWidth;
         final int intrinsicImageHeight;
-        final Drawable drawable = mImageView.getDrawable();
+        final Drawable drawable = view.getDrawable();
         if (drawable == null) {
             intrinsicImageWidth = 0;
             intrinsicImageHeight = 0;
@@ -442,10 +442,10 @@ public class StagingInteractiveImageViewActivity
         final int minHeight = Math.round(minScaleY * intrinsicImageHeight);
         final int maxHeight = Math.round(maxScaleY * intrinsicImageHeight);
 
-        mScaleXValueView.setText(mDecimalFormat.format( scaleX));
+        mScaleXValueView.setText(mDecimalFormat.format(scaleX));
         mScaleXMinValueView.setText(mDecimalFormat.format(minScaleX));
         mScaleXMaxValueView.setText(mDecimalFormat.format(maxScaleX));
-        mScaleYValueView.setText(mDecimalFormat.format( scaleY));
+        mScaleYValueView.setText(mDecimalFormat.format(scaleY));
         mScaleYMinValueView.setText(mDecimalFormat.format(minScaleY));
         mScaleYMaxValueView.setText(mDecimalFormat.format(maxScaleY));
 
