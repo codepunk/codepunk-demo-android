@@ -6,7 +6,7 @@
     android:id="@+id/layout_main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="com.codepunk.demo.InteractiveImageViewActivity">
+    tools:context="com.codepunk.demo.InteractiveImageOlderViewActivity">
 
     <android.support.constraint.Guideline
         android:id="@+id/guideline"

@@ -6,8 +6,7 @@ import android.content.res.Resources;
 import android.graphics.Canvas;
 import android.graphics.Point;
 import android.graphics.PointF;
-import android.graphics.Rect;
-import android.graphics.RectF;
+import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -45,9 +44,9 @@ import static android.os.Build.VERSION_CODES.HONEYCOMB;
 public class InteractiveImageViewActivity
         extends AppCompatActivity
         implements View.OnClickListener,
-                AdapterView.OnItemSelectedListener,
-                SeekBar.OnSeekBarChangeListener,
-                InteractiveImageView.OnDrawListener {
+        AdapterView.OnItemSelectedListener,
+        SeekBar.OnSeekBarChangeListener,
+        InteractiveImageView.OnDrawListener {
 
     //region Nested classes
     private interface GuidelineAnimateCompatImpl {
@@ -125,10 +124,10 @@ public class InteractiveImageViewActivity
     private static final String CLASS_NAME = InteractiveImageViewActivity.class.getName();
     private static final String KEY_DRAWABLE_RES_ID = CLASS_NAME + ".drawableResId";
     private static final String KEY_SCALE_TYPE = CLASS_NAME + ".scaleType";
-    private static final String KEY_APPLIED_CENTER_X = CLASS_NAME + ".appliedCenterX";
-    private static final String KEY_APPLIED_CENTER_Y = CLASS_NAME + ".appliedCenterY";
-    private static final String KEY_APPLIED_SCALE_X = CLASS_NAME + ".appliedScaleX";
-    private static final String KEY_APPLIED_SCALE_Y = CLASS_NAME + ".appliedScaleY";
+    private static final String KEY_IMAGE_CENTER_X = CLASS_NAME + ".imageCenterX";
+    private static final String KEY_IMAGE_CENTER_Y = CLASS_NAME + ".imageCenterY";
+    private static final String KEY_IMAGE_SCALE_X = CLASS_NAME + ".imageScaleX";
+    private static final String KEY_IMAGE_SCALE_Y = CLASS_NAME + ".imageScaleY";
     private static final String KEY_HAS_CUSTOM_PLACEMENT = CLASS_NAME + ".hasCustomPlacement"; // TODO Can I move HAS_CUSTOM_PLACEMENT and CENTER/SCALE keys to the widget itself?
     private static final String KEY_SHOWING_CONTROLS = CLASS_NAME + ".showingControls";
     private static final String KEY_SCALE_LOCKED = CLASS_NAME + ".scaleLocked";
@@ -255,14 +254,12 @@ public class InteractiveImageViewActivity
             final boolean hasCustomPlacement =
                     savedInstanceState.getBoolean(KEY_HAS_CUSTOM_PLACEMENT, false);
             if (hasCustomPlacement) {
-                final float centerX = savedInstanceState.getFloat(KEY_APPLIED_CENTER_X, 0.5f);
-                final float centerY = savedInstanceState.getFloat(KEY_APPLIED_CENTER_Y, 0.5f);
-                final float scaleX = savedInstanceState.getFloat(KEY_APPLIED_SCALE_X);
-                final float scaleY = savedInstanceState.getFloat(KEY_APPLIED_SCALE_Y);
+                final float centerX = savedInstanceState.getFloat(KEY_IMAGE_CENTER_X, 0.5f);
+                final float centerY = savedInstanceState.getFloat(KEY_IMAGE_CENTER_Y, 0.5f);
+                final float scaleX = savedInstanceState.getFloat(KEY_IMAGE_SCALE_X);
+                final float scaleY = savedInstanceState.getFloat(KEY_IMAGE_SCALE_Y);
                 mImageView.setPlacement(scaleX, scaleY, centerX, centerY);
             }
-
-            // TODO The two scale sliders have different lower/upper bounds -- querying the wrong scale type?
         }
 
         if (mShowingControls) {
@@ -296,17 +293,17 @@ public class InteractiveImageViewActivity
         final boolean hasCustomPlacement = mImageView.hasCustomPlacement();
         outState.putBoolean(KEY_HAS_CUSTOM_PLACEMENT, hasCustomPlacement);
         if (hasCustomPlacement) {
-            outState.putFloat(KEY_APPLIED_CENTER_X, mImageView.getAppliedCenterX());
-            outState.putFloat(KEY_APPLIED_CENTER_Y, mImageView.getAppliedCenterY());
-            outState.putFloat(KEY_APPLIED_SCALE_X, mImageView.getAppliedScaleX());
-            outState.putFloat(KEY_APPLIED_SCALE_Y, mImageView.getAppliedScaleY());
+            outState.putFloat(KEY_IMAGE_CENTER_X, mImageView.getImageCenterX());
+            outState.putFloat(KEY_IMAGE_CENTER_Y, mImageView.getImageCenterY());
+            outState.putFloat(KEY_IMAGE_SCALE_X, mImageView.getImageScaleX());
+            outState.putFloat(KEY_IMAGE_SCALE_Y, mImageView.getImageScaleY());
         }
         outState.putBoolean(KEY_SHOWING_CONTROLS, mShowingControls);
         outState.putBoolean(KEY_SCALE_LOCKED, mLockBtn.isChecked());
     }
     //endregion Lifecycle methods
 
-    //region Implemented methods
+    //region Interface methods
     @Override // View.OnClickListener
     public void onClick(View v) {
         if (v == mLockBtn) {
@@ -353,8 +350,8 @@ public class InteractiveImageViewActivity
     @Override // SeekBar.OnSeekBarChangeListener
     public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
         if (fromUser) {
-            final float scaleX = mImageView.getScaleX();
-            final float scaleY = mImageView.getScaleY();
+            final float scaleX = mImageView.getImageScaleX();
+            final float scaleY = mImageView.getImageScaleY();
             final float minScaleX = mImageView.getMinScaleX();
             final float maxScaleX = mImageView.getMaxScaleX();
             final float minScaleY = mImageView.getMinScaleY();
@@ -364,15 +361,15 @@ public class InteractiveImageViewActivity
                 case R.id.seek_pan_y_value:
                     float centerX = getValue(mPanXSeekBar, 0.0f, 1.0f);
                     float centerY = getValue(mPanYSeekBar, 0.0f, 1.0f);
-                    mImageView.setCenter(centerX, centerY);
+                    mImageView.setImageCenter(centerX, centerY);
                     break;
                 case R.id.seek_scale_x_value: {
                     final float newScaleX = getValue(seekBar, minScaleX, maxScaleX);
                     final float newScaleY = (
                             mLockBtn.isChecked() ?
-                            scaleY * newScaleX / scaleX :
-                            scaleY);
-                    mImageView.setScale(newScaleX, newScaleY);
+                                    scaleY * newScaleX / scaleX :
+                                    scaleY);
+                    mImageView.setImageScale(newScaleX, newScaleY);
                     break;
                 }
                 case R.id.seek_scale_y_value: {
@@ -380,7 +377,7 @@ public class InteractiveImageViewActivity
                     final float newScaleX = (mLockBtn.isChecked() ?
                             scaleX * newScaleY / scaleY :
                             scaleX);
-                    mImageView.setScale(newScaleX, newScaleY);
+                    mImageView.setImageScale(newScaleX, newScaleY);
                     break;
                 }
             }
@@ -410,8 +407,8 @@ public class InteractiveImageViewActivity
     @Override // InteractiveImageView.OnDrawListener
     public void onDraw(InteractiveImageView view, Canvas canvas) {
         // TODO Capture which control(s) the user is manipulating and don't update those
-        final float centerX = mImageView.getCenterX();
-        final float centerY = mImageView.getCenterY();
+        final float centerX = view.getImageCenterX();
+        final float centerY = view.getImageCenterY();
         mPanXValueView.setText(mPercentFormat.format(centerX));
         setValue(mPanXSeekBar, 0.0f, 1.0f, centerX, false);
         mPanYValueView.setText(mPercentFormat.format(centerY));
@@ -424,24 +421,31 @@ public class InteractiveImageViewActivity
             mScaleYSeekBar.setClampedMax(Integer.MAX_VALUE);
         }
 
-        final float scaleX = mImageView.getScaleX();
-        final float scaleY = mImageView.getScaleY();
+        final float scaleX = view.getImageScaleX();
+        final float scaleY = view.getImageScaleY();
         final float minScaleX = view.getMinScaleX();
         final float maxScaleX = view.getMaxScaleX();
         final float minScaleY = view.getMinScaleY();
         final float maxScaleY = view.getMaxScaleY();
-//        mImageView.getIntrinsicImageRect(mIntrinsicRect);
-        final int intrinsicImageWidth = mImageView.getIntrinsicImageWidth();
-        final int intrinsicImageHeight = mImageView.getIntrinsicImageHeight();
+        final int intrinsicImageWidth;
+        final int intrinsicImageHeight;
+        final Drawable drawable = view.getDrawable();
+        if (drawable == null) {
+            intrinsicImageWidth = 0;
+            intrinsicImageHeight = 0;
+        } else {
+            intrinsicImageWidth = Math.max(drawable.getIntrinsicWidth(), 0);
+            intrinsicImageHeight = Math.max(drawable.getIntrinsicHeight(), 0);
+        }
         final int minWidth = Math.round(minScaleX * intrinsicImageWidth);
         final int maxWidth = Math.round(maxScaleX * intrinsicImageWidth);
         final int minHeight = Math.round(minScaleY * intrinsicImageHeight);
         final int maxHeight = Math.round(maxScaleY * intrinsicImageHeight);
 
-        mScaleXValueView.setText(mDecimalFormat.format( scaleX));
+        mScaleXValueView.setText(mDecimalFormat.format(scaleX));
         mScaleXMinValueView.setText(mDecimalFormat.format(minScaleX));
         mScaleXMaxValueView.setText(mDecimalFormat.format(maxScaleX));
-        mScaleYValueView.setText(mDecimalFormat.format( scaleY));
+        mScaleYValueView.setText(mDecimalFormat.format(scaleY));
         mScaleYMinValueView.setText(mDecimalFormat.format(minScaleY));
         mScaleYMaxValueView.setText(mDecimalFormat.format(maxScaleY));
 
@@ -453,7 +457,7 @@ public class InteractiveImageViewActivity
             resetClamps();
         }
     }
-    //endregion Implemented methods
+    //endregion Interface methods
 
     //region Methods
     public void onControlsClick(MenuItem item) {

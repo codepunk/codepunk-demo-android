@@ -2,22 +2,33 @@
 <resources>
     <declare-styleable name="Theme">
         <attr name="appCompatSeekBarExStyle" format="reference" />
+        <attr name="interactiveImageViewStyle" format="reference" />
+
+        <attr name="centerX" format="float" />
+        <attr name="centerY" format="float" />
         <attr name="clampedMax" format="integer" />
         <attr name="clampedMin" format="integer" />
-    </declare-styleable>
-
-    <declare-styleable name="AppCompatProgressBarEx">
-        <attr name="clampedMax" />
-        <attr name="clampedMin" />
-    </declare-styleable>
-
-    <declare-styleable name="AppCompatRatingBarEx">
-        <attr name="clampedMax" />
-        <attr name="clampedMin" />
+        <attr name="panEnabled" format="boolean" />
+        <attr name="scaleX" format="float">
+            <enum name="auto" value="-1" />
+        </attr>
+        <attr name="scaleY" format="float">
+            <enum name="auto" value="-1" />
+        </attr>
+        <attr name="zoomEnabled" format="boolean" />
     </declare-styleable>
 
     <declare-styleable name="AppCompatSeekBarEx">
         <attr name="clampedMax" />
         <attr name="clampedMin" />
+    </declare-styleable>
+
+    <declare-styleable name="InteractiveImageView">
+        <attr name="centerX" />
+        <attr name="centerY" />
+        <attr name="panEnabled" />
+        <attr name="scaleX" />
+        <attr name="scaleY" />
+        <attr name="zoomEnabled" />
     </declare-styleable>
 </resources>

@@ -1,10 +1,13 @@
 <resources>
-    <style name="AppCompatProgressBarEx" parent="@android:style/Widget.ProgressBar">
+    <style name="AppCompatSeekBarEx" parent="@android:style/Widget.SeekBar">
     </style>
 
-    <style name="AppCompatRatingBarEx" parent="@style/AppCompatProgressBarEx">
-    </style>
-
-    <style name="AppCompatSeekBarEx" parent="@style/AppCompatProgressBarEx">
+    <style name="InteractiveImageView" parent="@android:style/Widget">
+        <item name="centerX">0.5</item>
+        <item name="centerY">0.5</item>
+        <item name="panEnabled">true</item>
+        <item name="scaleX">auto</item>
+        <item name="scaleY">auto</item>
+        <item name="zoomEnabled">true</item>
     </style>
 </resources>

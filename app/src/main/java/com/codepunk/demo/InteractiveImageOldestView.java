@@ -27,11 +27,11 @@ import static android.widget.ImageView.ScaleType.MATRIX;
 // TODO NEXT SavedState, restore relative center & scale on configuration change
 
 @SuppressWarnings({"unused", "WeakerAccess"})
-public class InteractiveImageViewOld extends AppCompatImageView {
+public class InteractiveImageOldestView extends AppCompatImageView {
 
     //region Nested classes
     public interface OnDrawListener {
-        void onDraw(InteractiveImageViewOld view, Canvas canvas);
+        void onDraw(InteractiveImageOldestView view, Canvas canvas);
     }
 
     public interface ScalingStrategy {
@@ -167,7 +167,7 @@ public class InteractiveImageViewOld extends AppCompatImageView {
     //endregion Nested classes
 
     //region Constants
-    private static final String TAG = "tag_" + InteractiveImageViewOld.class.getSimpleName();
+    private static final String TAG = "tag_" + InteractiveImageOldestView.class.getSimpleName();
 
     private static final PointF INVALID = new PointF(Float.NaN, Float.NaN);
     //endregion Constants
@@ -197,15 +197,15 @@ public class InteractiveImageViewOld extends AppCompatImageView {
     //endregion Fields
 
     //region Constructors
-    public InteractiveImageViewOld(Context context) {
+    public InteractiveImageOldestView(Context context) {
         super(context);
     }
 
-    public InteractiveImageViewOld(Context context, AttributeSet attrs) {
+    public InteractiveImageOldestView(Context context, AttributeSet attrs) {
         super(context, attrs);
     }
 
-    public InteractiveImageViewOld(Context context, AttributeSet attrs, int defStyleAttr) {
+    public InteractiveImageOldestView(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
     }
     //endregion Constructors

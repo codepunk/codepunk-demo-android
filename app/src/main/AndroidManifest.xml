@@ -37,11 +37,6 @@
             android:label="@string/title_activity_interactive_image_view">
         </activity>
 
-        <activity
-            android:name=".StagingInteractiveImageViewActivity"
-            android:label="@string/title_activity_interactive_image_view">
-        </activity>
-
     </application>
 
 </manifest>

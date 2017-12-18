@@ -20,10 +20,10 @@ import android.view.WindowManager;
 import com.codepunk.demo.support.DisplayCompat;
 
 // TODO NEXT Allow panning strategy to draw edges or bounce (from within applyPlacement)
-public class StagingInteractiveImageView extends AppCompatImageView {
+public class InteractiveImageView_BeforeAddingTouchGestures extends AppCompatImageView {
     //region Nested classes
     public interface OnDrawListener {
-        void onDraw(StagingInteractiveImageView view, Canvas canvas);
+        void onDraw(InteractiveImageView_BeforeAddingTouchGestures view, Canvas canvas);
     }
 
     public interface PanningStrategy {
@@ -42,9 +42,9 @@ public class StagingInteractiveImageView extends AppCompatImageView {
     }
 
     private static class DefaultPanningStrategy implements PanningStrategy {
-        private @NonNull final StagingInteractiveImageView mImageView;
+        private @NonNull final InteractiveImageView_BeforeAddingTouchGestures mImageView;
 
-        public DefaultPanningStrategy(@NonNull StagingInteractiveImageView imageView) {
+        public DefaultPanningStrategy(@NonNull InteractiveImageView_BeforeAddingTouchGestures imageView) {
             super();
             mImageView = imageView;
         }
@@ -67,7 +67,7 @@ public class StagingInteractiveImageView extends AppCompatImageView {
         //endregion Constants
 
         //region Fields
-        private @NonNull final StagingInteractiveImageView mImageView;
+        private @NonNull final InteractiveImageView_BeforeAddingTouchGestures mImageView;
 
         private final int mDisplayBreadth;
         private final int mDisplayLength;
@@ -84,7 +84,7 @@ public class StagingInteractiveImageView extends AppCompatImageView {
         //endregion Fields
 
         //region Constructors
-        DefaultScalingStrategy(@NonNull StagingInteractiveImageView imageView) {
+        DefaultScalingStrategy(@NonNull InteractiveImageView_BeforeAddingTouchGestures imageView) {
             super();
             mImageView = imageView;
             final Context context = imageView.getContext();
@@ -196,7 +196,7 @@ public class StagingInteractiveImageView extends AppCompatImageView {
     //endregion Nested classes
 
     //region Constants
-    private static final String TAG = StagingInteractiveImageView.class.getSimpleName();
+    private static final String TAG = InteractiveImageView_BeforeAddingTouchGestures.class.getSimpleName();
     //endregion Constants
 
     //region Fields
@@ -226,15 +226,15 @@ public class StagingInteractiveImageView extends AppCompatImageView {
     //endregion Fields
 
     //region Constructors
-    public StagingInteractiveImageView(Context context) {
+    public InteractiveImageView_BeforeAddingTouchGestures(Context context) {
         super(context);
     }
 
-    public StagingInteractiveImageView(Context context, AttributeSet attrs) {
+    public InteractiveImageView_BeforeAddingTouchGestures(Context context, AttributeSet attrs) {
         super(context, attrs);
     }
 
-    public StagingInteractiveImageView(Context context, AttributeSet attrs, int defStyleAttr) {
+    public InteractiveImageView_BeforeAddingTouchGestures(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
     }
     //endregion Constructors

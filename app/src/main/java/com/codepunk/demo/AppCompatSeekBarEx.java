@@ -121,9 +121,9 @@ public class AppCompatSeekBarEx extends AppCompatSeekBar implements SeekBar.OnSe
                 defStyleAttr,
                 0);
         final int clampedMin =
-                a.getInt(R.styleable.AppCompatProgressBarEx_clampedMin, Integer.MIN_VALUE);
+                a.getInt(R.styleable.AppCompatSeekBarEx_clampedMin, Integer.MIN_VALUE);
         final int clampedMax =
-                a.getInt(R.styleable.AppCompatProgressBarEx_clampedMax, Integer.MAX_VALUE);
+                a.getInt(R.styleable.AppCompatSeekBarEx_clampedMax, Integer.MAX_VALUE);
         setClampedMin(clampedMin);
         setClampedMax(clampedMax);
         a.recycle();

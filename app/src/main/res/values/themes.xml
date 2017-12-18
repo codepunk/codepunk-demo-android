@@ -9,6 +9,7 @@
         <item name="colorAccent">@color/colorAccent</item>
 
         <item name="appCompatSeekBarExStyle">@style/AppCompatSeekBarEx</item>
+        <item name="interactiveImageViewStyle">@style/InteractiveImageView</item>
     </style>
 
 </resources>
