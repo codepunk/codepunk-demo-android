@@ -15,16 +15,14 @@ import android.support.v4.view.ViewCompat;
 import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
-import android.util.Log;
 import android.view.WindowManager;
 
 import com.codepunk.demo.support.DisplayCompat;
 
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
-// TODO NEXT scaling getMaxScaleX/Y
+// TODO NEXT Allow panning strategy to draw edges or bounce (from within applyPlacement)
 public class StagingInteractiveImageView extends AppCompatImageView {
     //region Nested classes
     public interface OnDrawListener {
@@ -163,12 +161,8 @@ public class StagingInteractiveImageView extends AppCompatImageView {
                         final float baseLength = Math.max(baseWidth, baseHeight);
                         final float screenBasedScale =
                                 Math.min(mMaxBreadth / baseBreadth, mMaxLength / baseLength);
-                        final int availableWidth = mImageView.getWidth() -
-                                mImageView.getPaddingLeft() -
-                                mImageView.getPaddingRight();
-                        final int availableHeight = mImageView.getHeight() -
-                                mImageView.getPaddingTop() -
-                                mImageView.getPaddingBottom();
+                        final int availableWidth = mImageView.getAvailableWidth();
+                        final int availableHeight = mImageView.getAvailableHeight();
                         final int availableSize;
                         if (baseWidth < baseHeight) {
                             availableSize = availableWidth;
@@ -209,7 +203,7 @@ public class StagingInteractiveImageView extends AppCompatImageView {
     //endregion Constants
 
     //region Fields
-    private static Map<ScaleType, ScaleToFit> sScaleMap;
+    private static Map<ScaleType, ScaleToFit> mScaleMap;
 
     private ScaleType mScaleType;
     private OnDrawListener mOnDrawListener;
@@ -449,24 +443,33 @@ public class StagingInteractiveImageView extends AppCompatImageView {
         mMatrixValues[Matrix.MSCALE_Y] = scalingStrategy.clampScaleY(scaleY, fromUser);
         mTempMatrix.setValues(mMatrixValues);
 
-        // Second, get the size of the resulting rectangle:
-        /*
-        Not necessary? Or do I want to pass to panning strategy?
-        mTempSrc.set(0.0f, 0.0f, intrinsicWidth, intrinsicHeight);
-        imageMatrix.mapRect(mTempDst, mTempSrc);
-        */
-
-        // Last, convert center % into points in the transformed image rect
+        // Convert center % into points in the transformed image rect
         mPts[0] = getDrawableIntrinsicWidth() * centerX;
         mPts[1] = getDrawableIntrinsicHeight() * centerY;
         mTempMatrix.mapPoints(mPts);
 
         // Move the actual matrix
-        final float transX = (getWidth() - getPaddingLeft() - getPaddingRight()) * 0.5f - mPts[0];
-        final float transY = (getHeight() - getPaddingTop() - getPaddingBottom()) * 0.5f - mPts[1];
+        final int availableWidth = getAvailableWidth();
+        final int availableHeight = getAvailableHeight();
+        final float transX = mMatrixValues[Matrix.MTRANS_X] + availableWidth * 0.5f - mPts[0];
+        final float transY = mMatrixValues[Matrix.MTRANS_Y] + availableHeight * 0.5f - mPts[1];
 
-        mMatrixValues[Matrix.MTRANS_X] = panningStrategy.clampTransX(transX, fromUser);
-        mMatrixValues[Matrix.MTRANS_Y] = panningStrategy.clampTransY(transY, fromUser);
+        // TODO I have transX and transY. Need to clamp based on drawn size & mScaleType,
+        // but also allow panning strategy to do things like bounce or draw edges etc.
+        mTempSrc.set(0.0f, 0.0f, getDrawableIntrinsicWidth(), getDrawableIntrinsicHeight());
+        mTempMatrix.mapRect(mTempDst, mTempSrc);
+        final float clampedTransX = clampTrans(
+                transX,
+                availableWidth,
+                mTempDst.width(),
+                scaleTypeToScaleToFit(mScaleType, isRtl()));
+        final float clampedTransY = clampTrans(
+                transY,
+                availableHeight,
+                mTempDst.height(),
+                scaleTypeToScaleToFit(mScaleType, false));
+        mMatrixValues[Matrix.MTRANS_X] = clampedTransX;
+        mMatrixValues[Matrix.MTRANS_Y] = clampedTransY;
         mTempMatrix.setValues(mMatrixValues);
 
         if (ScaleType.MATRIX != super.getScaleType()) {
@@ -476,8 +479,34 @@ public class StagingInteractiveImageView extends AppCompatImageView {
         invalidate();
     }
 
+    private float clampTrans(
+            float trans,
+            int availableSize,
+            float size,
+            ScaleToFit scaleToFit) {
+        final float diff = availableSize - size;
+        if (diff <= 0.0f) {
+            return MathUtils.clamp(trans, diff, 0.0f);
+        } else switch (scaleToFit) {
+            case START:
+                return 0.0f;
+            case END:
+                return diff;
+            default:
+                return diff * 0.5f;
+        }
+    }
+
     private boolean drawableHasIntrinsicSize() {
         return getDrawableIntrinsicWidth() > 0 && getDrawableIntrinsicHeight() > 0;
+    }
+
+    private int getAvailableHeight() {
+        return getHeight() - getPaddingTop() - getPaddingBottom();
+    }
+
+    private int getAvailableWidth() {
+        return getWidth() - getPaddingLeft() - getPaddingRight();
     }
 
     @SuppressWarnings("SpellCheckingInspection")
@@ -485,8 +514,6 @@ public class StagingInteractiveImageView extends AppCompatImageView {
         synchronized (mBaseImageMatrix) {
             if (mBaseImageMatrixDirty) {
                 mBaseImageMatrixDirty = false;
-
-                Log.d(TAG, "StagingInteractiveImageView#getBaseImageMatrix: ");
 
                 // See ImageView#configureBounds() for the basis for the following logic.
                 if (!drawableHasIntrinsicSize()) {
@@ -497,8 +524,8 @@ public class StagingInteractiveImageView extends AppCompatImageView {
                     final int dwidth = getDrawableIntrinsicWidth();
                     final int dheight = getDrawableIntrinsicHeight();
 
-                    final int vwidth = getWidth() - getPaddingLeft() - getPaddingRight();
-                    final int vheight = getHeight() - getPaddingTop() - getPaddingBottom();
+                    final int vwidth = getAvailableWidth();
+                    final int vheight = getAvailableHeight();
 
                     final boolean fits = (dwidth < 0 || vwidth == dwidth)
                             && (dheight < 0 || vheight == dheight);
@@ -577,8 +604,8 @@ public class StagingInteractiveImageView extends AppCompatImageView {
                 mImageCenterDirty = false;
                 final Matrix matrix = getImageMatrixInternal();
                 matrix.invert(matrix);
-                mPts[0] = (getWidth() - getPaddingLeft() - getPaddingRight()) * 0.5f;
-                mPts[1] = (getHeight() - getPaddingTop() - getPaddingBottom()) * 0.5f;
+                mPts[0] = getAvailableWidth() * 0.5f;
+                mPts[1] = getAvailableHeight() * 0.5f;
                 matrix.mapPoints(mPts);
                 mImageCenterX = mPts[0] / getDrawableIntrinsicWidth();
                 mImageCenterY = mPts[1] / getDrawableIntrinsicHeight();
@@ -599,8 +626,8 @@ public class StagingInteractiveImageView extends AppCompatImageView {
                 mTempDst.set(
                         0,
                         0,
-                        getWidth() - getPaddingLeft() - getPaddingRight(),
-                        getHeight() - getPaddingTop() - getPaddingBottom());
+                        getAvailableWidth(),
+                        getAvailableHeight());
                 matrix.setRectToRect(mTempSrc, mTempDst, ScaleToFit.FILL);
             }
         }
@@ -630,15 +657,30 @@ public class StagingInteractiveImageView extends AppCompatImageView {
         }
     }
 
+    private boolean isRtl() {
+        return (ViewCompat.getLayoutDirection(this) == ViewCompat.LAYOUT_DIRECTION_RTL);
+    }
+
     private static ScaleToFit scaleTypeToScaleToFit(ScaleType scaleType) {
-        if (sScaleMap == null) {
-            sScaleMap = new HashMap<>(4);
-            sScaleMap.put(ScaleType.FIT_CENTER, ScaleToFit.CENTER);
-            sScaleMap.put(ScaleType.FIT_END, ScaleToFit.END);
-            sScaleMap.put(ScaleType.FIT_START, ScaleToFit.START);
-            sScaleMap.put(ScaleType.FIT_XY, ScaleToFit.FILL);
+        return scaleTypeToScaleToFit(scaleType, false);
+    }
+
+    private static ScaleToFit scaleTypeToScaleToFit(ScaleType scaleType, boolean reverse) {
+        if (mScaleMap == null) {
+            mScaleMap = new HashMap<>(4);
+            mScaleMap.put(ScaleType.FIT_CENTER, ScaleToFit.CENTER);
+            mScaleMap.put(ScaleType.FIT_END, ScaleToFit.END);
+            mScaleMap.put(ScaleType.FIT_START, ScaleToFit.START);
+            mScaleMap.put(ScaleType.FIT_XY, ScaleToFit.FILL);
         }
-        return sScaleMap.get(scaleType);
+        final ScaleToFit scaleToFit = mScaleMap.get(scaleType);
+        if (ScaleToFit.START == scaleToFit && reverse) {
+            return ScaleToFit.END;
+        } else if (ScaleToFit.END == scaleToFit && reverse) {
+            return ScaleToFit.START;
+        } else {
+            return scaleToFit;
+        }
     }
     //endregion Private methods
 }
