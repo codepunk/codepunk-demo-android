@@ -306,7 +306,7 @@ public class InteractiveImageViewActivity
     }
     //endregion Lifecycle methods
 
-    //region Interface methods
+    //region Implemented methods
     @Override // View.OnClickListener
     public void onClick(View v) {
         if (v == mLockBtn) {
@@ -453,7 +453,7 @@ public class InteractiveImageViewActivity
             resetClamps();
         }
     }
-    //endregion Interface methods
+    //endregion Implemented methods
 
     //region Methods
     public void onControlsClick(MenuItem item) {

@@ -4,19 +4,27 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
 import android.graphics.Matrix.ScaleToFit;
+import android.graphics.Point;
+import android.graphics.PointF;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.v4.math.MathUtils;
 import android.support.v4.view.ViewCompat;
 import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
+import android.util.DisplayMetrics;
 import android.util.Log;
+import android.view.WindowManager;
 
+import com.codepunk.demo.support.DisplayCompat;
+
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
-// TODO NEXT Panning strategy, scaling strategy
+// TODO NEXT scaling getMaxScaleX/Y
 public class StagingInteractiveImageView extends AppCompatImageView {
     //region Nested classes
     public interface OnDrawListener {
@@ -31,6 +39,11 @@ public class StagingInteractiveImageView extends AppCompatImageView {
     public interface ScalingStrategy {
         float clampScaleX(float scaleX, boolean fromUser);
         float clampScaleY(float scaleY, boolean fromUser);
+        float getMaxScaleX();
+        float getMaxScaleY();
+        float getMinScaleX();
+        float getMinScaleY();
+        void invalidate();
     }
 
     private static class DefaultPanningStrategy implements PanningStrategy {
@@ -53,22 +66,141 @@ public class StagingInteractiveImageView extends AppCompatImageView {
     }
 
     private static class DefaultScalingStrategy implements ScalingStrategy {
+        //region Constants
+        static final float BREADTH_MULTIPLIER = 3.0f;
+        static final float LENGTH_MULTIPLIER = 5.0f;
+        //endregion Constants
+
+        //region Fields
         private @NonNull final StagingInteractiveImageView mImageView;
 
-        public DefaultScalingStrategy(@NonNull StagingInteractiveImageView imageView) {
+        private final int mDisplayBreadth;
+        private final int mDisplayLength;
+        private final int mMaxBreadth;
+        private final int mMaxLength;
+
+        private final float[] mMatrixValues = new float[9];
+        private final PointF mMaxScale = new PointF();
+        private final PointF mMinScale = new PointF();
+        private final RectF mBaseRect = new RectF();
+
+        private boolean mMinScaleDirty = true;
+        private boolean mMaxScaleDirty = true;
+        //endregion Fields
+
+        //region Constructors
+        DefaultScalingStrategy(@NonNull StagingInteractiveImageView imageView) {
             super();
             mImageView = imageView;
+            final Context context = imageView.getContext();
+            final WindowManager manager =
+                    (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
+            if (manager == null) {
+                final DisplayMetrics dm = context.getResources().getDisplayMetrics();
+                mDisplayBreadth = Math.min(dm.widthPixels, dm.heightPixels);
+                mDisplayLength = Math.max(dm.widthPixels, dm.heightPixels);
+            } else {
+                final Point size = new Point();
+                DisplayCompat.getRealSize(manager.getDefaultDisplay(), size);
+                mDisplayBreadth = Math.min(size.x, size.y);
+                mDisplayLength = Math.max(size.x, size.y);
+            }
+            mMaxBreadth = Math.round(BREADTH_MULTIPLIER * mDisplayBreadth);
+            mMaxLength = Math.round(LENGTH_MULTIPLIER * mDisplayLength);
         }
+        //endregion Constructors
 
+        //region Implemented methods
         @Override
         public float clampScaleX(float scaleX, boolean fromUser) {
-            return scaleX;
+            return MathUtils.clamp(scaleX, getMinScaleX(), getMaxScaleX());
         }
 
         @Override
         public float clampScaleY(float scaleY, boolean fromUser) {
-            return scaleY;
+            return MathUtils.clamp(scaleY, getMinScaleY(), getMaxScaleY());
         }
+
+        @Override
+        public float getMaxScaleX() {
+            return getMaxScale().x;
+        }
+
+        @Override
+        public float getMaxScaleY() {
+            return getMaxScale().y;
+        }
+
+        @Override
+        public float getMinScaleX() {
+            return getMinScale().x;
+        }
+
+        @Override
+        public float getMinScaleY() {
+            return getMinScale().y;
+        }
+
+        @Override
+        public void invalidate() {
+            mMaxScaleDirty = true;
+            mMinScaleDirty = true;
+        }
+        //endregion Implemented methods
+
+        //region Private methods
+        private PointF getMaxScale() {
+            synchronized (mMaxScale) {
+                if (mMaxScaleDirty) {
+                    mMaxScaleDirty = false;
+                    if (mImageView.drawableHasIntrinsicSize()) {
+                        mImageView.getTransformedImageRect(
+                                mImageView.getBaseImageMatrix(),
+                                mBaseRect);
+                        final float baseWidth = mBaseRect.width();
+                        final float baseHeight = mBaseRect.height();
+                        final float baseBreadth = Math.min(baseWidth, baseHeight);
+                        final float baseLength = Math.max(baseWidth, baseHeight);
+                        final float screenBasedScale =
+                                Math.min(mMaxBreadth / baseBreadth, mMaxLength / baseLength);
+                        final int availableWidth = mImageView.getWidth() -
+                                mImageView.getPaddingLeft() -
+                                mImageView.getPaddingRight();
+                        final int availableHeight = mImageView.getHeight() -
+                                mImageView.getPaddingTop() -
+                                mImageView.getPaddingBottom();
+                        final int availableSize;
+                        if (baseWidth < baseHeight) {
+                            availableSize = availableWidth;
+                        } else if (baseWidth > baseHeight) {
+                            availableSize = availableHeight;
+                        } else {
+                            availableSize = Math.min(availableWidth, availableHeight);
+                        }
+                        final float viewBasedScale = availableSize / baseBreadth;
+                        final float scale = Math.max(screenBasedScale, viewBasedScale);
+                        mMaxScale.set(
+                                scale * mMatrixValues[Matrix.MSCALE_X],
+                                scale * mMatrixValues[Matrix.MSCALE_Y]);
+                    } else {
+                        mMaxScale.set(1.0f, 1.0f);
+                    }
+                }
+            }
+            return mMaxScale;
+        }
+
+        private PointF getMinScale() {
+            synchronized (mMinScale) {
+                if (mMinScaleDirty) {
+                    mMinScaleDirty = false;
+                    mImageView.getBaseImageMatrix().getValues(mMatrixValues);
+                    mMinScale.set(mMatrixValues[Matrix.MSCALE_X], mMatrixValues[Matrix.MSCALE_Y]);
+                }
+            }
+            return mMinScale;
+        }
+        //endregion Private methods
     }
     //endregion Nested classes
 
@@ -135,7 +267,6 @@ public class StagingInteractiveImageView extends AppCompatImageView {
     @Override
     protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
         super.onLayout(changed, left, top, right, bottom);
-
         if (mPlacementDirty) {
             mPlacementDirty = false;
             applyPlacement(
@@ -151,6 +282,7 @@ public class StagingInteractiveImageView extends AppCompatImageView {
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
         mBaseImageMatrixDirty = true;
+        getScalingStrategy().invalidate();
     }
 
     @Override
@@ -159,6 +291,7 @@ public class StagingInteractiveImageView extends AppCompatImageView {
         mImageCenterDirty = true;
         mImageScaleDirty = true;
         mBaseImageMatrixDirty = true;
+        getScalingStrategy().invalidate();
     }
 
     @Override
@@ -169,6 +302,7 @@ public class StagingInteractiveImageView extends AppCompatImageView {
         if (ScaleType.MATRIX == mScaleType) {
             mBaseImageMatrix.set(matrix);
             mBaseImageMatrixDirty = false;
+            getScalingStrategy().invalidate();
         }
     }
 
@@ -176,12 +310,14 @@ public class StagingInteractiveImageView extends AppCompatImageView {
     public void setPadding(int left, int top, int right, int bottom) {
         super.setPadding(left, top, right, bottom);
         mBaseImageMatrixDirty = true;
+        getScalingStrategy().invalidate();
     }
 
     @Override
     public void setPaddingRelative(int start, int top, int end, int bottom) {
         super.setPaddingRelative(start, top, end, bottom);
         mBaseImageMatrixDirty = true;
+        getScalingStrategy().invalidate();
     }
 
     @Override
@@ -193,6 +329,7 @@ public class StagingInteractiveImageView extends AppCompatImageView {
             mImageCenterDirty = true;
             mImageScaleDirty = true;
             mBaseImageMatrixDirty = true;
+            getScalingStrategy().invalidate();
         }
     }
     //endregion Inherited methods
@@ -219,19 +356,19 @@ public class StagingInteractiveImageView extends AppCompatImageView {
     }
 
     public float getMaxScaleX() {
-        return 5.0f;
+        return getScalingStrategy().getMaxScaleX();
     }
 
     public float getMaxScaleY() {
-        return 5.0f;
+        return getScalingStrategy().getMaxScaleY();
     }
 
     public float getMinScaleX() {
-        return 0.5f;
+        return getScalingStrategy().getMinScaleX();
     }
 
     public float getMinScaleY() {
-        return 0.5f;
+        return getScalingStrategy().getMinScaleY();
     }
 
     public boolean hasCustomPlacement() {
@@ -325,7 +462,7 @@ public class StagingInteractiveImageView extends AppCompatImageView {
         mTempMatrix.mapPoints(mPts);
 
         // Move the actual matrix
-        final float transX = (getWidth() - getPaddingLeft() - getPaddingBottom()) * 0.5f - mPts[0];
+        final float transX = (getWidth() - getPaddingLeft() - getPaddingRight()) * 0.5f - mPts[0];
         final float transY = (getHeight() - getPaddingTop() - getPaddingBottom()) * 0.5f - mPts[1];
 
         mMatrixValues[Matrix.MTRANS_X] = panningStrategy.clampTransX(transX, fromUser);
@@ -340,8 +477,7 @@ public class StagingInteractiveImageView extends AppCompatImageView {
     }
 
     private boolean drawableHasIntrinsicSize() {
-        final Drawable dr = getDrawable();
-        return dr != null && (dr.getIntrinsicWidth() > 0 && dr.getIntrinsicHeight() > 0);
+        return getDrawableIntrinsicWidth() > 0 && getDrawableIntrinsicHeight() > 0;
     }
 
     @SuppressWarnings("SpellCheckingInspection")
