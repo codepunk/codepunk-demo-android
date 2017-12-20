@@ -33,7 +33,7 @@
         </activity>
 
         <activity
-            android:name=".InteractiveImageViewActivity"
+            android:name=".interactiveimageview.version4.InteractiveImageViewActivity"
             android:label="@string/title_activity_interactive_image_view">
         </activity>
 

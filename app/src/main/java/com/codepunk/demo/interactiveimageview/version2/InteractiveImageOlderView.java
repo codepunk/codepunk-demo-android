@@ -1,4 +1,4 @@
-package com.codepunk.demo;
+package com.codepunk.demo.interactiveimageview.version2;
 
 import android.content.Context;
 import android.graphics.Canvas;

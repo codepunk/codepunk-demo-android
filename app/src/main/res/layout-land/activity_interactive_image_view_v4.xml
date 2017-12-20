@@ -6,23 +6,23 @@
     android:id="@+id/layout_main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="com.codepunk.demo.interactiveimageview.version2.InteractiveImageOlderViewActivity">
+    tools:context="com.codepunk.demo.interactiveimageview.version4.InteractiveImageViewActivity">
 
     <android.support.constraint.Guideline
         android:id="@+id/guideline"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
         app:layout_constraintGuide_end="@dimen/controls_size" />
 
-    <com.codepunk.demo.interactiveimageview.version2.InteractiveImageOlderView
+    <com.codepunk.demo.interactiveimageview.version4.InteractiveImageViewEx
         android:id="@+id/view_image"
         android:layout_width="0dp"
         android:layout_height="0dp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintBottom_toTopOf="@id/guideline"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/guideline"
         tools:src="@drawable/wilderness_lodge"
         android:background="@android:color/black"
         android:scaleType="centerInside"
@@ -31,11 +31,11 @@
 
     <FrameLayout
         android:id="@+id/layout_controls"
-        android:layout_width="0dp"
-        android:layout_height="@dimen/controls_size"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/guideline"
-        app:layout_constraintEnd_toEndOf="parent">
+        android:layout_width="@dimen/controls_size"
+        android:layout_height="0dp"
+        app:layout_constraintStart_toEndOf="@id/guideline"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent">
 
         <ScrollView
             android:layout_width="match_parent"

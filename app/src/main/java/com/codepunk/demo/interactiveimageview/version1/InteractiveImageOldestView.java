@@ -1,4 +1,4 @@
-package com.codepunk.demo;
+package com.codepunk.demo.interactiveimageview.version1;
 
 import android.content.Context;
 import android.graphics.Canvas;
@@ -17,6 +17,7 @@ import android.util.DisplayMetrics;
 import android.view.Display;
 import android.view.WindowManager;
 
+import com.codepunk.demo.GraphicsUtils;
 import com.codepunk.demo.support.DisplayCompat;
 
 import static android.graphics.Matrix.MSCALE_X;

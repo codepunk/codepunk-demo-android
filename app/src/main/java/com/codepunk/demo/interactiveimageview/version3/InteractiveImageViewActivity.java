@@ -1,4 +1,4 @@
-package com.codepunk.demo;
+package com.codepunk.demo.interactiveimageview.version3;
 
 import android.animation.ValueAnimator;
 import android.annotation.TargetApi;
@@ -32,6 +32,8 @@ import android.widget.SeekBar;
 import android.widget.Spinner;
 import android.widget.ToggleButton;
 
+import com.codepunk.demo.AppCompatSeekBarEx;
+import com.codepunk.demo.R;
 import com.codepunk.demo.support.ProgressBarCompat;
 
 import java.text.DecimalFormat;
@@ -188,7 +190,7 @@ public class InteractiveImageViewActivity
     protected void onCreate(final Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        setContentView(R.layout.activity_interactive_image_view);
+        setContentView(R.layout.activity_interactive_image_view_v3);
         mMainLayout = findViewById(R.id.layout_main);
         mGuideline = findViewById(R.id.guideline);
         mImageView = findViewById(R.id.view_image);

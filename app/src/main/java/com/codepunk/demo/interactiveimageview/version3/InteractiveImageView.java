@@ -1,6 +1,8 @@
-package com.codepunk.demo;
+package com.codepunk.demo.interactiveimageview.version3;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.res.TypedArray;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
 import android.graphics.Matrix.ScaleToFit;
@@ -11,19 +13,27 @@ import android.graphics.drawable.Drawable;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.math.MathUtils;
+import android.support.v4.view.GestureDetectorCompat;
 import android.support.v4.view.ViewCompat;
 import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
+import android.view.GestureDetector;
+import android.view.MotionEvent;
+import android.view.ScaleGestureDetector;
+import android.view.ScaleGestureDetector.OnScaleGestureListener;
+import android.view.ScaleGestureDetector.SimpleOnScaleGestureListener;
 import android.view.WindowManager;
 
+import com.codepunk.demo.R;
 import com.codepunk.demo.support.DisplayCompat;
 
+// TODO NEXT onScroll
 // TODO NEXT Allow panning strategy to draw edges or bounce (from within applyPlacement)
-public class InteractiveImageView_BeforeAddingTouchGestures extends AppCompatImageView {
+public class InteractiveImageView extends AppCompatImageView {
     //region Nested classes
     public interface OnDrawListener {
-        void onDraw(InteractiveImageView_BeforeAddingTouchGestures view, Canvas canvas);
+        void onDraw(InteractiveImageView view, Canvas canvas);
     }
 
     public interface PanningStrategy {
@@ -42,9 +52,9 @@ public class InteractiveImageView_BeforeAddingTouchGestures extends AppCompatIma
     }
 
     private static class DefaultPanningStrategy implements PanningStrategy {
-        private @NonNull final InteractiveImageView_BeforeAddingTouchGestures mImageView;
+        private @NonNull final InteractiveImageView mImageView;
 
-        public DefaultPanningStrategy(@NonNull InteractiveImageView_BeforeAddingTouchGestures imageView) {
+        public DefaultPanningStrategy(@NonNull InteractiveImageView imageView) {
             super();
             mImageView = imageView;
         }
@@ -67,7 +77,7 @@ public class InteractiveImageView_BeforeAddingTouchGestures extends AppCompatIma
         //endregion Constants
 
         //region Fields
-        private @NonNull final InteractiveImageView_BeforeAddingTouchGestures mImageView;
+        private @NonNull final InteractiveImageView mImageView;
 
         private final int mDisplayBreadth;
         private final int mDisplayLength;
@@ -84,7 +94,7 @@ public class InteractiveImageView_BeforeAddingTouchGestures extends AppCompatIma
         //endregion Fields
 
         //region Constructors
-        DefaultScalingStrategy(@NonNull InteractiveImageView_BeforeAddingTouchGestures imageView) {
+        DefaultScalingStrategy(@NonNull InteractiveImageView imageView) {
             super();
             mImageView = imageView;
             final Context context = imageView.getContext();
@@ -193,14 +203,72 @@ public class InteractiveImageView_BeforeAddingTouchGestures extends AppCompatIma
         }
         //endregion Private methods
     }
+
+    private static class PanOnGestureListener extends GestureDetector.SimpleOnGestureListener {
+        @NonNull private final InteractiveImageView mImageView;
+        private final Matrix mImageMatrix = new Matrix();
+        private final float[] mMatrixValues = new float[9];
+
+        public PanOnGestureListener(@NonNull InteractiveImageView imageView) {
+            super();
+            mImageView = imageView;
+        }
+
+        @Override
+        public boolean onDown(MotionEvent e) {
+            // TODO EDGE_EFFECTS releaseEdgeEffects();
+            // TODO OVERSCROLLER mScroller.forceFinished(true);
+            ViewCompat.postInvalidateOnAnimation(mImageView);
+            return true;
+        }
+
+        @Override
+        public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
+            /*
+            mImageMatrix.set(mImageView.getImageMatrixInternal());
+            mImageMatrix.getValues(mMatrixValues);
+            final float preTransX = mMatrixValues[Matrix.MTRANS_X];
+            final float preTransY = mMatrixValues[Matrix.MTRANS_Y];
+            final float postTransX = mMatrixValues[Matrix.MTRANS_X] - distanceX;
+            final float postTransY = mMatrixValues[Matrix.MTRANS_Y] - distanceY;
+            final float clampedTransX = mImageView.clampTrans(
+                    postTransX,
+                    mImageView.getAvailableWidth(),
+                    mImageView.mScaleType,
+                    mImageView.isRtl());
+            final PanningStrategy panningStrategy = mImageView.getPanningStrategy();
+            */
+
+            mImageMatrix.set(mImageView.getImageMatrixInternal());
+            mImageMatrix.getValues(mMatrixValues);
+            mMatrixValues[Matrix.MTRANS_X] -= distanceX;
+            mMatrixValues[Matrix.MTRANS_Y] -= distanceY;
+            mImageMatrix.setValues(mMatrixValues);
+
+            // TODO TEMP
+            final PointF center = new PointF();
+            mImageView.getImageCenter(mImageMatrix, center); // TODO Rename that one?
+            mImageView.setImageCenter(center.x, center.y, true);
+
+            // TODO Want to "clamp" the center so it stays as whatever is actually in the center
+
+            return true;
+        }
+    }
+
+    private class ZoomOnScaleGestureListener extends SimpleOnScaleGestureListener {
+
+    }
     //endregion Nested classes
 
     //region Constants
-    private static final String TAG = InteractiveImageView_BeforeAddingTouchGestures.class.getSimpleName();
+    private static final String TAG = InteractiveImageView.class.getSimpleName();
     //endregion Constants
 
     //region Fields
     private ScaleType mScaleType;
+    private boolean mPanEnabled;
+    private boolean mZoomEnabled;
     private OnDrawListener mOnDrawListener;
     private float mImageScaleX = 1.0f;
     private float mImageScaleY = 1.0f;
@@ -209,6 +277,10 @@ public class InteractiveImageView_BeforeAddingTouchGestures extends AppCompatIma
 
     private PanningStrategy mPanningStrategy;
     private ScalingStrategy mScalingStrategy;
+
+    private GestureDetectorCompat mGestureDetector;
+    private OnScaleGestureListener mOnScaleGestureListener;
+    private ScaleGestureDetector mScaleGestureDetector;
 
     // Buckets
     private final Matrix mBaseImageMatrix = new Matrix();
@@ -226,16 +298,27 @@ public class InteractiveImageView_BeforeAddingTouchGestures extends AppCompatIma
     //endregion Fields
 
     //region Constructors
-    public InteractiveImageView_BeforeAddingTouchGestures(Context context) {
+    public InteractiveImageView(Context context) {
         super(context);
+        initializeInteractiveImageView(
+                context,
+                null,
+                R.attr.interactiveImageViewStyle,
+                0);
     }
 
-    public InteractiveImageView_BeforeAddingTouchGestures(Context context, AttributeSet attrs) {
+    public InteractiveImageView(Context context, AttributeSet attrs) {
         super(context, attrs);
+        initializeInteractiveImageView(
+                context,
+                attrs,
+                R.attr.interactiveImageViewStyle,
+                0);
     }
 
-    public InteractiveImageView_BeforeAddingTouchGestures(Context context, AttributeSet attrs, int defStyleAttr) {
+    public InteractiveImageView(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
+        initializeInteractiveImageView(context, attrs, defStyleAttr, 0);
     }
     //endregion Constructors
 
@@ -272,6 +355,21 @@ public class InteractiveImageView_BeforeAddingTouchGestures extends AppCompatIma
         super.onSizeChanged(w, h, oldw, oldh);
         mBaseImageMatrixDirty = true;
         getScalingStrategy().invalidate();
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        boolean retVal = false;
+        if (drawableHasIntrinsicSize()) {
+            if (mScaleGestureDetector != null) {
+                retVal = mScaleGestureDetector.onTouchEvent(event);
+            }
+            if (mGestureDetector != null) {
+                retVal = mGestureDetector.onTouchEvent(event) || retVal;
+            }
+        }
+        return retVal || super.onTouchEvent(event);
     }
 
     @Override
@@ -365,44 +463,80 @@ public class InteractiveImageView_BeforeAddingTouchGestures extends AppCompatIma
         return (mScaleType != super.getScaleType());
     }
 
+    public boolean isPanEnabled() {
+        return mPanEnabled;
+    }
+
+    public boolean isZoomEnabled() {
+        return mZoomEnabled;
+    }
+
     public void setImageCenter(float centerX, float centerY) {
-        getImageScale();
-        setPlacement(mImageScaleX, mImageScaleY, centerX, centerY);
+        setImageCenter(centerX, centerY, false);
     }
 
     public void setImageScale(float scaleX, float scaleY) {
-        getImageCenter();
-        setPlacement(scaleX, scaleY, mImageCenterX, mImageCenterY);
+        setImageScale(scaleX, scaleY, false);
     }
 
     public void setOnDrawListener(OnDrawListener onDrawListener) {
         mOnDrawListener = onDrawListener;
     }
 
-    public void setPanningStrategy(PanningStrategy panningStrategy) {
-        mPanningStrategy = panningStrategy;
-    }
-
-    public void setPlacement(float scaleX, float scaleY, float centerX, float centerY) {
-        mImageCenterDirty = false;
-        mImageScaleDirty = false;
-        mImageScaleX = scaleX;
-        mImageScaleY = scaleY;
-        mImageCenterX = centerX;
-        mImageCenterY = centerY;
-        if (drawableHasIntrinsicSize()) {
-            if (ViewCompat.isLaidOut(this)) {
-                mPlacementDirty = false;
-                applyPlacement(scaleX, scaleY, centerX, centerY, false);
-                invalidate();
+    public void setPanEnabled(boolean enabled) {
+        if (mPanEnabled != enabled) {
+            mPanEnabled = enabled;
+            if (enabled) {
+                // TODO OVERSCROLLER mScroller = new OverScroller(getContext());
+                mGestureDetector = new GestureDetectorCompat(
+                        getContext(),
+                        new PanOnGestureListener(this));
+                /* TODO EDGE_EFFECTS
+                for (int i = 0; i < mEdgeEffect.length; i++) {
+                    mEdgeEffect[i] = new EdgeEffectCompat(context);
+                }
+                */
             } else {
-                mPlacementDirty = true;
+                // TODO OVERSCROLLER mScroller = null;
+                mGestureDetector = null;
+                /* TODO EDGE_EFFECTS
+                for (int i = 0; i < mEdgeEffect.length; i++) {
+                    mEdgeEffect[i] = null;
+                }
+                */
             }
         }
     }
 
+    public void setPanningStrategy(PanningStrategy panningStrategy) {
+        mPanningStrategy = panningStrategy;
+    }
+
+    public void setPlacement(
+            float scaleX,
+            float scaleY,
+            float centerX,
+            float centerY) {
+        setPlacement(scaleX, scaleY, centerX, centerY, false);
+    }
+
     public void setScalingStrategy(ScalingStrategy scalingStrategy) {
         mScalingStrategy = scalingStrategy;
+    }
+
+    public void setZoomEnabled(boolean enabled) {
+        if (mZoomEnabled != enabled) {
+            mZoomEnabled = enabled;
+            if (enabled) {
+                // TODO Zoomer?
+                mOnScaleGestureListener = new ZoomOnScaleGestureListener();
+                mScaleGestureDetector =
+                        new ScaleGestureDetector(getContext(), mOnScaleGestureListener);
+            } else {
+                mOnScaleGestureListener = null;
+                mScaleGestureDetector = null;
+            }
+        }
     }
     //endregion Methods
 
@@ -455,7 +589,7 @@ public class InteractiveImageView_BeforeAddingTouchGestures extends AppCompatIma
                 availableWidth,
                 mTempDst.width(),
                 mScaleType,
-                ViewCompat.getLayoutDirection(this) == ViewCompat.LAYOUT_DIRECTION_RTL);
+                isRtl());
         final float clampedTransY = clampTrans(
                 transY,
                 availableHeight,
@@ -596,6 +730,7 @@ public class InteractiveImageView_BeforeAddingTouchGestures extends AppCompatIma
     }
 
     private void getImageCenter() {
+        // TODO Call other getImageCenter. Maybe combine mImageCenterX/Y to pointF
         if (mImageCenterDirty) {
             // TODO synchronized?
             if (ViewCompat.isLaidOut(this)) {
@@ -608,6 +743,18 @@ public class InteractiveImageView_BeforeAddingTouchGestures extends AppCompatIma
                 mImageCenterY = mPts[1] / getDrawableIntrinsicHeight();
             }
         }
+    }
+
+    // TODO A method that calculates the center given a Matrix?
+    private void getImageCenter(@NonNull Matrix imageMatrix, @NonNull PointF outPoint) {
+        // TODO synchronized?
+        imageMatrix.invert(mTempMatrix);
+        mPts[0] = getAvailableWidth() * 0.5f;
+        mPts[1] = getAvailableHeight() * 0.5f;
+        mTempMatrix.mapPoints(mPts);
+        outPoint.set(
+                mPts[0] / getDrawableIntrinsicWidth(),
+                mPts[1] / getDrawableIntrinsicHeight());
     }
 
     @SuppressWarnings("SpellCheckingInspection")
@@ -654,6 +801,29 @@ public class InteractiveImageView_BeforeAddingTouchGestures extends AppCompatIma
         }
     }
 
+    private void initializeInteractiveImageView(
+            Context context,
+            AttributeSet attrs,
+            int defStyleAttr,
+            int defStyleRes) {
+        TypedArray a = context.obtainStyledAttributes(
+                attrs,
+                R.styleable.InteractiveImageView,
+                defStyleAttr,
+                defStyleRes);
+
+        // TODO scaleX / scaleY / centerX / centerY
+
+        setPanEnabled(a.getBoolean(R.styleable.InteractiveImageView_panEnabled, false));
+        setZoomEnabled(a.getBoolean(R.styleable.InteractiveImageView_zoomEnabled, false));
+
+        a.recycle();
+    }
+
+    private boolean isRtl() {
+        return ViewCompat.getLayoutDirection(this) == ViewCompat.LAYOUT_DIRECTION_RTL;
+    }
+
     private static ScaleToFit scaleTypeToScaleToFit(@NonNull ScaleType scaleType) {
         switch (scaleType) {
             case FIT_CENTER:
@@ -666,6 +836,39 @@ public class InteractiveImageView_BeforeAddingTouchGestures extends AppCompatIma
                 return ScaleToFit.FILL;
             default:
                 return null;
+        }
+    }
+
+    private void setImageCenter(float centerX, float centerY, boolean fromUser) {
+        getImageScale();
+        setPlacement(mImageScaleX, mImageScaleY, centerX, centerY, fromUser);
+    }
+
+    private void setImageScale(float scaleX, float scaleY, boolean fromUser) {
+        getImageCenter();
+        setPlacement(scaleX, scaleY, mImageCenterX, mImageCenterY, fromUser);
+    }
+
+    private void setPlacement(
+            float scaleX,
+            float scaleY,
+            float centerX,
+            float centerY,
+            boolean fromUser) {
+        mImageCenterDirty = false;
+        mImageScaleDirty = false;
+        mImageScaleX = scaleX;
+        mImageScaleY = scaleY;
+        mImageCenterX = centerX;
+        mImageCenterY = centerY;
+        if (drawableHasIntrinsicSize()) {
+            if (ViewCompat.isLaidOut(this)) {
+                mPlacementDirty = false;
+                applyPlacement(scaleX, scaleY, centerX, centerY, fromUser);
+                invalidate();
+            } else {
+                mPlacementDirty = true;
+            }
         }
     }
     //endregion Private methods

@@ -6,7 +6,7 @@
     android:id="@+id/layout_main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="com.codepunk.demo.InteractiveImageOlderViewActivity">
+    tools:context="com.codepunk.demo.interactiveimageview.version2.InteractiveImageOlderViewActivity">
 
     <android.support.constraint.Guideline
         android:id="@+id/guideline"
@@ -15,7 +15,7 @@
         android:orientation="vertical"
         app:layout_constraintGuide_end="@dimen/controls_size" />
 
-    <com.codepunk.demo.InteractiveImageView
+    <com.codepunk.demo.interactiveimageview.version3.InteractiveImageView
         android:id="@+id/view_image"
         android:layout_width="0dp"
         android:layout_height="0dp"

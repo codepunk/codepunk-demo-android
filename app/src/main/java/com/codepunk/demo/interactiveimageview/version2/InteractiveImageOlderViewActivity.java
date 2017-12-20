@@ -1,4 +1,4 @@
-package com.codepunk.demo;
+package com.codepunk.demo.interactiveimageview.version2;
 
 import android.animation.ValueAnimator;
 import android.annotation.TargetApi;
@@ -31,6 +31,8 @@ import android.widget.SeekBar;
 import android.widget.Spinner;
 import android.widget.ToggleButton;
 
+import com.codepunk.demo.AppCompatSeekBarEx;
+import com.codepunk.demo.R;
 import com.codepunk.demo.support.ProgressBarCompat;
 
 import java.text.DecimalFormat;
