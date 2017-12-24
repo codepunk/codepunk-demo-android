@@ -15,16 +15,14 @@ import android.util.DisplayMetrics;
 import android.view.WindowManager;
 import android.widget.ImageView;
 
-import com.codepunk.demo.R;
 import com.codepunk.demo.support.DisplayCompat;
 
+import static com.codepunk.demo.R.attr.interactiveImageViewStyle;
+
 /*
- * TODO NEXT Choosing new scale type, image etc. doesn't reset center/scale
- * (TODO Set mActualImageCenterDirty when needed
- * TODO Set mActualImageScaleDirty when needed)
- * TODO NEXT clampTransX/Y
  * TODO When moving image, set mImageCenter to null
  * TODO When sizing image, set mImageSize to null
+ * TODO Play around with ViewCompat's isLaidOut method?
  */
 public class InteractiveImageView extends AppCompatImageView {
     //region Constants
@@ -51,31 +49,23 @@ public class InteractiveImageView extends AppCompatImageView {
     private final float[] mMatrixValues = new float[9];
     private final float[] mPts = new float[2];
 
+    private boolean mPlacementDirty = false;
     private boolean mActualImageCenterDirty = true;
     private boolean mActualImageScaleDirty = true;
     private boolean mBaseImageMatrixDirty = true;
     private boolean mImageMaxScaleDirty = true;
     private boolean mImageMinScaleDirty = true;
-    private boolean mPlacementDirty = true;
     //endregion Fields
 
     //region Constructors
     public InteractiveImageView(Context context) {
         super(context);
-        initializeInteractiveImageView(
-                context,
-                null,
-                R.attr.interactiveImageViewStyle,
-                0);
+        initializeInteractiveImageView(context, null, interactiveImageViewStyle, 0);
     }
 
     public InteractiveImageView(Context context, AttributeSet attrs) {
         super(context, attrs);
-        initializeInteractiveImageView(
-                context,
-                attrs,
-                R.attr.interactiveImageViewStyle,
-                0);
+        initializeInteractiveImageView(context, attrs, interactiveImageViewStyle, 0);
     }
 
     public InteractiveImageView(Context context, AttributeSet attrs, int defStyleAttr) {
@@ -91,13 +81,29 @@ public class InteractiveImageView extends AppCompatImageView {
     }
 
     @Override
-    protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
-        super.onLayout(changed, left, top, right, bottom);
+    public void layout(int l, int t, int r, int b) {
+        super.layout(l, t, r, b);
+
+        // NOTE: We need to perform this here in layout()--and not onLayout()--because
+        // calls to ViewCompat.isLaidOut() may still return false from onLayout().
+        // (isLaidOut() may be called as a result of calling setImageScaleInternal below.)
+        synchronized (mLock) {
+            if (mPlacementDirty) {
+                mPlacementDirty = false;
+                setImageScaleInternal(
+                        getImageScaleX(),
+                        getImageScaleY(),
+                        getImageCenterX(),
+                        getImageCenterY(),
+                        false);
+            }
+        }
     }
 
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
+        // TODO Clear (or handle) new center?
         mBaseImageMatrixDirty = true;
         mImageMaxScaleDirty = true;
         mImageMinScaleDirty = true;
@@ -106,6 +112,8 @@ public class InteractiveImageView extends AppCompatImageView {
     @Override
     public void setImageDrawable(@Nullable Drawable drawable) {
         super.setImageDrawable(drawable);
+        mImageCenter = null;
+        mImageScale = null;
         mActualImageScaleDirty = true;
         mActualImageCenterDirty = true;
         mBaseImageMatrixDirty = true;
@@ -119,6 +127,8 @@ public class InteractiveImageView extends AppCompatImageView {
         if (ScaleType.MATRIX == mScaleType) {
             mBaseImageMatrix.set(matrix);
             mBaseImageMatrixDirty = false;
+            mImageCenter = null;
+            mImageScale = null;
             mActualImageScaleDirty = true;
             mActualImageCenterDirty = true;
             mImageMaxScaleDirty = true;
@@ -129,6 +139,7 @@ public class InteractiveImageView extends AppCompatImageView {
     @Override
     public void setPadding(int left, int top, int right, int bottom) {
         super.setPadding(left, top, right, bottom);
+        // TODO Clear (or handle) new center?
         mBaseImageMatrixDirty = true;
         mImageMaxScaleDirty = true;
         mImageMinScaleDirty = true;
@@ -137,6 +148,7 @@ public class InteractiveImageView extends AppCompatImageView {
     @Override
     public void setPaddingRelative(int start, int top, int end, int bottom) {
         super.setPaddingRelative(start, top, end, bottom);
+        // TODO Clear (or handle) new center?
         mBaseImageMatrixDirty = true;
         mImageMaxScaleDirty = true;
         mImageMinScaleDirty = true;
@@ -148,6 +160,8 @@ public class InteractiveImageView extends AppCompatImageView {
         super.setScaleType(scaleType);
         if (oldScaleType != super.getScaleType()) {
             mScaleType = scaleType;
+            mImageCenter = null;
+            mImageScale = null;
             mActualImageScaleDirty = true;
             mActualImageCenterDirty = true;
             mBaseImageMatrixDirty = true;
@@ -215,10 +229,7 @@ public class InteractiveImageView extends AppCompatImageView {
     }
 
     public boolean hasCustomPlacement() {
-        synchronized (mLock) {
-            getBaseImageMatrix(null);
-            return !mBaseImageMatrix.equals(getImageMatrixInternal());
-        }
+        return !getBaseImageMatrix().equals(getImageMatrixInternal());
     }
 
     public void setImageScale(float sx, float sy) {
@@ -257,13 +268,37 @@ public class InteractiveImageView extends AppCompatImageView {
     }
 
     protected float clampTransX(float tx, int availableWidth, float displayedWidth) {
-        // TODO NEXT
-        return tx;
+        final float diff = availableWidth - displayedWidth;
+        if (diff <= 0.0f) {
+            return MathUtils.clamp(tx, diff, 0.0f);
+        } else {
+            final boolean isRtl =
+                    ViewCompat.getLayoutDirection(this) == ViewCompat.LAYOUT_DIRECTION_RTL;
+            switch (mScaleType) {
+                case FIT_START:
+                    return (isRtl ? diff : 0.0f);
+                case FIT_END:
+                    return (isRtl ? 0.0f : diff);
+                default:
+                    return diff * 0.5f;
+            }
+        }
     }
 
     protected float clampTransY(float ty, int availableHeight, float displayedHeight) {
-        // TODO NEXT
-        return ty;
+        final float diff = availableHeight - displayedHeight;
+        if (diff <= 0.0f) {
+            return MathUtils.clamp(ty, diff, 0.0f);
+        } else {
+            switch (mScaleType) {
+                case FIT_START:
+                    return 0.0f;
+                case FIT_END:
+                    return diff;
+                default:
+                    return diff * 0.5f;
+            }
+        }
     }
 
     protected boolean drawableHasIntrinsicSize() {
@@ -301,8 +336,12 @@ public class InteractiveImageView extends AppCompatImageView {
         return getWidth() - getPaddingLeft() - getPaddingRight();
     }
 
+    /**
+     * Returns the view's base image matrix. Do not change this matrix in place but make a copy.
+     * @return The view's base image matrix
+     */
     @SuppressWarnings("SpellCheckingInspection")
-    protected void getBaseImageMatrix(final Matrix outMatrix) {
+    protected Matrix getBaseImageMatrix() {
         synchronized (mLock) {
             if (mBaseImageMatrixDirty) {
                 mBaseImageMatrixDirty = false;
@@ -377,9 +416,7 @@ public class InteractiveImageView extends AppCompatImageView {
                 }
             }
         }
-        if (outMatrix != null) {
-            outMatrix.set(mBaseImageMatrix);
-        }
+        return mBaseImageMatrix;
     }
 
     protected int getDrawableIntrinsicHeight() {
@@ -395,9 +432,8 @@ public class InteractiveImageView extends AppCompatImageView {
     protected void getImageMaxScale(@NonNull final PointF outPoint) {
         if (drawableHasIntrinsicSize()) {
             synchronized (mLock) {
-                getBaseImageMatrix(null);
                 mSrcRect.set(0, 0, getDrawableIntrinsicWidth(), getDrawableIntrinsicHeight());
-                mBaseImageMatrix.mapRect(mDstRect, mSrcRect);
+                getBaseImageMatrix().mapRect(mDstRect, mSrcRect);
                 final float baseWidth = mDstRect.width();
                 final float baseHeight = mDstRect.height();
                 final float baseBreadth = Math.min(baseWidth, baseHeight);
@@ -432,8 +468,7 @@ public class InteractiveImageView extends AppCompatImageView {
 
     protected void getImageMinScale(@NonNull final PointF outPoint) {
         synchronized (mLock) {
-            getBaseImageMatrix(null);
-            mBaseImageMatrix.getValues(mMatrixValues);
+            getBaseImageMatrix().getValues(mMatrixValues);
             outPoint.set(mMatrixValues[Matrix.MSCALE_X], mMatrixValues[Matrix.MSCALE_Y]);
         }
     }
@@ -516,16 +551,16 @@ public class InteractiveImageView extends AppCompatImageView {
 
     private void setImageScaleInternal(float sx, float sy, float cx, float cy, boolean fromUser) {
         synchronized (mLock) {
-            getBaseImageMatrix(mBaseImageMatrix);
-            mBaseImageMatrix.getValues(mMatrixValues);
+            mTempMatrix.set(getBaseImageMatrix());
+            mTempMatrix.getValues(mMatrixValues);
             mMatrixValues[Matrix.MSCALE_X] = clampScaleX(sx);
             mMatrixValues[Matrix.MSCALE_Y] = clampScaleY(sy);
-            mBaseImageMatrix.setValues(mMatrixValues);
+            mTempMatrix.setValues(mMatrixValues);
 
             // Convert center % into points in the transformed image rect
             mPts[0] = getDrawableIntrinsicWidth() * cx;
             mPts[1] = getDrawableIntrinsicHeight() * cy;
-            mBaseImageMatrix.mapPoints(mPts);
+            mTempMatrix.mapPoints(mPts);
 
             // Get desired translation
             final float tx = mMatrixValues[Matrix.MTRANS_X] + getAvailableWidth() * 0.5f - mPts[0];
@@ -535,21 +570,20 @@ public class InteractiveImageView extends AppCompatImageView {
                     0.0f,
                     getDrawableIntrinsicWidth(),
                     getDrawableIntrinsicHeight());
-            mBaseImageMatrix.mapRect(mDstRect, mSrcRect);
+            mTempMatrix.mapRect(mDstRect, mSrcRect);
             final float clampedTx = clampTransX(tx, getAvailableWidth(), mDstRect.width());
             final float clampedTy = clampTransY(ty, getAvailableHeight(), mDstRect.height());
 
             mMatrixValues[Matrix.MTRANS_X] = resolveTransX(tx, clampedTx, fromUser);
             mMatrixValues[Matrix.MTRANS_Y] = resolveTransY(ty, clampedTy, fromUser);
-            mBaseImageMatrix.setValues(mMatrixValues);
+            mTempMatrix.setValues(mMatrixValues);
 
             if (ScaleType.MATRIX != super.getScaleType()) {
                 super.setScaleType(ScaleType.MATRIX);
             }
-            super.setImageMatrix(mBaseImageMatrix);
+            super.setImageMatrix(mTempMatrix);
             invalidate();
         }
-        invalidate();
     }
 
     protected void syncActualImageCenter() {

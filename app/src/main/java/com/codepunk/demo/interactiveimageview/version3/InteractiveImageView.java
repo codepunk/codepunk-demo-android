@@ -329,6 +329,20 @@ public class InteractiveImageView extends AppCompatImageView {
     }
 
     @Override
+    public void layout(int l, int t, int r, int b) {
+        super.layout(l, t, r, b);
+        if (mPlacementDirty) {
+            mPlacementDirty = false;
+            applyPlacement(
+                    mImageScaleX,
+                    mImageScaleY,
+                    mImageCenterX,
+                    mImageCenterY,
+                    false);
+        }
+    }
+
+    @Override
     protected void onDraw(final Canvas canvas) {
         super.onDraw(canvas);
         if (mOnDrawListener != null) {
@@ -336,6 +350,7 @@ public class InteractiveImageView extends AppCompatImageView {
         }
     }
 
+    /*
     @Override
     protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
         super.onLayout(changed, left, top, right, bottom);
@@ -349,6 +364,7 @@ public class InteractiveImageView extends AppCompatImageView {
                     false);
         }
     }
+    */
 
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
