@@ -10,4 +10,8 @@
         <item name="scaleY">auto</item>
         <item name="zoomEnabled">true</item>
     </style>
+
+    <style name="InteractiveImageViewEx" parent="InteractiveImageView">
+        <item name="android:scaleType">centerCrop</item>
+    </style>
 </resources>

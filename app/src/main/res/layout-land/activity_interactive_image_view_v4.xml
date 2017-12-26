@@ -25,9 +25,9 @@
         app:layout_constraintEnd_toStartOf="@id/guideline"
         tools:src="@drawable/wilderness_lodge"
         android:background="@android:color/black"
-        android:scaleType="centerInside"
         android:clickable="true"
-        android:focusable="true" />
+        android:focusable="true"
+        style="@style/InteractiveImageViewEx"/>
 
     <FrameLayout
         android:id="@+id/layout_controls"

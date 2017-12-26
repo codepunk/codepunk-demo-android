@@ -1,6 +1,8 @@
 package com.codepunk.demo.interactiveimageview.version4;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.res.TypedArray;
 import android.graphics.Matrix;
 import android.graphics.PointF;
 import android.graphics.RectF;
@@ -8,23 +10,72 @@ import android.graphics.drawable.Drawable;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.math.MathUtils;
+import android.support.v4.view.GestureDetectorCompat;
 import android.support.v4.view.ViewCompat;
 import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
+import android.view.GestureDetector.SimpleOnGestureListener;
+import android.view.MotionEvent;
+import android.view.ScaleGestureDetector;
+import android.view.ScaleGestureDetector.SimpleOnScaleGestureListener;
 import android.view.WindowManager;
 import android.widget.ImageView;
 
 import com.codepunk.demo.support.DisplayCompat;
 
 import static com.codepunk.demo.R.attr.interactiveImageViewStyle;
+import static com.codepunk.demo.R.styleable.InteractiveImageView;
+import static com.codepunk.demo.R.styleable.InteractiveImageView_panEnabled;
+import static com.codepunk.demo.R.styleable.InteractiveImageView_zoomEnabled;
 
 /*
  * TODO When moving image, set mImageCenter to null
  * TODO When sizing image, set mImageSize to null
- * TODO Play around with ViewCompat's isLaidOut method?
  */
 public class InteractiveImageView extends AppCompatImageView {
+    //region Nested classes
+    protected class CustomOnGestureListener extends SimpleOnGestureListener {
+        @Override
+        public boolean onDown(MotionEvent e) {
+            // TODO EDGE_EFFECTS releaseEdgeEffects();
+            // TODO OVERSCROLLER mScroller.forceFinished(true);
+            ViewCompat.postInvalidateOnAnimation(InteractiveImageView.this);
+            return true;
+        }
+
+        @Override
+        public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
+            synchronized (mLock) {
+                // TODO clamp? Clamping is already happening in setImageScaleInternal so maybe not necessary?
+                mImageMatrix.set(getImageMatrixInternal());
+                mImageMatrix.getValues(mMatrixValues);
+                mMatrixValues[Matrix.MTRANS_X] -= distanceX;
+                mMatrixValues[Matrix.MTRANS_Y] -= distanceY;
+                mImageMatrix.setValues(mMatrixValues);
+
+                final PointF center = new PointF();
+                getActualImageCenter(mImageMatrix, center);
+                mImageScale = null;
+                mImageCenter = null;
+                mActualImageScaleDirty = true;
+                mActualImageCenterDirty = true;
+                setImageScaleInternal(
+                        mMatrixValues[Matrix.MSCALE_X],
+                        mMatrixValues[Matrix.MSCALE_Y],
+                        center.x,
+                        center.y,
+                        true);
+            }
+            return true;
+        }
+    }
+
+    protected static class CustomOnScaleGestureListener extends SimpleOnScaleGestureListener {
+
+    }
+    //endregion Nested class CustomOnScaleGestureListener
+
     //region Constants
     static final float BREADTH_MULTIPLIER = 3.0f;
     static final float LENGTH_MULTIPLIER = 5.0f;
@@ -35,6 +86,12 @@ public class InteractiveImageView extends AppCompatImageView {
 
     private final Object mLock = new Object();
 
+    private boolean mPanEnabled = false;
+    private boolean mZoomEnabled = false;
+    private GestureDetectorCompat mGestureDetector;
+    private ScaleGestureDetector mScaleGestureDetector;
+
+    // TODO Examine this, choose order
     private final Matrix mImageMatrix = new Matrix();
     private final Matrix mBaseImageMatrix = new Matrix();
     private final Matrix mTempMatrix = new Matrix();
@@ -107,6 +164,21 @@ public class InteractiveImageView extends AppCompatImageView {
         mBaseImageMatrixDirty = true;
         mImageMaxScaleDirty = true;
         mImageMinScaleDirty = true;
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        boolean retVal = false;
+        if (drawableHasIntrinsicSize()) {
+            if (mScaleGestureDetector != null) {
+                retVal = mScaleGestureDetector.onTouchEvent(event);
+            }
+            if (mGestureDetector != null) {
+                retVal = mGestureDetector.onTouchEvent(event) || retVal;
+            }
+        }
+        return retVal || super.onTouchEvent(event);
     }
 
     @Override
@@ -232,6 +304,14 @@ public class InteractiveImageView extends AppCompatImageView {
         return !getBaseImageMatrix().equals(getImageMatrixInternal());
     }
 
+    public boolean isPanEnabled() {
+        return mPanEnabled;
+    }
+
+    public boolean isZoomEnabled() {
+        return mZoomEnabled;
+    }
+
     public void setImageScale(float sx, float sy) {
         setImageScale(sx, sy, getImageCenterX(), getImageCenterY());
     }
@@ -253,6 +333,30 @@ public class InteractiveImageView extends AppCompatImageView {
                 setImageScaleInternal(sx, sy, cx, cy, false);
             } else {
                 mPlacementDirty = true;
+            }
+        }
+    }
+
+    public void setPanEnabled(boolean panEnabled) {
+        if (mPanEnabled != panEnabled) {
+            mPanEnabled = panEnabled;
+            if (panEnabled) {
+                mGestureDetector =
+                        new GestureDetectorCompat(getContext(), new CustomOnGestureListener());
+            } else {
+                mGestureDetector = null;
+            }
+        }
+    }
+
+    public void setZoomEnabled(boolean zoomEnabled) {
+        if (mZoomEnabled != zoomEnabled) {
+            mZoomEnabled = zoomEnabled;
+            if (zoomEnabled) {
+                mScaleGestureDetector =
+                        new ScaleGestureDetector(getContext(), new CustomOnScaleGestureListener());
+            } else {
+                mScaleGestureDetector = null;
             }
         }
     }
@@ -306,9 +410,12 @@ public class InteractiveImageView extends AppCompatImageView {
     }
 
     protected void getActualImageCenter(@NonNull final PointF outPoint) {
+        getActualImageCenter(getImageMatrixInternal(), outPoint);
+    }
+
+    protected void getActualImageCenter(@NonNull Matrix matrix, @NonNull final PointF outPoint) {
         synchronized (mLock) {
-            mTempMatrix.set(getImageMatrixInternal());
-            mTempMatrix.invert(mTempMatrix);
+            matrix.invert(mTempMatrix);
             mPts[0] = getAvailableWidth() * 0.5f;
             mPts[1] = getAvailableHeight() * 0.5f;
             mTempMatrix.mapPoints(mPts);
@@ -541,12 +648,24 @@ public class InteractiveImageView extends AppCompatImageView {
         return mImageMatrix;
     }
 
+    @SuppressWarnings("SameParameterValue")
     private void initializeInteractiveImageView(
             Context context,
             AttributeSet attrs,
             int defStyleAttr,
             int defStyleRes) {
-        // TODO Attributes
+        TypedArray a = context.obtainStyledAttributes(
+                attrs,
+                InteractiveImageView,
+                defStyleAttr,
+                defStyleRes);
+
+        // TODO scaleX / scaleY / centerX / centerY / show drag edges etc.
+
+        setPanEnabled(a.getBoolean(InteractiveImageView_panEnabled, false));
+        setZoomEnabled(a.getBoolean(InteractiveImageView_zoomEnabled, false));
+
+        a.recycle();
     }
 
     private void setImageScaleInternal(float sx, float sy, float cx, float cy, boolean fromUser) {
