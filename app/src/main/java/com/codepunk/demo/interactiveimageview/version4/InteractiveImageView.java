@@ -15,14 +15,18 @@ import android.support.v4.view.ViewCompat;
 import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.view.GestureDetector.SimpleOnGestureListener;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.ScaleGestureDetector.SimpleOnScaleGestureListener;
 import android.view.WindowManager;
 import android.widget.ImageView;
+import android.widget.OverScroller;
 
 import com.codepunk.demo.support.DisplayCompat;
+
+import java.util.Locale;
 
 import static com.codepunk.demo.R.attr.interactiveImageViewStyle;
 import static com.codepunk.demo.R.styleable.InteractiveImageView;
@@ -30,6 +34,8 @@ import static com.codepunk.demo.R.styleable.InteractiveImageView_panEnabled;
 import static com.codepunk.demo.R.styleable.InteractiveImageView_zoomEnabled;
 
 /*
+ * TODO NEXT Scale/pan no longer being saved
+ * TODO onDraw info not being called during fling??
  * TODO When moving image, set mImageCenter to null
  * TODO When sizing image, set mImageSize to null
  */
@@ -39,7 +45,9 @@ public class InteractiveImageView extends AppCompatImageView {
         @Override
         public boolean onDown(MotionEvent e) {
             // TODO EDGE_EFFECTS releaseEdgeEffects();
-            // TODO OVERSCROLLER mScroller.forceFinished(true);
+            if (mScroller != null) {
+                mScroller.forceFinished(true);
+            }
             ViewCompat.postInvalidateOnAnimation(InteractiveImageView.this);
             return true;
         }
@@ -58,7 +66,7 @@ public class InteractiveImageView extends AppCompatImageView {
                 getActualImageCenter(mImageMatrix, center);
                 mImageScale = null;
                 mImageCenter = null;
-                mActualImageScaleDirty = true;
+                // mActualImageScaleDirty = true; TODO needed?
                 mActualImageCenterDirty = true;
                 setImageScaleInternal(
                         mMatrixValues[Matrix.MSCALE_X],
@@ -66,6 +74,29 @@ public class InteractiveImageView extends AppCompatImageView {
                         center.x,
                         center.y,
                         true);
+            }
+            return true;
+        }
+
+        @Override
+        public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
+            // TODO EDGE_EFFECTS releaseEdgeEffects();
+            synchronized (mLock) {
+                if (mScroller != null) {
+                    mScroller.forceFinished(true);
+                    getImageMatrixInternal().getValues(mMatrixValues);
+                    mScroller.fling(
+                            (int) mMatrixValues[Matrix.MTRANS_X],
+                            (int) mMatrixValues[Matrix.MTRANS_Y],
+                            (int) velocityX,
+                            (int) velocityY,
+                            (int) getImageMinTransX(),
+                            (int) getImageMaxTransX(),
+                            (int) getImageMinTransY(),
+                            (int) getImageMaxTransY(),
+                            (int) (getAvailableWidth() * 0.5f),
+                            (int) (getAvailableHeight() * 0.5f));
+                }
             }
             return true;
         }
@@ -90,6 +121,7 @@ public class InteractiveImageView extends AppCompatImageView {
     private boolean mZoomEnabled = false;
     private GestureDetectorCompat mGestureDetector;
     private ScaleGestureDetector mScaleGestureDetector;
+    private OverScroller mScroller;
 
     // TODO Examine this, choose order
     private final Matrix mImageMatrix = new Matrix();
@@ -103,6 +135,7 @@ public class InteractiveImageView extends AppCompatImageView {
     private PointF mImageScale;
     private final RectF mDstRect = new RectF();
     private final RectF mSrcRect = new RectF();
+    private final RectF mImagePanRect = new RectF();
     private final float[] mMatrixValues = new float[9];
     private final float[] mPts = new float[2];
 
@@ -112,6 +145,7 @@ public class InteractiveImageView extends AppCompatImageView {
     private boolean mBaseImageMatrixDirty = true;
     private boolean mImageMaxScaleDirty = true;
     private boolean mImageMinScaleDirty = true;
+    private boolean mImagePanRectDirty = true;
     //endregion Fields
 
     //region Constructors
@@ -132,6 +166,45 @@ public class InteractiveImageView extends AppCompatImageView {
     //endregion Constructors
 
     //region Inherited methods
+
+    @Override
+    public void computeScroll() {
+        super.computeScroll();
+        Log.d(getClass().getSimpleName(), String.format(Locale.US, "mScroller=%s", String.valueOf(mScroller)));
+        if (mScroller != null) {
+            if (mScroller.computeScrollOffset()) {
+                synchronized (mLock) {
+                    // The scroller isn't finished, meaning a fling or programmatic
+                    // pan operation is currently active.
+                    final int currX = mScroller.getCurrX();
+                    final int currY = mScroller.getCurrY();
+                    final float clampedCurrX = clampTransX(currX);
+                    final float clampedCurrY = clampTransY(currY);
+
+                    Log.d(getClass().getSimpleName(), String.format(Locale.US, "currX=%d, currY=%d", currX, currY));
+
+                    mTempMatrix.set(getImageMatrixInternal());
+                    mTempMatrix.getValues(mMatrixValues);
+                    mMatrixValues[Matrix.MTRANS_X] = clampedCurrX;
+                    mMatrixValues[Matrix.MTRANS_Y] = clampedCurrY;
+
+                    mImageScale = null;
+                    mImageCenter = null;
+
+                    // TODO Allow for bouncing somehow? Call resolve methods?
+
+                    if (ScaleType.MATRIX != super.getScaleType()) {
+                        super.setScaleType(ScaleType.MATRIX);
+                    }
+                    mTempMatrix.setValues(mMatrixValues);
+                    super.setImageMatrix(mTempMatrix);
+
+                    ViewCompat.postInvalidateOnAnimation(this);
+                }
+            }
+        }
+    }
+
     @Override
     public ScaleType getScaleType() {
         return mScaleType;
@@ -164,6 +237,7 @@ public class InteractiveImageView extends AppCompatImageView {
         mBaseImageMatrixDirty = true;
         mImageMaxScaleDirty = true;
         mImageMinScaleDirty = true;
+        mImagePanRectDirty = true;
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -191,6 +265,7 @@ public class InteractiveImageView extends AppCompatImageView {
         mBaseImageMatrixDirty = true;
         mImageMaxScaleDirty = true;
         mImageMinScaleDirty = true;
+        mImagePanRectDirty = true;
     }
 
     @Override
@@ -205,6 +280,7 @@ public class InteractiveImageView extends AppCompatImageView {
             mActualImageCenterDirty = true;
             mImageMaxScaleDirty = true;
             mImageMinScaleDirty = true;
+            mImagePanRectDirty = true;
         }
     }
 
@@ -215,6 +291,7 @@ public class InteractiveImageView extends AppCompatImageView {
         mBaseImageMatrixDirty = true;
         mImageMaxScaleDirty = true;
         mImageMinScaleDirty = true;
+        mImagePanRectDirty = true;
     }
 
     @Override
@@ -224,6 +301,7 @@ public class InteractiveImageView extends AppCompatImageView {
         mBaseImageMatrixDirty = true;
         mImageMaxScaleDirty = true;
         mImageMinScaleDirty = true;
+        mImagePanRectDirty = true;
     }
 
     @Override
@@ -239,6 +317,7 @@ public class InteractiveImageView extends AppCompatImageView {
             mBaseImageMatrixDirty = true;
             mImageMaxScaleDirty = true;
             mImageMinScaleDirty = true;
+            mImagePanRectDirty = true;
         }
     }
     //endregion Inherited methods
@@ -343,8 +422,10 @@ public class InteractiveImageView extends AppCompatImageView {
             if (panEnabled) {
                 mGestureDetector =
                         new GestureDetectorCompat(getContext(), new CustomOnGestureListener());
+                mScroller = new OverScroller(getContext());
             } else {
                 mGestureDetector = null;
+                mScroller = null;
             }
         }
     }
@@ -355,6 +436,7 @@ public class InteractiveImageView extends AppCompatImageView {
             if (zoomEnabled) {
                 mScaleGestureDetector =
                         new ScaleGestureDetector(getContext(), new CustomOnScaleGestureListener());
+//                mScroller = null;
             } else {
                 mScaleGestureDetector = null;
             }
@@ -371,38 +453,15 @@ public class InteractiveImageView extends AppCompatImageView {
         return MathUtils.clamp(sy, getImageMinScaleY(), getImageMaxScaleY());
     }
 
-    protected float clampTransX(float tx, int availableWidth, float displayedWidth) {
-        final float diff = availableWidth - displayedWidth;
-        if (diff <= 0.0f) {
-            return MathUtils.clamp(tx, diff, 0.0f);
-        } else {
-            final boolean isRtl =
-                    ViewCompat.getLayoutDirection(this) == ViewCompat.LAYOUT_DIRECTION_RTL;
-            switch (mScaleType) {
-                case FIT_START:
-                    return (isRtl ? diff : 0.0f);
-                case FIT_END:
-                    return (isRtl ? 0.0f : diff);
-                default:
-                    return diff * 0.5f;
-            }
-        }
+    protected float clampTransX(float tx) {
+        return MathUtils.clamp(tx, getImageMinTransX(), getImageMaxTransX());
     }
 
-    protected float clampTransY(float ty, int availableHeight, float displayedHeight) {
-        final float diff = availableHeight - displayedHeight;
-        if (diff <= 0.0f) {
-            return MathUtils.clamp(ty, diff, 0.0f);
-        } else {
-            switch (mScaleType) {
-                case FIT_START:
-                    return 0.0f;
-                case FIT_END:
-                    return diff;
-                default:
-                    return diff * 0.5f;
-            }
-        }
+    protected float clampTransY(float ty) {
+        final float minTransY = getImageMinTransY();
+        final float maxTransY = getImageMaxTransY();
+        Log.d(getClass().getSimpleName(), String.format(Locale.US, "ty=%.2f, minTransY=%.2f, maxTransY=%.2f", ty, minTransY, maxTransY));
+        return MathUtils.clamp(ty, getImageMinTransY(), getImageMaxTransY());
     }
 
     protected boolean drawableHasIntrinsicSize() {
@@ -573,10 +632,72 @@ public class InteractiveImageView extends AppCompatImageView {
         }
     }
 
+    protected float getImageMaxTransX() {
+        synchronized (mLock) {
+            syncImagePanRect();
+            return mImagePanRect.right;
+        }
+    }
+
+    protected float getImageMaxTransY() {
+        synchronized (mLock) {
+            syncImagePanRect();
+            return mImagePanRect.bottom;
+        }
+    }
+
+    protected float getImageMinTransX() {
+        synchronized (mLock) {
+            syncImagePanRect();
+            return mImagePanRect.left;
+        }
+    }
+
+    protected float getImageMinTransY() {
+        synchronized (mLock) {
+            syncImagePanRect();
+            return mImagePanRect.top;
+        }
+    }
+
     protected void getImageMinScale(@NonNull final PointF outPoint) {
         synchronized (mLock) {
             getBaseImageMatrix().getValues(mMatrixValues);
             outPoint.set(mMatrixValues[Matrix.MSCALE_X], mMatrixValues[Matrix.MSCALE_Y]);
+        }
+    }
+
+    protected void getImagePanRect(@NonNull final RectF outRect) {
+        getDisplayedRect(mDstRect);
+        final float wDiff = getAvailableWidth() - mDstRect.width();
+        if (wDiff <= 0.0f) {
+            outRect.left = wDiff;
+            outRect.right = 0.0f;
+        } else {
+            final boolean isRtl =
+                    ViewCompat.getLayoutDirection(this) == ViewCompat.LAYOUT_DIRECTION_RTL;
+            switch (mScaleType) {
+                case FIT_START:
+                    outRect.left = outRect.right = (isRtl ? wDiff : 0.0f);
+                case FIT_END:
+                    outRect.left = outRect.right = (isRtl ? 0.0f : wDiff);
+                default:
+                    outRect.left = outRect.right = wDiff * 0.5f;
+            }
+        }
+        final float hDiff = getAvailableHeight() - mDstRect.height();
+        if (hDiff <= 0.0f) {
+            outRect.top = hDiff;
+            outRect.bottom = 0.0f;
+        } else {
+            switch (mScaleType) {
+                case FIT_START:
+                    outRect.top = outRect.bottom = 0.0f;
+                case FIT_END:
+                    outRect.top = outRect.bottom = hDiff;
+                default:
+                    outRect.top = outRect.bottom = hDiff * 0.5f;
+            }
         }
     }
 
@@ -613,6 +734,17 @@ public class InteractiveImageView extends AppCompatImageView {
     //endregion Protected methods
 
     //region Private methods
+    private void getDisplayedRect(@NonNull final RectF outRect) {
+        synchronized (mLock) {
+            mSrcRect.set(
+                    0.0f,
+                    0.0f,
+                    getDrawableIntrinsicWidth(),
+                    getDrawableIntrinsicHeight());
+            getImageMatrixInternal().mapRect(outRect, mSrcRect);
+        }
+    }
+
     private DisplayMetrics getDisplayMetrics() {
         final Context context = getContext();
         final WindowManager manager =
@@ -684,14 +816,8 @@ public class InteractiveImageView extends AppCompatImageView {
             // Get desired translation
             final float tx = mMatrixValues[Matrix.MTRANS_X] + getAvailableWidth() * 0.5f - mPts[0];
             final float ty = mMatrixValues[Matrix.MTRANS_Y] + getAvailableHeight() * 0.5f - mPts[1];
-            mSrcRect.set(
-                    0.0f,
-                    0.0f,
-                    getDrawableIntrinsicWidth(),
-                    getDrawableIntrinsicHeight());
-            mTempMatrix.mapRect(mDstRect, mSrcRect);
-            final float clampedTx = clampTransX(tx, getAvailableWidth(), mDstRect.width());
-            final float clampedTy = clampTransY(ty, getAvailableHeight(), mDstRect.height());
+            final float clampedTx = clampTransX(tx);
+            final float clampedTy = clampTransY(ty);
 
             mMatrixValues[Matrix.MTRANS_X] = resolveTransX(tx, clampedTx, fromUser);
             mMatrixValues[Matrix.MTRANS_Y] = resolveTransY(ty, clampedTy, fromUser);
@@ -701,6 +827,7 @@ public class InteractiveImageView extends AppCompatImageView {
                 super.setScaleType(ScaleType.MATRIX);
             }
             super.setImageMatrix(mTempMatrix);
+            mImagePanRectDirty = true;
             invalidate();
         }
     }
@@ -744,6 +871,17 @@ public class InteractiveImageView extends AppCompatImageView {
                 if (ViewCompat.isLaidOut(this)) {
                     mImageMinScaleDirty = false;
                     getImageMinScale(mImageMinScale);
+                }
+            }
+        }
+    }
+
+    protected void syncImagePanRect() {
+        synchronized (mLock) {
+            if (mImagePanRectDirty) {
+                if (ViewCompat.isLaidOut(this)) {
+                    mImagePanRectDirty = false;
+                    getImagePanRect(mImagePanRect);
                 }
             }
         }
