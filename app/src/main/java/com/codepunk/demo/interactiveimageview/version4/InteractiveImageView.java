@@ -15,7 +15,6 @@ import android.support.v4.view.ViewCompat;
 import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
-import android.util.Log;
 import android.view.GestureDetector.SimpleOnGestureListener;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
@@ -26,22 +25,22 @@ import android.widget.OverScroller;
 
 import com.codepunk.demo.support.DisplayCompat;
 
-import java.util.Locale;
-
 import static com.codepunk.demo.R.attr.interactiveImageViewStyle;
 import static com.codepunk.demo.R.styleable.InteractiveImageView;
 import static com.codepunk.demo.R.styleable.InteractiveImageView_panEnabled;
 import static com.codepunk.demo.R.styleable.InteractiveImageView_zoomEnabled;
 
 /*
- * TODO NEXT Scale/pan no longer being saved
- * TODO onDraw info not being called during fling??
+ * TODO NEXT Scale/pan no longer being saved / scale not persisted (see setImageScaleInternal)
+ *
  * TODO When moving image, set mImageCenter to null
  * TODO When sizing image, set mImageSize to null
  */
 public class InteractiveImageView extends AppCompatImageView {
     //region Nested classes
     protected class CustomOnGestureListener extends SimpleOnGestureListener {
+        private boolean mPendingScroll = false;
+
         @Override
         public boolean onDown(MotionEvent e) {
             // TODO EDGE_EFFECTS releaseEdgeEffects();
@@ -49,6 +48,7 @@ public class InteractiveImageView extends AppCompatImageView {
                 mScroller.forceFinished(true);
             }
             ViewCompat.postInvalidateOnAnimation(InteractiveImageView.this);
+            mPendingScroll = true;
             return true;
         }
 
@@ -66,7 +66,10 @@ public class InteractiveImageView extends AppCompatImageView {
                 getActualImageCenter(mImageMatrix, center);
                 mImageScale = null;
                 mImageCenter = null;
-                // mActualImageScaleDirty = true; TODO needed?
+                if (mPendingScroll) {
+                    mPendingScroll = false;
+                    mActualImageScaleDirty = true; // Set this only on the first instance of scrolling
+                }
                 mActualImageCenterDirty = true;
                 setImageScaleInternal(
                         mMatrixValues[Matrix.MSCALE_X],
@@ -138,7 +141,10 @@ public class InteractiveImageView extends AppCompatImageView {
     private final RectF mImagePanRect = new RectF();
     private final float[] mMatrixValues = new float[9];
     private final float[] mPts = new float[2];
+    private final PointF mDstPt = new PointF();
+    private final PointF mSrcPt = new PointF();
 
+    // TODO bitwise flags?
     private boolean mPlacementDirty = false;
     private boolean mActualImageCenterDirty = true;
     private boolean mActualImageScaleDirty = true;
@@ -170,7 +176,6 @@ public class InteractiveImageView extends AppCompatImageView {
     @Override
     public void computeScroll() {
         super.computeScroll();
-        Log.d(getClass().getSimpleName(), String.format(Locale.US, "mScroller=%s", String.valueOf(mScroller)));
         if (mScroller != null) {
             if (mScroller.computeScrollOffset()) {
                 synchronized (mLock) {
@@ -181,8 +186,6 @@ public class InteractiveImageView extends AppCompatImageView {
                     final float clampedCurrX = clampTransX(currX);
                     final float clampedCurrY = clampTransY(currY);
 
-                    Log.d(getClass().getSimpleName(), String.format(Locale.US, "currX=%d, currY=%d", currX, currY));
-
                     mTempMatrix.set(getImageMatrixInternal());
                     mTempMatrix.getValues(mMatrixValues);
                     mMatrixValues[Matrix.MTRANS_X] = clampedCurrX;
@@ -190,6 +193,7 @@ public class InteractiveImageView extends AppCompatImageView {
 
                     mImageScale = null;
                     mImageCenter = null;
+                    mActualImageCenterDirty = true;
 
                     // TODO Allow for bouncing somehow? Call resolve methods?
 
@@ -458,9 +462,6 @@ public class InteractiveImageView extends AppCompatImageView {
     }
 
     protected float clampTransY(float ty) {
-        final float minTransY = getImageMinTransY();
-        final float maxTransY = getImageMaxTransY();
-        Log.d(getClass().getSimpleName(), String.format(Locale.US, "ty=%.2f, minTransY=%.2f, maxTransY=%.2f", ty, minTransY, maxTransY));
         return MathUtils.clamp(ty, getImageMinTransY(), getImageMaxTransY());
     }
 
@@ -668,8 +669,23 @@ public class InteractiveImageView extends AppCompatImageView {
     }
 
     protected void getImagePanRect(@NonNull final RectF outRect) {
-        getDisplayedRect(mDstRect);
-        final float wDiff = getAvailableWidth() - mDstRect.width();
+        final float sx, sy;
+        synchronized (mLock) {
+            getImageMatrixInternal().getValues(mMatrixValues);
+            sx = mMatrixValues[Matrix.MSCALE_X];
+            sy = mMatrixValues[Matrix.MSCALE_Y];
+        }
+        getImagePanRect(sx, sy, outRect);
+    }
+
+    protected void getImagePanRect(float sx, float sy, @NonNull final RectF outRect) {
+        final float wDiff;
+        final float hDiff;
+        synchronized (mLock) {
+            getScaledImageRect(sx, sy, mDstRect);
+            wDiff = getAvailableWidth() - mDstRect.width();
+            hDiff = getAvailableHeight() - mDstRect.height();
+        }
         if (wDiff <= 0.0f) {
             outRect.left = wDiff;
             outRect.right = 0.0f;
@@ -685,7 +701,6 @@ public class InteractiveImageView extends AppCompatImageView {
                     outRect.left = outRect.right = wDiff * 0.5f;
             }
         }
-        final float hDiff = getAvailableHeight() - mDstRect.height();
         if (hDiff <= 0.0f) {
             outRect.top = hDiff;
             outRect.bottom = 0.0f;
@@ -734,7 +749,7 @@ public class InteractiveImageView extends AppCompatImageView {
     //endregion Protected methods
 
     //region Private methods
-    private void getDisplayedRect(@NonNull final RectF outRect) {
+    private void getDisplayedImageRect(@NonNull final RectF outRect) {
         synchronized (mLock) {
             mSrcRect.set(
                     0.0f,
@@ -780,6 +795,22 @@ public class InteractiveImageView extends AppCompatImageView {
         return mImageMatrix;
     }
 
+    private void getScaledImageRect(float sx, float sy, @NonNull final RectF outRect) {
+        synchronized (mLock) {
+            mSrcRect.set(
+                    0.0f,
+                    0.0f,
+                    getDrawableIntrinsicWidth(),
+                    getDrawableIntrinsicHeight());
+            mTempMatrix.set(getImageMatrixInternal());
+            mTempMatrix.getValues(mMatrixValues);
+            mMatrixValues[Matrix.MSCALE_X] = sx;
+            mMatrixValues[Matrix.MSCALE_Y] = sy;
+            mTempMatrix.setValues(mMatrixValues);
+            mTempMatrix.mapRect(outRect, mSrcRect);
+        }
+    }
+
     @SuppressWarnings("SameParameterValue")
     private void initializeInteractiveImageView(
             Context context,
@@ -804,8 +835,10 @@ public class InteractiveImageView extends AppCompatImageView {
         synchronized (mLock) {
             mTempMatrix.set(getBaseImageMatrix());
             mTempMatrix.getValues(mMatrixValues);
-            mMatrixValues[Matrix.MSCALE_X] = clampScaleX(sx);
-            mMatrixValues[Matrix.MSCALE_Y] = clampScaleY(sy);
+            final float resolvedSx = resolveScaleX(sx, clampScaleX(sx), fromUser);
+            final float resolvedSy = resolveScaleY(sy, clampScaleY(sy), fromUser);
+            mMatrixValues[Matrix.MSCALE_X] = resolvedSx;
+            mMatrixValues[Matrix.MSCALE_Y] = resolvedSy;
             mTempMatrix.setValues(mMatrixValues);
 
             // Convert center % into points in the transformed image rect
@@ -816,8 +849,17 @@ public class InteractiveImageView extends AppCompatImageView {
             // Get desired translation
             final float tx = mMatrixValues[Matrix.MTRANS_X] + getAvailableWidth() * 0.5f - mPts[0];
             final float ty = mMatrixValues[Matrix.MTRANS_Y] + getAvailableHeight() * 0.5f - mPts[1];
-            final float clampedTx = clampTransX(tx);
-            final float clampedTy = clampTransY(ty);
+
+            // TODO NEXT The problem here is:
+            // If we haven't SET the matrix/scale yet, then clampTransX/Y calls getImageMinTransX/Y,
+            // but that uses the CURRENT matrix. We need to be able to send a scale or scaled matrix
+            // to that method.
+            getImagePanRect(resolvedSx, resolvedSy, mSrcRect);
+            final float clampedTx = MathUtils.clamp(tx, mSrcRect.left, mSrcRect.right);
+            final float clampedTy = MathUtils.clamp(ty, mSrcRect.top, mSrcRect.bottom);
+
+//            final float clampedTx = clampTransX(tx);
+//            final float clampedTy = clampTransY(ty);
 
             mMatrixValues[Matrix.MTRANS_X] = resolveTransX(tx, clampedTx, fromUser);
             mMatrixValues[Matrix.MTRANS_Y] = resolveTransY(ty, clampedTy, fromUser);
