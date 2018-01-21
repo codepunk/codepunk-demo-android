@@ -31,6 +31,7 @@ import static com.codepunk.demo.R.styleable.InteractiveImageView_panEnabled;
 import static com.codepunk.demo.R.styleable.InteractiveImageView_zoomEnabled;
 
 /*
+ * TODO Test scale/pan simultaneously on actual device
  * TODO When moving image, set mImageCenter to null
  * TODO When sizing image, set mImageSize to null
  */
