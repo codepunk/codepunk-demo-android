@@ -31,8 +31,6 @@ import static com.codepunk.demo.R.styleable.InteractiveImageView_panEnabled;
 import static com.codepunk.demo.R.styleable.InteractiveImageView_zoomEnabled;
 
 /*
- * TODO NEXT Scale/pan no longer being saved / scale not persisted (see setImageScaleInternal)
- *
  * TODO When moving image, set mImageCenter to null
  * TODO When sizing image, set mImageSize to null
  */
@@ -62,7 +60,7 @@ public class InteractiveImageView extends AppCompatImageView {
                 mMatrixValues[Matrix.MTRANS_Y] -= distanceY;
                 mImageMatrix.setValues(mMatrixValues);
 
-                final PointF center = new PointF();
+                final PointF center = new PointF(); // TODO too much creation
                 getActualImageCenter(mImageMatrix, center);
                 mImageScale = null;
                 mImageCenter = null;
@@ -105,8 +103,46 @@ public class InteractiveImageView extends AppCompatImageView {
         }
     }
 
-    protected static class CustomOnScaleGestureListener extends SimpleOnScaleGestureListener {
+    protected class CustomOnScaleGestureListener extends SimpleOnScaleGestureListener {
+        private float mLastSpan;
 
+        @Override
+        public boolean onScaleBegin(ScaleGestureDetector detector) {
+            mLastSpan = detector.getCurrentSpan();
+            return true;
+        }
+
+        @Override
+        public boolean onScale(ScaleGestureDetector detector) {
+            synchronized (mLock) {
+                final float currentSpan = detector.getCurrentSpan();
+                final float focusX = detector.getFocusX(); // TODO needed? Probs.
+                final float focusY = detector.getFocusY(); // TODO needed?
+                final float spanDelta = (currentSpan / mLastSpan);
+                getImageMatrixInternal().getValues(mMatrixValues);
+
+                final PointF center = new PointF(); // TODO too much creation
+                getActualImageCenter(mImageMatrix, center);
+                mImageScale = null;
+                mImageCenter = null;
+                //if (mPendingScroll) {
+                //    mPendingScroll = false;
+                //    mActualImageScaleDirty = true; // Set this only on the first instance of scrolling
+                //}
+
+                mActualImageScaleDirty = true;
+                mActualImageCenterDirty = true;
+                setImageScaleInternal(
+                        mMatrixValues[Matrix.MSCALE_X] *= spanDelta,
+                        mMatrixValues[Matrix.MSCALE_Y] *= spanDelta,
+                        center.x,
+                        center.y,
+                        true);
+
+                mLastSpan = currentSpan; // TODO Maybe clamp current span too? THen again maybe not.
+            }
+            return true;
+        }
     }
     //endregion Nested class CustomOnScaleGestureListener
 
@@ -850,16 +886,9 @@ public class InteractiveImageView extends AppCompatImageView {
             final float tx = mMatrixValues[Matrix.MTRANS_X] + getAvailableWidth() * 0.5f - mPts[0];
             final float ty = mMatrixValues[Matrix.MTRANS_Y] + getAvailableHeight() * 0.5f - mPts[1];
 
-            // TODO NEXT The problem here is:
-            // If we haven't SET the matrix/scale yet, then clampTransX/Y calls getImageMinTransX/Y,
-            // but that uses the CURRENT matrix. We need to be able to send a scale or scaled matrix
-            // to that method.
             getImagePanRect(resolvedSx, resolvedSy, mSrcRect);
             final float clampedTx = MathUtils.clamp(tx, mSrcRect.left, mSrcRect.right);
             final float clampedTy = MathUtils.clamp(ty, mSrcRect.top, mSrcRect.bottom);
-
-//            final float clampedTx = clampTransX(tx);
-//            final float clampedTy = clampTransY(ty);
 
             mMatrixValues[Matrix.MTRANS_X] = resolveTransX(tx, clampedTx, fromUser);
             mMatrixValues[Matrix.MTRANS_Y] = resolveTransY(ty, clampedTy, fromUser);
