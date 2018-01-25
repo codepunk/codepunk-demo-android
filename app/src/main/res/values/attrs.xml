@@ -16,6 +16,14 @@
             <enum name="auto" value="-1" />
         </attr>
         <attr name="zoomEnabled" format="boolean" />
+        <attr name="interactivity">
+            <flag name="none" value="0" />
+            <flag name="scroll" value="1" />
+            <flag name="fling" value="2" />
+            <flag name="scale" value="4" />
+            <flag name="doubleTap" value="8"/>
+            <flag name="all" value="15" />
+        </attr>
     </declare-styleable>
 
     <declare-styleable name="AppCompatSeekBarEx">
@@ -30,5 +38,6 @@
         <attr name="scaleX" />
         <attr name="scaleY" />
         <attr name="zoomEnabled" />
+        <attr name="interactivity" />
     </declare-styleable>
 </resources>

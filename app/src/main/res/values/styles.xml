@@ -9,6 +9,7 @@
         <item name="scaleX">auto</item>
         <item name="scaleY">auto</item>
         <item name="zoomEnabled">true</item>
+        <item name="interactivity">all</item>
     </style>
 
     <style name="InteractiveImageViewEx" parent="InteractiveImageView">

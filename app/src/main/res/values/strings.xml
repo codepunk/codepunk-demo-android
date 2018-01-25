@@ -3,8 +3,8 @@
     <string name="title_activity_interactive_image_view">InteractiveImageViewActivity</string>
     <string name="menu_controls">Controls</string>
 
-
     <string name="label_drawable">Drawable:</string>
+    <string name="label_image">Image:</string>
     <string name="label_scale_type">Scale Type:</string>
     <string name="label_pan">Pan:</string>
     <string name="label_scale">Scale:</string>

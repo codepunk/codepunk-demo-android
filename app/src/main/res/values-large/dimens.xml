@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="interactive_image_view_demo_drawer_width">336dp</dimen>
+</resources>

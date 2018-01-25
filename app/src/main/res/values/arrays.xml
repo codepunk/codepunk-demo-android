@@ -29,4 +29,12 @@
         <item>Polynesian</item>
         <item>Gradient</item>
     </string-array>
+
+    <string-array name="images">
+        <item>None</item>
+        <item>Cinderella Castle</item>
+        <item>Wilderness Lodge</item>
+        <item>Polynesian</item>
+        <item>Gradient</item>
+    </string-array>
 </resources>
