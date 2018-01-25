@@ -15,6 +15,7 @@ import android.support.v4.view.ViewCompat;
 import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.view.GestureDetector.SimpleOnGestureListener;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
@@ -121,10 +122,11 @@ public class InteractiveImageView extends AppCompatImageView {
                 final float focusX = detector.getFocusX(); // TODO needed? Probs.
                 final float focusY = detector.getFocusY(); // TODO needed?
                 final float spanDelta = (currentSpan / mLastSpan);
-                getImageMatrixInternal().getValues(mMatrixValues);
+                final Matrix imageMatrix = getImageMatrixInternal();
+                imageMatrix.getValues(mMatrixValues);
 
                 final PointF center = new PointF(); // TODO too much creation
-                getActualImageCenter(mImageMatrix, center);
+                getActualImageCenter(imageMatrix, center);
                 mImageScale = null;
                 mImageCenter = null;
                 //if (mPendingScroll) {
@@ -149,6 +151,7 @@ public class InteractiveImageView extends AppCompatImageView {
     //endregion Nested class CustomOnScaleGestureListener
 
     //region Constants
+    static final String LOG_TAG = InteractiveImageView.class.getSimpleName();
     static final float BREADTH_MULTIPLIER = 3.0f;
     static final float LENGTH_MULTIPLIER = 5.0f;
     //endregion Constants
