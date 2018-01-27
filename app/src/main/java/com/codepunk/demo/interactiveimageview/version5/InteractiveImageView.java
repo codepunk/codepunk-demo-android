@@ -109,6 +109,9 @@ public class InteractiveImageView extends AppCompatImageView
                 retVal = mGestureDetector.onTouchEvent(event) || retVal;
             }
         }
+        if (event.getAction() == MotionEvent.ACTION_UP) {
+            onUp(event);
+        }
         return retVal || super.onTouchEvent(event);
     }
 
@@ -263,6 +266,10 @@ public class InteractiveImageView extends AppCompatImageView
         return mInteractivity;
     }
 
+    public boolean onUp(MotionEvent e) {
+        return false;
+    }
+
     public void setInteractivity(int flags) {
         mInteractivity = flags;
 
@@ -293,7 +300,7 @@ public class InteractiveImageView extends AppCompatImageView
             if (mGestureDetector == null) {
                 mGestureDetector = new GestureDetectorCompat(getContext(), this);
             }
-            mGestureDetector.setIsLongpressEnabled(false);
+            // mGestureDetector.setIsLongpressEnabled(false); // TODO Yes? No?
             mGestureDetector.setOnDoubleTapListener(doubleTapEnabled ? this : null);
         } else {
             mGestureDetector = null;

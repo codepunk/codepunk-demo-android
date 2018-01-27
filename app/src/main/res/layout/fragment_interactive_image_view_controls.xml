@@ -5,7 +5,12 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:orientation="vertical"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content">
+    android:layout_height="wrap_content"
+    android:padding="@dimen/large_margin"
+    android:background="@color/color_interactive_image_view_demo_drawer_color"
+    android:clickable="true"
+    tools:context="com.codepunk.demo.interactiveimageview.version5.InteractiveImageViewControlsFragment"
+    tools:ignore="KeyboardInaccessibleWidget">
 
     <TextView
         android:id="@+id/label_image"

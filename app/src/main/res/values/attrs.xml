@@ -40,4 +40,6 @@
         <attr name="zoomEnabled" />
         <attr name="interactivity" />
     </declare-styleable>
+
+    <declare-styleable name="DemoInteractiveImageView" />
 </resources>

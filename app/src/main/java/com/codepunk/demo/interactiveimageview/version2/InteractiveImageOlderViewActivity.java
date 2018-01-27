@@ -407,7 +407,7 @@ public class InteractiveImageOlderViewActivity
         mTrackingSeekBar = null;
     }
 
-    @Override // InteractiveImageView.OnDrawListener
+    @Override // InteractiveImageView.DemoInteractiveImageViewListener
     public void onDraw(InteractiveImageOlderView view, Canvas canvas) {
         // TODO Capture which control(s) the user is manipulating and don't update those
         final float centerX = mImageView.getCenterX();

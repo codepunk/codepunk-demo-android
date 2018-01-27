@@ -11,13 +11,12 @@ import android.view.MenuItem;
 
 import com.codepunk.demo.R;
 
-public class InteractiveImageViewActivity extends AppCompatActivity
-        implements DemoInteractiveImageView.OnDrawListener {
+public class InteractiveImageViewActivity extends AppCompatActivity {
 
     //region Fields
     private DrawerLayout mDrawerLayout;
     private DemoInteractiveImageView mImageView;
-    private InteractiveImageViewControlPanelView mControlPanelView;
+    private InteractiveImageViewControlsFragment mControlsFragment;
     //endregion Fields
 
     //region Lifecycle methods
@@ -27,14 +26,15 @@ public class InteractiveImageViewActivity extends AppCompatActivity
         setContentView(R.layout.activity_interactive_image_view_v5);
 
         mDrawerLayout = findViewById(R.id.layout_drawer);
-        mControlPanelView = findViewById(R.id.layout_controls);
         mImageView = findViewById(R.id.image);
 
         mDrawerLayout.requestDisallowInterceptTouchEvent(true);
         mDrawerLayout.setScrimColor(Color.TRANSPARENT);
-        mImageView.setOnDrawListener(this);
 
-        mControlPanelView.setImageView(mImageView);
+        mControlsFragment =
+                (InteractiveImageViewControlsFragment) getSupportFragmentManager()
+                        .findFragmentById(R.id.fragment_controls);
+        mControlsFragment.setInteractiveImageView(mImageView);
     }
 
     @Override
@@ -43,13 +43,6 @@ public class InteractiveImageViewActivity extends AppCompatActivity
         return true;
     }
     //endregion Lifecycle methods
-
-    //region Implemented methods
-    @Override
-    public void onDraw(InteractiveImageView view, Canvas canvas) {
-
-    }
-    //endregion Implemented methods
 
     //region Methods
     public void onControlsClick(MenuItem item) {

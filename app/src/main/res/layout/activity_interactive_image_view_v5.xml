@@ -22,14 +22,18 @@
     </FrameLayout>
 
     <!-- The navigation drawer -->
-    <com.codepunk.demo.interactiveimageview.version5.InteractiveImageViewControlPanelView
+    <FrameLayout
         android:id="@+id/layout_controls"
         android:layout_width="@dimen/interactive_image_view_demo_drawer_width"
         android:layout_height="match_parent"
-        android:layout_gravity="end"
-        android:padding="@dimen/large_margin"
-        android:background="@color/color_interactive_image_view_demo_drawer_color">
+        android:layout_gravity="end">
 
-    </com.codepunk.demo.interactiveimageview.version5.InteractiveImageViewControlPanelView>
+        <fragment
+            android:id="@+id/fragment_controls"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:name="com.codepunk.demo.interactiveimageview.version5.InteractiveImageViewControlsFragment" />
+
+    </FrameLayout>
 
 </com.codepunk.demo.interactiveimageview.version5.NonInterceptingDrawerLayout>

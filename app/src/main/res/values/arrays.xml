@@ -30,7 +30,15 @@
         <item>Gradient</item>
     </string-array>
 
-    <string-array name="images">
+    <array name="image_res_ids">
+        <item>0</item>
+        <item>@drawable/cinderellas_castle</item>
+        <item>@drawable/wilderness_lodge</item>
+        <item>@drawable/polynesian</item>
+        <item>@drawable/gradient</item>
+    </array>
+
+    <string-array name="image_names">
         <item>None</item>
         <item>Cinderella Castle</item>
         <item>Wilderness Lodge</item>
