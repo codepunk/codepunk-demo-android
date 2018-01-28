@@ -1,6 +1,5 @@
 package com.codepunk.demo.interactiveimageview.version5;
 
-import android.graphics.Canvas;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.support.v4.widget.DrawerLayout;
@@ -34,7 +33,7 @@ public class InteractiveImageViewActivity extends AppCompatActivity {
         mControlsFragment =
                 (InteractiveImageViewControlsFragment) getSupportFragmentManager()
                         .findFragmentById(R.id.fragment_controls);
-        mControlsFragment.setInteractiveImageView(mImageView);
+        mControlsFragment.setImageView(mImageView);
     }
 
     @Override

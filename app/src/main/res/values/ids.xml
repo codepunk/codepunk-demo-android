@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <item name="image_icon" type="id" />
-    <item name="seek_value" type="id" />
+    <item name="text_label" type="id" />
     <item name="text_value" type="id" />
     <item name="text_max_value" type="id" />
     <item name="text_min_value" type="id" />
+    <item name="seek_value" type="id" />
 </resources>

@@ -15,4 +15,6 @@
     <style name="InteractiveImageViewEx" parent="InteractiveImageView">
         <item name="android:scaleType">centerCrop</item>
     </style>
+
+    <style name="SeekBarLayout" parent="@android:style/Widget" />
 </resources>

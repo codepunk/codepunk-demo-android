@@ -13,18 +13,14 @@ import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
 import android.util.Log;
-import android.view.Display;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.WindowManager;
 import android.widget.OverScroller;
 
+import com.codepunk.demo.R;
 import com.codepunk.demo.support.DisplayCompat;
-
-import static com.codepunk.demo.R.attr.interactiveImageViewStyle;
-import static com.codepunk.demo.R.styleable.InteractiveImageView;
-import static com.codepunk.demo.R.styleable.InteractiveImageView_interactivity;
 
 /*
  * TODO Play with cropToPadding
@@ -77,12 +73,20 @@ public class InteractiveImageView extends AppCompatImageView
     //region Constructors
     public InteractiveImageView(Context context) {
         super(context);
-        initializeInteractiveImageView(context, null, interactiveImageViewStyle, 0);
+        initializeInteractiveImageView(
+                context,
+                null,
+                R.attr.interactiveImageViewStyle,
+                0);
     }
 
     public InteractiveImageView(Context context, AttributeSet attrs) {
         super(context, attrs);
-        initializeInteractiveImageView(context, attrs, interactiveImageViewStyle, 0);
+        initializeInteractiveImageView(
+                context,
+                attrs,
+                R.attr.interactiveImageViewStyle,
+                0);
     }
 
     public InteractiveImageView(Context context, AttributeSet attrs, int defStyleAttr) {
@@ -504,11 +508,13 @@ public class InteractiveImageView extends AppCompatImageView
             int defStyleRes) {
         TypedArray a = context.obtainStyledAttributes(
                 attrs,
-                InteractiveImageView,
+                R.styleable.InteractiveImageView,
                 defStyleAttr,
                 defStyleRes);
 
-        setInteractivity(a.getInt(InteractiveImageView_interactivity, INTERACTIVITY_FLAG_ALL));
+        setInteractivity(a.getInt(
+                R.styleable.InteractiveImageView_interactivity,
+                INTERACTIVITY_FLAG_ALL));
 
         a.recycle();
     }

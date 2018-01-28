@@ -8,6 +8,10 @@
     <string name="label_scale_type">Scale Type:</string>
     <string name="label_pan">Pan:</string>
     <string name="label_scale">Scale:</string>
+    <string name="label_pan_x">Pan X:</string>
+    <string name="label_pan_y">Pan Y:</string>
+    <string name="label_scale_x">Scale X:</string>
+    <string name="label_scale_y">Scale Y:</string>
 
     <!-- TODO: Remove or change this placeholder text -->
     <string name="hello_blank_fragment">Hello blank fragment</string>

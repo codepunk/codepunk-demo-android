@@ -8,8 +8,9 @@
         <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
         <item name="colorAccent">@color/colorAccent</item>
 
-        <item name="appCompatSeekBarExStyle">@style/AppCompatSeekBarEx</item>
+        <item name="customCompatSeekBarStyle">@style/AppCompatSeekBarEx</item>
         <item name="interactiveImageViewStyle">@style/InteractiveImageView</item>
+        <item name="seekBarLayoutStyle">@style/SeekBarLayout</item>
     </style>
 
 </resources>

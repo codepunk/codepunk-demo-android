@@ -1,5 +1,6 @@
 package com.codepunk.demo.interactiveimageview.version5;
 
+import android.annotation.SuppressLint;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.graphics.Canvas;
@@ -7,6 +8,7 @@ import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
@@ -14,14 +16,18 @@ import android.widget.ImageView.ScaleType;
 import android.widget.Spinner;
 
 import com.codepunk.demo.R;
+import com.codepunk.demo.SeekBarLayout;
 
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 public class InteractiveImageViewControlsFragment extends Fragment
         implements AdapterView.OnItemSelectedListener,
-                DemoInteractiveImageView.DemoInteractiveImageViewListener {
+                DemoInteractiveImageView.DemoInteractiveImageViewListener,
+                View.OnTouchListener {
     //region Constants
     private static final String LOG_TAG =
             InteractiveImageViewControlsFragment.class.getSimpleName();
@@ -33,7 +39,14 @@ public class InteractiveImageViewControlsFragment extends Fragment
 
     private Spinner mImageSpinner;
     private Spinner mScaleTypeSpinner;
-    private DemoInteractiveImageView mInteractiveImageView;
+    private SeekBarLayout mPanXSeekBarLayout;
+    private SeekBarLayout mPanYSeekBarLayout;
+    private SeekBarLayout mScaleXSeekBarLayout;
+    private SeekBarLayout mScaleYSeekBarLayout;
+    private DemoInteractiveImageView mImageView;
+
+    private final NumberFormat mPercentFormat = NumberFormat.getPercentInstance();
+    private final NumberFormat mDecimalFormat = new DecimalFormat("#0.00");
 
     private boolean mPendingResetClamps = true;
     //endregion Fields
@@ -74,10 +87,21 @@ public class InteractiveImageViewControlsFragment extends Fragment
         super.onViewCreated(view, savedInstanceState);
         mImageSpinner = view.findViewById(R.id.spinner_image);
         mScaleTypeSpinner = view.findViewById(R.id.spinner_scale_type);
+        mPanXSeekBarLayout = view.findViewById(R.id.layout_seek_bar_pan_x);
+        mPanYSeekBarLayout = view.findViewById(R.id.layout_seek_bar_pan_y);
+        mScaleXSeekBarLayout = view.findViewById(R.id.layout_seek_bar_scale_x);
+        mScaleYSeekBarLayout = view.findViewById(R.id.layout_seek_bar_scale_y);
 
-        // TODO Maybe post these?
         mImageSpinner.setOnItemSelectedListener(this);
         mScaleTypeSpinner.setOnItemSelectedListener(this);
+
+        // Prevent drawer from intercepting touch event from seek bars
+        mPanXSeekBarLayout.getSeekBar().setOnTouchListener(this);
+
+        mPanXSeekBarLayout.setMinValueText("0%");
+        mPanXSeekBarLayout.setMaxValueText("100%");
+        mPanYSeekBarLayout.setMinValueText("0%");
+        mPanYSeekBarLayout.setMaxValueText("100%");
     }
     //endregion Lifecycle methods
 
@@ -86,15 +110,15 @@ public class InteractiveImageViewControlsFragment extends Fragment
     public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
         switch (parent.getId()) {
             case R.id.spinner_image:
-                if (mInteractiveImageView != null && position >= 0 && position < mImageEntryValues.size()) {
+                if (mImageView != null && position >= 0 && position < mImageEntryValues.size()) {
                     mPendingResetClamps = true;
-                    mInteractiveImageView.setImageResource(mImageEntryValues.get(position));
+                    mImageView.setImageResource(mImageEntryValues.get(position));
                 }
                 break;
             case R.id.spinner_scale_type:
-                if (mInteractiveImageView != null && position >= 0 && position < mScaleTypeEntryValues.size()) {
+                if (mImageView != null && position >= 0 && position < mScaleTypeEntryValues.size()) {
                     mPendingResetClamps = true;
-                    mInteractiveImageView.setScaleType(
+                    mImageView.setScaleType(
                             ScaleType.valueOf(mScaleTypeEntryValues.get(position)));
                 }
                 break;
@@ -109,9 +133,13 @@ public class InteractiveImageViewControlsFragment extends Fragment
     @Override // DemoInteractiveImageView.DemoInteractiveImageViewListener
     public void onDraw(InteractiveImageView view, Canvas canvas) {
         updateScaleTypeSpinner();
+        mScaleXSeekBarLayout.setMinValueText(mDecimalFormat.format(mImageView.getImageMinScaleX()));
+        mScaleXSeekBarLayout.setMaxValueText(mDecimalFormat.format(mImageView.getImageMaxScaleX()));
+        mScaleYSeekBarLayout.setMinValueText(mDecimalFormat.format(mImageView.getImageMinScaleY()));
+        mScaleYSeekBarLayout.setMaxValueText(mDecimalFormat.format(mImageView.getImageMaxScaleY()));
     }
 
-    @Override
+    @Override // DemoInteractiveImageView.DemoInteractiveImageViewListener
     public void onInteractionBegin(InteractiveImageView view) {
         final View mainView = getView();
         if (mainView != null) {
@@ -119,7 +147,7 @@ public class InteractiveImageViewControlsFragment extends Fragment
         }
     }
 
-    @Override
+    @Override // DemoInteractiveImageView.DemoInteractiveImageViewListener
     public void onInteractionEnd(InteractiveImageView view) {
         final View mainView = getView();
         if (mainView != null) {
@@ -127,22 +155,29 @@ public class InteractiveImageViewControlsFragment extends Fragment
         }
     }
 
-    @Override
+    @Override // DemoInteractiveImageView.DemoInteractiveImageViewListener
     public void onSetImageResource(InteractiveImageView view, int resId) {
         mImageSpinner.setSelection(mImageEntryValues.indexOf(resId), false);
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    @Override // View.OnTouchListener
+    public boolean onTouch(View view, MotionEvent event) {
+        view.getParent().requestDisallowInterceptTouchEvent(true);
+        return false;
     }
     //endregion Implemented methods
 
     //region Methods
-    public void setInteractiveImageView(DemoInteractiveImageView imageView) {
-        mInteractiveImageView = imageView;
-        mInteractiveImageView.setDemoInteractiveImageViewListener(this);
+    public void setImageView(DemoInteractiveImageView imageView) {
+        mImageView = imageView;
+        mImageView.setDemoInteractiveImageViewListener(this);
         updateScaleTypeSpinner();
     }
 
     private void updateScaleTypeSpinner() {
-        if (mInteractiveImageView != null) {
-            final ScaleType scaleType = mInteractiveImageView.getScaleType();
+        if (mImageView != null) {
+            final ScaleType scaleType = mImageView.getScaleType();
             final int position = mScaleTypeEntryValues.indexOf(scaleType.name());
             mScaleTypeSpinner.setSelection(position, false);
         }

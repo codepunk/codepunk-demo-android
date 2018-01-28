@@ -26,17 +26,17 @@ public class DemoInteractiveImageView extends InteractiveImageView {
     //region Constructors
     public DemoInteractiveImageView(Context context) {
         super(context);
-        initDemoInteractiveImageView(context, null, 0, 0);
+        initDemoInteractiveImageView(context, null);
     }
 
     public DemoInteractiveImageView(Context context, AttributeSet attrs) {
         super(context, attrs);
-        initDemoInteractiveImageView(context, attrs, 0, 0);
+        initDemoInteractiveImageView(context, attrs);
     }
 
     public DemoInteractiveImageView(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
-        initDemoInteractiveImageView(context, attrs, defStyleAttr, 0);
+        initDemoInteractiveImageView(context, attrs);
     }
     //endregion Constructors
 
@@ -96,9 +96,7 @@ public class DemoInteractiveImageView extends InteractiveImageView {
     //region Methods
     private void initDemoInteractiveImageView(
             Context context,
-            AttributeSet attrs,
-            int defStyleAttr,
-            int defStyleRes) {
+            AttributeSet attrs) {
         if (attrs != null) {
             try {
                 final String src = getResources().getResourceEntryName(android.R.attr.src);

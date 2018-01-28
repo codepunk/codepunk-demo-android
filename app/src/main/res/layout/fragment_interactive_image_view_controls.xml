@@ -39,4 +39,32 @@
         android:layout_marginTop="@dimen/small_margin"
         android:entries="@array/scale_types" />
 
+    <com.codepunk.demo.SeekBarLayout
+        android:id="@+id/layout_seek_bar_pan_x"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/standard_margin"
+        android:label="@string/label_pan_x" />
+
+    <com.codepunk.demo.SeekBarLayout
+        android:id="@+id/layout_seek_bar_pan_y"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/standard_margin"
+        android:label="@string/label_pan_y" />
+
+    <com.codepunk.demo.SeekBarLayout
+        android:id="@+id/layout_seek_bar_scale_x"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/standard_margin"
+        android:label="@string/label_scale_x" />
+
+    <com.codepunk.demo.SeekBarLayout
+        android:id="@+id/layout_seek_bar_scale_y"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/standard_margin"
+        android:label="@string/label_scale_y" />
+
 </LinearLayout>

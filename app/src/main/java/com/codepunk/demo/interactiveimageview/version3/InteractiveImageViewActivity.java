@@ -32,7 +32,7 @@ import android.widget.SeekBar;
 import android.widget.Spinner;
 import android.widget.ToggleButton;
 
-import com.codepunk.demo.AppCompatSeekBarEx;
+import com.codepunk.demo.CustomAppCompatSeekBar;
 import com.codepunk.demo.R;
 import com.codepunk.demo.support.ProgressBarCompat;
 
@@ -154,11 +154,11 @@ public class InteractiveImageViewActivity
     private AppCompatTextView mPanYMaxValueView;
     private AppCompatTextView mScaleXValueView;
     private AppCompatTextView mScaleXMinValueView;
-    private AppCompatSeekBarEx mScaleXSeekBar;
+    private CustomAppCompatSeekBar mScaleXSeekBar;
     private AppCompatTextView mScaleXMaxValueView;
     private AppCompatTextView mScaleYValueView;
     private AppCompatTextView mScaleYMinValueView;
-    private AppCompatSeekBarEx mScaleYSeekBar;
+    private CustomAppCompatSeekBar mScaleYSeekBar;
     private AppCompatTextView mScaleYMaxValueView;
     private ViewGroup mLockBtnLayout;
     private ToggleButton mLockBtn;

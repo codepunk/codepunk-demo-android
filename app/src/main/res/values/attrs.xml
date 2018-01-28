@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <declare-styleable name="Theme">
-        <attr name="appCompatSeekBarExStyle" format="reference" />
+        <attr name="customCompatSeekBarStyle" format="reference" />
         <attr name="interactiveImageViewStyle" format="reference" />
+        <attr name="seekBarLayoutStyle" format="reference" />
 
         <attr name="centerX" format="float" />
         <attr name="centerY" format="float" />
@@ -26,7 +27,7 @@
         </attr>
     </declare-styleable>
 
-    <declare-styleable name="AppCompatSeekBarEx">
+    <declare-styleable name="CustomAppCompatSeekBar">
         <attr name="clampedMax" />
         <attr name="clampedMin" />
     </declare-styleable>
@@ -41,5 +42,12 @@
         <attr name="interactivity" />
     </declare-styleable>
 
-    <declare-styleable name="DemoInteractiveImageView" />
+    <declare-styleable name="SeekBarLayout">
+        <attr name="android:label" />
+        <attr name="android:value" />
+        <attr name="android:valueType" />
+        <attr name="android:min" />
+        <attr name="android:max" />
+    </declare-styleable>
+
 </resources>

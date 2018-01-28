@@ -8,7 +8,8 @@ import android.util.AttributeSet;
 import android.widget.SeekBar;
 
 @SuppressWarnings({"unused"})
-public class AppCompatSeekBarEx extends AppCompatSeekBar implements SeekBar.OnSeekBarChangeListener {
+public class CustomAppCompatSeekBar extends AppCompatSeekBar
+        implements SeekBar.OnSeekBarChangeListener {
     //region Fields
     private boolean mClampedMaxInitialized;
     private boolean mClampedMinInitialized;
@@ -18,23 +19,28 @@ public class AppCompatSeekBarEx extends AppCompatSeekBar implements SeekBar.OnSe
     //endregion Fields
 
     //region Constructors
-    public AppCompatSeekBarEx(Context context) {
+    public CustomAppCompatSeekBar(Context context) {
         super(context);
         initAppCompatSeekBarEx(context, null, 0);
     }
 
-    public AppCompatSeekBarEx(Context context, AttributeSet attrs) {
+    public CustomAppCompatSeekBar(Context context, AttributeSet attrs) {
         super(context, attrs);
         initAppCompatSeekBarEx(context, attrs, 0);
     }
 
-    public AppCompatSeekBarEx(Context context, AttributeSet attrs, int defStyleAttr) {
+    public CustomAppCompatSeekBar(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
         initAppCompatSeekBarEx(context, attrs, defStyleAttr);
     }
     //endregion Constructors
 
     //region Inherited methods
+    @Override
+    public boolean performClick() {
+        return super.performClick();
+    }
+
     @Override
     public void setOnSeekBarChangeListener(OnSeekBarChangeListener listener) {
         mOnSeekBarChangeListener = listener;
@@ -117,13 +123,13 @@ public class AppCompatSeekBarEx extends AppCompatSeekBar implements SeekBar.OnSe
     private void initAppCompatSeekBarEx(Context context, AttributeSet attrs, int defStyleAttr) {
         TypedArray a = context.obtainStyledAttributes(
                 attrs,
-                R.styleable.AppCompatSeekBarEx,
+                R.styleable.CustomAppCompatSeekBar,
                 defStyleAttr,
                 0);
         final int clampedMin =
-                a.getInt(R.styleable.AppCompatSeekBarEx_clampedMin, Integer.MIN_VALUE);
+                a.getInt(R.styleable.CustomAppCompatSeekBar_clampedMin, Integer.MIN_VALUE);
         final int clampedMax =
-                a.getInt(R.styleable.AppCompatSeekBarEx_clampedMax, Integer.MAX_VALUE);
+                a.getInt(R.styleable.CustomAppCompatSeekBar_clampedMax, Integer.MAX_VALUE);
         setClampedMin(clampedMin);
         setClampedMax(clampedMax);
         a.recycle();
