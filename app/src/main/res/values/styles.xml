@@ -16,5 +16,7 @@
         <item name="android:scaleType">centerCrop</item>
     </style>
 
-    <style name="SeekBarLayout" parent="@android:style/Widget" />
+    <style name="SeekBarLayout" parent="@android:style/Widget">
+        <item name="range">1000</item>
+    </style>
 </resources>

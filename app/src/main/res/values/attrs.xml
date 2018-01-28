@@ -25,6 +25,7 @@
             <flag name="doubleTap" value="8"/>
             <flag name="all" value="15" />
         </attr>
+        <attr name="range" format="integer" />
     </declare-styleable>
 
     <declare-styleable name="CustomAppCompatSeekBar">
@@ -45,9 +46,9 @@
     <declare-styleable name="SeekBarLayout">
         <attr name="android:label" />
         <attr name="android:value" />
-        <attr name="android:valueType" />
         <attr name="android:min" />
         <attr name="android:max" />
+        <attr name="range" />
     </declare-styleable>
 
 </resources>

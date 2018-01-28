@@ -3,16 +3,29 @@ package com.codepunk.demo;
 import android.content.Context;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
-import android.support.annotation.NonNull;
+import android.os.Handler;
+import android.os.Message;
 import android.support.constraint.ConstraintLayout;
 import android.support.constraint.ConstraintSet;
 import android.support.v4.view.GravityCompat;
 import android.support.v7.widget.AppCompatTextView;
 import android.util.AttributeSet;
+import android.widget.SeekBar;
 
 import com.codepunk.demo.support.ViewCompat;
 
-public class SeekBarLayout extends ConstraintLayout {
+import java.math.BigDecimal;
+import java.text.DecimalFormat;
+
+@SuppressWarnings("unused")
+public class SeekBarLayout extends ConstraintLayout
+        implements Handler.Callback,
+                SeekBar.OnSeekBarChangeListener {
+
+    //region Constants
+    private static final String LOG_TAG = SeekBarLayout.class.getSimpleName();
+    private static final DecimalFormat DEFAULT_DECIMAL_FORMAT = new DecimalFormat();
+    //endregion Constants
 
     //region Fields
     private AppCompatTextView mLabelText;
@@ -20,6 +33,13 @@ public class SeekBarLayout extends ConstraintLayout {
     private AppCompatTextView mMinValueText;
     private AppCompatTextView mMaxValueText;
     private CustomAppCompatSeekBar mSeekBar;
+
+    private DecimalFormat mDecimalFormat = null;
+
+    private Number mMinValue = 0;
+    private Number mMaxValue = 0;
+
+    private Handler mUpdateHandler = new Handler(this);
     //endregion Fields
 
     //region Constructors
@@ -39,9 +59,36 @@ public class SeekBarLayout extends ConstraintLayout {
     }
     //endregion Constructors
 
+    //region Implemented methods
+    @Override
+    public boolean handleMessage(Message message) {
+        update();
+        return true;
+    }
+
+    @Override
+    public void onProgressChanged(SeekBar bar, int i, boolean b) {
+        mUpdateHandler.sendEmptyMessage(0);
+    }
+
+    @Override
+    public void onStartTrackingTouch(SeekBar bar) {
+
+    }
+
+    @Override
+    public void onStopTrackingTouch(SeekBar bar) {
+
+    }
+    //endregion Implemented methods
+
     //region Methods
-    public @NonNull CustomAppCompatSeekBar getSeekBar() {
-        return mSeekBar;
+    public DecimalFormat getDecimalFormat() {
+        return (mDecimalFormat == null ? DEFAULT_DECIMAL_FORMAT : mDecimalFormat);
+    }
+
+    public void setDecimalFormat(DecimalFormat format) {
+        mDecimalFormat = format;
     }
 
     public void setLabelText(CharSequence text) {
@@ -52,32 +99,52 @@ public class SeekBarLayout extends ConstraintLayout {
         mLabelText.setText(resId);
     }
 
-    public void setMaxValueText(CharSequence text) {
-        mMaxValueText.setText(text);
+    public void setMaxValue(Number maxValue) {
+        mMaxValue = maxValue;
+        mUpdateHandler.sendEmptyMessage(0);
     }
 
-    public void setMaxValueText(int resId) {
-        mMaxValueText.setText(resId);
+    public void setMinValue(Number minValue) {
+        mMinValue = minValue;
+        mUpdateHandler.sendEmptyMessage(0);
     }
 
-    public void setMinValueText(CharSequence text) {
-        mMinValueText.setText(text);
+    public void setSeekBarOnTouchListener(OnTouchListener listener) {
+        mSeekBar.setOnTouchListener(listener);
     }
 
-    public void setMinValueText(int resId) {
-        mMinValueText.setText(resId);
+    public void setRange(int range) {
+        mSeekBar.setMax(range);
     }
 
-    public void setValueText(CharSequence text) {
-        mValueText.setText(text);
-    }
-
-    public void setValueText(int resId) {
-        mValueText.setText(resId);
+    public void setValue(Number value) {
+        // TODO
     }
     //endregion Methods
 
+    //region Protected methods
+    protected void update() {
+        final DecimalFormat format = getDecimalFormat();
+        mMinValueText.setText(format.format(mMinValue));
+        mMaxValueText.setText(format.format(mMaxValue));
+
+        final double value;
+        final int max = mSeekBar.getMax();
+        if (max == 0) {
+            value = 0;
+        } else {
+            final BigDecimal pct = BigDecimal.valueOf((double) mSeekBar.getProgress() / max);
+            final BigDecimal minValue = new BigDecimal(mMinValue.toString());
+            final BigDecimal maxValue = new BigDecimal(mMaxValue.toString());
+            final BigDecimal diff = maxValue.subtract(minValue);
+            value = minValue.add(diff.multiply(pct)).doubleValue();
+        }
+        mValueText.setText(format.format(value));
+    }
+    //endregion Protected methods
+
     //region Private methods
+    @SuppressWarnings("SameParameterValue")
     private void initSliderLayout(
             Context context,
             AttributeSet attrs,
@@ -204,9 +271,14 @@ public class SeekBarLayout extends ConstraintLayout {
                 defStyleRes);
 
         final String label = a.getString(R.styleable.SeekBarLayout_android_label);
-        mLabelText.setText(label);
+        setLabelText(label);
+
+        final int range = a.getInteger(R.styleable.SeekBarLayout_range, 100);
+        setRange(range);
 
         a.recycle();
+
+        mSeekBar.setOnSeekBarChangeListener(this);
     }
     //endregion Private methods
 }

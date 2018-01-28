@@ -96,12 +96,20 @@ public class InteractiveImageViewControlsFragment extends Fragment
         mScaleTypeSpinner.setOnItemSelectedListener(this);
 
         // Prevent drawer from intercepting touch event from seek bars
-        mPanXSeekBarLayout.getSeekBar().setOnTouchListener(this);
+        mPanXSeekBarLayout.setSeekBarOnTouchListener(this);
+        mPanXSeekBarLayout.setDecimalFormat(new DecimalFormat("0%"));
+        mPanYSeekBarLayout.setSeekBarOnTouchListener(this);
+        mPanYSeekBarLayout.setDecimalFormat(new DecimalFormat("0%"));
+        mScaleXSeekBarLayout.setSeekBarOnTouchListener(this);
+        mScaleXSeekBarLayout.setDecimalFormat(new DecimalFormat("0.00"));
+        mScaleYSeekBarLayout.setSeekBarOnTouchListener(this);
+        mScaleYSeekBarLayout.setDecimalFormat(new DecimalFormat("0.00"));
 
-        mPanXSeekBarLayout.setMinValueText("0%");
-        mPanXSeekBarLayout.setMaxValueText("100%");
-        mPanYSeekBarLayout.setMinValueText("0%");
-        mPanYSeekBarLayout.setMaxValueText("100%");
+        // Initialize pan seek bars
+        mPanXSeekBarLayout.setMinValue(0.0f);
+        mPanXSeekBarLayout.setMaxValue(1.0f);
+        mPanYSeekBarLayout.setMinValue(0.0f);
+        mPanYSeekBarLayout.setMaxValue(1.0f);
     }
     //endregion Lifecycle methods
 
@@ -133,10 +141,10 @@ public class InteractiveImageViewControlsFragment extends Fragment
     @Override // DemoInteractiveImageView.DemoInteractiveImageViewListener
     public void onDraw(InteractiveImageView view, Canvas canvas) {
         updateScaleTypeSpinner();
-        mScaleXSeekBarLayout.setMinValueText(mDecimalFormat.format(mImageView.getImageMinScaleX()));
-        mScaleXSeekBarLayout.setMaxValueText(mDecimalFormat.format(mImageView.getImageMaxScaleX()));
-        mScaleYSeekBarLayout.setMinValueText(mDecimalFormat.format(mImageView.getImageMinScaleY()));
-        mScaleYSeekBarLayout.setMaxValueText(mDecimalFormat.format(mImageView.getImageMaxScaleY()));
+        mScaleXSeekBarLayout.setMinValue(mImageView.getImageMinScaleX());
+        mScaleXSeekBarLayout.setMaxValue(mImageView.getImageMaxScaleX());
+        mScaleYSeekBarLayout.setMinValue(mImageView.getImageMinScaleY());
+        mScaleYSeekBarLayout.setMaxValue(mImageView.getImageMaxScaleY());
     }
 
     @Override // DemoInteractiveImageView.DemoInteractiveImageViewListener
