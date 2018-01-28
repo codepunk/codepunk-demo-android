@@ -409,7 +409,7 @@ public class InteractiveImageOlderViewActivity
 
     @Override // InteractiveImageView.DemoInteractiveImageViewListener
     public void onDraw(InteractiveImageOlderView view, Canvas canvas) {
-        // TODO Capture which control(s) the user is manipulating and don't update those
+        // TODO Capture which control(s) the user is manipulating and don't updateUI those
         final float centerX = mImageView.getCenterX();
         final float centerY = mImageView.getCenterY();
         mPanXValueView.setText(mPercentFormat.format(centerX));

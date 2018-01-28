@@ -408,7 +408,7 @@ public class InteractiveImageViewActivity
 
     @Override // InteractiveImageView.DemoInteractiveImageViewListener
     public void onDraw(InteractiveImageView view, Canvas canvas) {
-        // TODO Capture which control(s) the user is manipulating and don't update those
+        // TODO Capture which control(s) the user is manipulating and don't updateUI those
         final float centerX = view.getImageCenterX();
         final float centerY = view.getImageCenterY();
         mPanXValueView.setText(mPercentFormat.format(centerX));

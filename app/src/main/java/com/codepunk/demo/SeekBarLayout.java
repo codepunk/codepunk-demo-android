@@ -36,8 +36,9 @@ public class SeekBarLayout extends ConstraintLayout
 
     private DecimalFormat mDecimalFormat = null;
 
-    private Number mMinValue = 0;
-    private Number mMaxValue = 0;
+    private BigDecimal mMinValue = BigDecimal.ZERO;
+    private BigDecimal mMaxValue = BigDecimal.ZERO;
+    private BigDecimal mValue = BigDecimal.ZERO;
 
     private Handler mUpdateHandler = new Handler(this);
     //endregion Fields
@@ -62,13 +63,16 @@ public class SeekBarLayout extends ConstraintLayout
     //region Implemented methods
     @Override
     public boolean handleMessage(Message message) {
-        update();
+        mValue = progressToValue(mSeekBar.getProgress());
+        updateUI();
         return true;
     }
 
     @Override
-    public void onProgressChanged(SeekBar bar, int i, boolean b) {
-        mUpdateHandler.sendEmptyMessage(0);
+    public void onProgressChanged(SeekBar bar, int progress, boolean fromUser) {
+        if (fromUser) {
+            mUpdateHandler.sendEmptyMessage(0);
+        }
     }
 
     @Override
@@ -100,12 +104,12 @@ public class SeekBarLayout extends ConstraintLayout
     }
 
     public void setMaxValue(Number maxValue) {
-        mMaxValue = maxValue;
+        mMaxValue = new BigDecimal(maxValue.toString());
         mUpdateHandler.sendEmptyMessage(0);
     }
 
     public void setMinValue(Number minValue) {
-        mMinValue = minValue;
+        mMinValue = new BigDecimal(minValue.toString());
         mUpdateHandler.sendEmptyMessage(0);
     }
 
@@ -118,28 +122,31 @@ public class SeekBarLayout extends ConstraintLayout
     }
 
     public void setValue(Number value) {
-        // TODO
+        mValue = new BigDecimal(value.toString());
+        mUpdateHandler.sendEmptyMessage(0);
     }
     //endregion Methods
 
     //region Protected methods
-    protected void update() {
+    protected void updateUI() {
         final DecimalFormat format = getDecimalFormat();
-        mMinValueText.setText(format.format(mMinValue));
-        mMaxValueText.setText(format.format(mMaxValue));
+        mMinValueText.setText(format.format(mMinValue.doubleValue()));
+        mMaxValueText.setText(format.format(mMaxValue.doubleValue()));
+        mValueText.setText(format.format(mValue.doubleValue()));
+    }
 
-        final double value;
+    protected BigDecimal progressToValue(int progress) {
+        final BigDecimal value;
         final int max = mSeekBar.getMax();
         if (max == 0) {
-            value = 0;
+            value = BigDecimal.ZERO;
         } else {
-            final BigDecimal pct = BigDecimal.valueOf((double) mSeekBar.getProgress() / max);
+            final BigDecimal pct = BigDecimal.valueOf((double) progress / max);
             final BigDecimal minValue = new BigDecimal(mMinValue.toString());
             final BigDecimal maxValue = new BigDecimal(mMaxValue.toString());
-            final BigDecimal diff = maxValue.subtract(minValue);
-            value = minValue.add(diff.multiply(pct)).doubleValue();
+            value = minValue.add(maxValue.subtract(minValue).multiply(pct));
         }
-        mValueText.setText(format.format(value));
+        return value;
     }
     //endregion Protected methods
 
