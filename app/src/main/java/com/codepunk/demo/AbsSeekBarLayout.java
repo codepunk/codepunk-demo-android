@@ -14,56 +14,59 @@ import android.widget.SeekBar;
 
 import com.codepunk.demo.support.ViewCompat;
 
-import java.math.BigDecimal;
 import java.text.DecimalFormat;
 
 @SuppressWarnings("unused")
-public class SeekBarLayout extends ConstraintLayout
+public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayout
         implements Handler.Callback,
-                SeekBar.OnSeekBarChangeListener {
+        SeekBar.OnSeekBarChangeListener {
 
     //region Constants
-    private static final String LOG_TAG = SeekBarLayout.class.getSimpleName();
+    private static final String LOG_TAG = AbsSeekBarLayout.class.getSimpleName();
     private static final DecimalFormat DEFAULT_DECIMAL_FORMAT = new DecimalFormat();
     //endregion Constants
 
     //region Fields
-    private AppCompatTextView mLabelText;
-    private AppCompatTextView mValueText;
-    private AppCompatTextView mMinValueText;
-    private AppCompatTextView mMaxValueText;
-    private CustomAppCompatSeekBar mSeekBar;
+    protected AppCompatTextView mLabelText;
+    protected AppCompatTextView mValueText;
+    protected AppCompatTextView mMinValueText;
+    protected AppCompatTextView mMaxValueText;
+    protected CustomAppCompatSeekBar mSeekBar;
 
-    private DecimalFormat mDecimalFormat = null;
+    protected DecimalFormat mDecimalFormat = null;
 
-    private BigDecimal mMinValue = BigDecimal.ZERO;
-    private BigDecimal mMaxValue = BigDecimal.ZERO;
-    private BigDecimal mValue = BigDecimal.ZERO;
+    protected T mMinValue;
+    protected T mMaxValue;
+    protected T mValue;
 
     private Handler mUpdateHandler = new Handler(this);
     //endregion Fields
 
     //region Constructors
-    public SeekBarLayout(Context context) {
+    public AbsSeekBarLayout(Context context) {
         super(context);
-        initSliderLayout(context, null, R.attr.seekBarLayoutStyle, 0);
+        initAbsSeekBarLayout(context, null, R.attr.absSeekBarLayoutStyle, 0);
     }
 
-    public SeekBarLayout(Context context, AttributeSet attrs) {
+    public AbsSeekBarLayout(Context context, AttributeSet attrs) {
         super(context, attrs);
-        initSliderLayout(context, attrs, R.attr.seekBarLayoutStyle, 0);
+        initAbsSeekBarLayout(context, attrs, R.attr.absSeekBarLayoutStyle, 0);
     }
 
-    public SeekBarLayout(Context context, AttributeSet attrs, int defStyleAttr) {
+    public AbsSeekBarLayout(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
-        initSliderLayout(context, attrs, defStyleAttr, 0);
+        initAbsSeekBarLayout(context, attrs, defStyleAttr, 0);
     }
     //endregion Constructors
 
     //region Implemented methods
     @Override
     public boolean handleMessage(Message message) {
-        mValue = progressToValue(mSeekBar.getProgress());
+        mValue = progressToValue(
+                mSeekBar.getProgress(),
+                mSeekBar.getMax(),
+                mMinValue,
+                mMaxValue);
         updateUI();
         return true;
     }
@@ -87,12 +90,8 @@ public class SeekBarLayout extends ConstraintLayout
     //endregion Implemented methods
 
     //region Methods
-    public DecimalFormat getDecimalFormat() {
-        return (mDecimalFormat == null ? DEFAULT_DECIMAL_FORMAT : mDecimalFormat);
-    }
-
-    public void setDecimalFormat(DecimalFormat format) {
-        mDecimalFormat = format;
+    public void setFormat(String format) {
+        mDecimalFormat = (format == null ? null : new DecimalFormat(format));
     }
 
     public void setLabelText(CharSequence text) {
@@ -103,13 +102,13 @@ public class SeekBarLayout extends ConstraintLayout
         mLabelText.setText(resId);
     }
 
-    public void setMaxValue(Number maxValue) {
-        mMaxValue = new BigDecimal(maxValue.toString());
+    public void setMaxValue(T maxValue) {
+        mMaxValue = maxValue;
         mUpdateHandler.sendEmptyMessage(0);
     }
 
-    public void setMinValue(Number minValue) {
-        mMinValue = new BigDecimal(minValue.toString());
+    public void setMinValue(T minValue) {
+        mMinValue = minValue;
         mUpdateHandler.sendEmptyMessage(0);
     }
 
@@ -121,8 +120,8 @@ public class SeekBarLayout extends ConstraintLayout
         mSeekBar.setMax(range);
     }
 
-    public void setValue(Number value) {
-        mValue = new BigDecimal(value.toString());
+    public void setValue(T value) {
+        mValue = value;
         mUpdateHandler.sendEmptyMessage(0);
     }
     //endregion Methods
@@ -135,24 +134,16 @@ public class SeekBarLayout extends ConstraintLayout
         mValueText.setText(format.format(mValue.doubleValue()));
     }
 
-    protected BigDecimal progressToValue(int progress) {
-        final BigDecimal value;
-        final int max = mSeekBar.getMax();
-        if (max == 0) {
-            value = BigDecimal.ZERO;
-        } else {
-            final BigDecimal pct = BigDecimal.valueOf((double) progress / max);
-            final BigDecimal minValue = new BigDecimal(mMinValue.toString());
-            final BigDecimal maxValue = new BigDecimal(mMaxValue.toString());
-            value = minValue.add(maxValue.subtract(minValue).multiply(pct));
-        }
-        return value;
-    }
+    protected abstract T progressToValue(int progress, int maxProgress, T minValue, T maxValue);
     //endregion Protected methods
 
     //region Private methods
+    private DecimalFormat getDecimalFormat() {
+        return (mDecimalFormat == null ? DEFAULT_DECIMAL_FORMAT : mDecimalFormat);
+    }
+
     @SuppressWarnings("SameParameterValue")
-    private void initSliderLayout(
+    private void initAbsSeekBarLayout(
             Context context,
             AttributeSet attrs,
             int defStyleAttr,
@@ -273,15 +264,20 @@ public class SeekBarLayout extends ConstraintLayout
 
         final TypedArray a = context.obtainStyledAttributes(
                 attrs,
-                R.styleable.SeekBarLayout,
+                R.styleable.AbsSeekBarLayout,
                 defStyleAttr,
                 defStyleRes);
 
-        final String label = a.getString(R.styleable.SeekBarLayout_android_label);
+        final String label = a.getString(R.styleable.AbsSeekBarLayout_android_label);
         setLabelText(label);
 
-        final int range = a.getInteger(R.styleable.SeekBarLayout_range, 100);
+        final int range = a.getInteger(R.styleable.AbsSeekBarLayout_range, 100);
         setRange(range);
+
+        if (a.hasValue(R.styleable.AbsSeekBarLayout_android_format)) {
+            final String format = a.getString(R.styleable.AbsSeekBarLayout_android_format);
+            setFormat(format);
+        }
 
         a.recycle();
 

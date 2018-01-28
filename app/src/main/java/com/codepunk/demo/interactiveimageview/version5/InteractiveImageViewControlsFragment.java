@@ -15,8 +15,8 @@ import android.widget.AdapterView;
 import android.widget.ImageView.ScaleType;
 import android.widget.Spinner;
 
+import com.codepunk.demo.FloatSeekBarLayout;
 import com.codepunk.demo.R;
-import com.codepunk.demo.SeekBarLayout;
 
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
@@ -39,10 +39,10 @@ public class InteractiveImageViewControlsFragment extends Fragment
 
     private Spinner mImageSpinner;
     private Spinner mScaleTypeSpinner;
-    private SeekBarLayout mPanXSeekBarLayout;
-    private SeekBarLayout mPanYSeekBarLayout;
-    private SeekBarLayout mScaleXSeekBarLayout;
-    private SeekBarLayout mScaleYSeekBarLayout;
+    private FloatSeekBarLayout mPanXSeekBarLayout;
+    private FloatSeekBarLayout mPanYSeekBarLayout;
+    private FloatSeekBarLayout mScaleXSeekBarLayout;
+    private FloatSeekBarLayout mScaleYSeekBarLayout;
     private DemoInteractiveImageView mImageView;
 
     private final NumberFormat mPercentFormat = NumberFormat.getPercentInstance();
@@ -97,13 +97,9 @@ public class InteractiveImageViewControlsFragment extends Fragment
 
         // Prevent drawer from intercepting touch event from seek bars
         mPanXSeekBarLayout.setSeekBarOnTouchListener(this);
-        mPanXSeekBarLayout.setDecimalFormat(new DecimalFormat("0%"));
         mPanYSeekBarLayout.setSeekBarOnTouchListener(this);
-        mPanYSeekBarLayout.setDecimalFormat(new DecimalFormat("0%"));
         mScaleXSeekBarLayout.setSeekBarOnTouchListener(this);
-        mScaleXSeekBarLayout.setDecimalFormat(new DecimalFormat("0.00"));
         mScaleYSeekBarLayout.setSeekBarOnTouchListener(this);
-        mScaleYSeekBarLayout.setDecimalFormat(new DecimalFormat("0.00"));
 
         // Initialize pan seek bars
         mPanXSeekBarLayout.setMinValue(0.0f);

@@ -3,7 +3,7 @@
     <declare-styleable name="Theme">
         <attr name="customCompatSeekBarStyle" format="reference" />
         <attr name="interactiveImageViewStyle" format="reference" />
-        <attr name="seekBarLayoutStyle" format="reference" />
+        <attr name="absSeekBarLayoutStyle" format="reference" />
 
         <attr name="centerX" format="float" />
         <attr name="centerY" format="float" />
@@ -43,11 +43,12 @@
         <attr name="interactivity" />
     </declare-styleable>
 
-    <declare-styleable name="SeekBarLayout">
+    <declare-styleable name="AbsSeekBarLayout">
         <attr name="android:label" />
         <attr name="android:value" />
         <attr name="android:min" />
         <attr name="android:max" />
+        <attr name="android:format" />
         <attr name="range" />
     </declare-styleable>
 

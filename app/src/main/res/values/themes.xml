@@ -10,7 +10,7 @@
 
         <item name="customCompatSeekBarStyle">@style/AppCompatSeekBarEx</item>
         <item name="interactiveImageViewStyle">@style/InteractiveImageView</item>
-        <item name="seekBarLayoutStyle">@style/SeekBarLayout</item>
+        <item name="absSeekBarLayoutStyle">@style/AbsSeekBarLayout</item>
     </style>
 
 </resources>
