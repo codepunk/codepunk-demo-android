@@ -14,6 +14,7 @@ import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ImageView.ScaleType;
 import android.widget.Spinner;
+import android.widget.ToggleButton;
 
 import com.codepunk.demo.FloatSeekBarLayout;
 import com.codepunk.demo.R;
@@ -41,6 +42,7 @@ public class InteractiveImageViewControlsFragment extends Fragment
     private Spinner mScaleTypeSpinner;
     private FloatSeekBarLayout mPanXSeekBarLayout;
     private FloatSeekBarLayout mPanYSeekBarLayout;
+    private ToggleButton mLockButton;
     private FloatSeekBarLayout mScaleXSeekBarLayout;
     private FloatSeekBarLayout mScaleYSeekBarLayout;
     private DemoInteractiveImageView mImageView;
@@ -89,6 +91,7 @@ public class InteractiveImageViewControlsFragment extends Fragment
         mScaleTypeSpinner = view.findViewById(R.id.spinner_scale_type);
         mPanXSeekBarLayout = view.findViewById(R.id.layout_seek_bar_pan_x);
         mPanYSeekBarLayout = view.findViewById(R.id.layout_seek_bar_pan_y);
+        mLockButton = view.findViewById(R.id.btn_lock);
         mScaleXSeekBarLayout = view.findViewById(R.id.layout_seek_bar_scale_x);
         mScaleYSeekBarLayout = view.findViewById(R.id.layout_seek_bar_scale_y);
 
