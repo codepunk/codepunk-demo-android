@@ -5,6 +5,7 @@ import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.os.Handler;
 import android.os.Message;
+import android.support.annotation.NonNull;
 import android.support.constraint.ConstraintLayout;
 import android.support.constraint.ConstraintSet;
 import android.support.v4.view.GravityCompat;
@@ -24,7 +25,18 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
     //region Constants
     private static final String LOG_TAG = AbsSeekBarLayout.class.getSimpleName();
     private static final DecimalFormat DEFAULT_DECIMAL_FORMAT = new DecimalFormat();
+    private static final int WHAT_NONE = 0;
+    private static final int WHAT_PROGRESS = 1;
+    private static final int WHAT_VALUE = 2;
     //endregion Constants
+
+    //region Nested classes
+    public interface OnSeekBarChangeListener<T extends Number> {
+        void onProgressChanged(AbsSeekBarLayout<T> seekBarLayout, int progress, boolean fromUser);
+        void onStartTrackingTouch(AbsSeekBarLayout<T> seekBarLayout);
+        void onStopTrackingTouch(AbsSeekBarLayout<T> seekBarLayout);
+    }
+    //endregion Nested classes
 
     //region Fields
     protected AppCompatTextView mLabelText;
@@ -40,6 +52,7 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
     protected T mValue;
 
     private Handler mUpdateHandler = new Handler(this);
+    private OnSeekBarChangeListener<T> mOnSeekBarChangeListener;
     //endregion Fields
 
     //region Constructors
@@ -62,34 +75,59 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
     //region Implemented methods
     @Override
     public boolean handleMessage(Message message) {
-        mValue = progressToValue(
-                mSeekBar.getProgress(),
-                mSeekBar.getMax(),
-                mMinValue,
-                mMaxValue);
+        if (message.what == WHAT_NONE || message.what == WHAT_PROGRESS) {
+            mValue = progressToValue(
+                    mSeekBar.getProgress(),
+                    mSeekBar.getMax(),
+                    mMinValue,
+                    mMaxValue);
+        }
         updateUI();
+        if (message.what == WHAT_PROGRESS && mOnSeekBarChangeListener != null) {
+            mOnSeekBarChangeListener.onProgressChanged(
+                    this,
+                    message.arg1,
+                    message.arg2 != 0);
+        }
         return true;
     }
 
     @Override
     public void onProgressChanged(SeekBar bar, int progress, boolean fromUser) {
         if (fromUser) {
-            mUpdateHandler.sendEmptyMessage(0);
+            Message message = new Message();
+            message.what = WHAT_PROGRESS;
+            message.arg1 = progress;
+            message.arg2 = (fromUser ? 1 : 0);
+            mUpdateHandler.sendMessage(message);
         }
+        /*
+        if (mOnSeekBarChangeListener != null) {
+            mOnSeekBarChangeListener.onProgressChanged(this, progress, fromUser);
+        }
+        */
     }
 
     @Override
     public void onStartTrackingTouch(SeekBar bar) {
-
+        if (mOnSeekBarChangeListener != null) {
+            mOnSeekBarChangeListener.onStartTrackingTouch(this);
+        }
     }
 
     @Override
     public void onStopTrackingTouch(SeekBar bar) {
-
+        if (mOnSeekBarChangeListener != null) {
+            mOnSeekBarChangeListener.onStopTrackingTouch(this);
+        }
     }
     //endregion Implemented methods
 
     //region Methods
+    public T getValue() {
+        return mValue;
+    }
+
     public void setFormat(String format) {
         mDecimalFormat = (format == null ? null : new DecimalFormat(format));
     }
@@ -104,12 +142,16 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
 
     public void setMaxValue(T maxValue) {
         mMaxValue = maxValue;
-        mUpdateHandler.sendEmptyMessage(0);
+        mUpdateHandler.sendEmptyMessage(WHAT_NONE);
     }
 
     public void setMinValue(T minValue) {
         mMinValue = minValue;
-        mUpdateHandler.sendEmptyMessage(0);
+        mUpdateHandler.sendEmptyMessage(WHAT_NONE);
+    }
+
+    public void setOnSeekBarChangeListener(OnSeekBarChangeListener<T> listener) {
+        mOnSeekBarChangeListener = listener;
     }
 
     public void setSeekBarOnTouchListener(OnTouchListener listener) {
@@ -122,7 +164,8 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
 
     public void setValue(T value) {
         mValue = value;
-        mUpdateHandler.sendEmptyMessage(0);
+        // TODO send this as a message
+        mSeekBar.setProgress(valueToProgress(value, mMinValue, mMaxValue, mSeekBar.getMax()));
     }
     //endregion Methods
 
@@ -134,7 +177,17 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
         mValueText.setText(format.format(mValue.doubleValue()));
     }
 
-    protected abstract T progressToValue(int progress, int maxProgress, T minValue, T maxValue);
+    protected abstract T progressToValue(
+            int progress,
+            int maxProgress,
+            @NonNull T minValue,
+            @NonNull T maxValue);
+
+    protected abstract int valueToProgress(
+            @NonNull T value,
+            @NonNull T minValue,
+            @NonNull T maxValue,
+            int maxProgress);
     //endregion Protected methods
 
     //region Private methods

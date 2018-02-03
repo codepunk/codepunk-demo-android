@@ -16,6 +16,7 @@ import android.widget.ImageView.ScaleType;
 import android.widget.Spinner;
 import android.widget.ToggleButton;
 
+import com.codepunk.demo.AbsSeekBarLayout;
 import com.codepunk.demo.FloatSeekBarLayout;
 import com.codepunk.demo.R;
 
@@ -26,7 +27,8 @@ import java.util.Arrays;
 import java.util.List;
 
 public class InteractiveImageViewControlsFragment extends Fragment
-        implements AdapterView.OnItemSelectedListener,
+        implements AbsSeekBarLayout.OnSeekBarChangeListener<Float>,
+                AdapterView.OnItemSelectedListener,
                 DemoInteractiveImageView.DemoInteractiveImageViewListener,
                 View.OnTouchListener {
     //region Constants
@@ -97,6 +99,10 @@ public class InteractiveImageViewControlsFragment extends Fragment
 
         mImageSpinner.setOnItemSelectedListener(this);
         mScaleTypeSpinner.setOnItemSelectedListener(this);
+        mPanXSeekBarLayout.setOnSeekBarChangeListener(this);
+        mPanYSeekBarLayout.setOnSeekBarChangeListener(this);
+        mScaleXSeekBarLayout.setOnSeekBarChangeListener(this);
+        mScaleYSeekBarLayout.setOnSeekBarChangeListener(this);
 
         // Prevent drawer from intercepting touch event from seek bars
         mPanXSeekBarLayout.setSeekBarOnTouchListener(this);
@@ -113,6 +119,58 @@ public class InteractiveImageViewControlsFragment extends Fragment
     //endregion Lifecycle methods
 
     //region Implemented methods
+    @Override // AbsSeekBarLayout.OnSeekBarChangeListener
+    public void onProgressChanged(
+            AbsSeekBarLayout<Float> seekBarLayout,
+            int progress,
+            boolean fromUser) {
+        final int id = seekBarLayout.getId();
+        switch (id) {
+            case R.id.layout_seek_bar_pan_x: {
+                final float sx = mImageView.getImageScaleX();
+                final float sy = mImageView.getImageScaleY();
+                final float cx = seekBarLayout.getValue();
+                final float cy = mImageView.getImageCenterY();
+                mImageView.setLayout(sx, sy, cx, cy);
+                break;
+            }
+            case R.id.layout_seek_bar_pan_y: {
+                final float sx = mImageView.getImageScaleX();
+                final float sy = mImageView.getImageScaleY();
+                final float cx = mImageView.getImageCenterX();
+                final float cy = seekBarLayout.getValue();
+                mImageView.setLayout(sx, sy, cx, cy);
+                break;
+            }
+            case R.id.layout_seek_bar_scale_x: {
+                final float sx = seekBarLayout.getValue();
+                final float sy = mImageView.getImageScaleY();
+                final float cx = mImageView.getImageCenterX();
+                final float cy = mImageView.getImageCenterY();
+                mImageView.setLayout(sx, sy, cx, cy);
+                break;
+            }
+            case R.id.layout_seek_bar_scale_y: {
+                final float sx = mImageView.getImageScaleX();
+                final float sy = seekBarLayout.getValue();
+                final float cx = mImageView.getImageCenterX();
+                final float cy = mImageView.getImageCenterY();
+                mImageView.setLayout(sx, sy, cx, cy);
+                break;
+            }
+        }
+    }
+
+    @Override // AbsSeekBarLayout.OnSeekBarChangeListener
+    public void onStartTrackingTouch(AbsSeekBarLayout<Float> seekBarLayout) {
+
+    }
+
+    @Override // AbsSeekBarLayout.OnSeekBarChangeListener
+    public void onStopTrackingTouch(AbsSeekBarLayout<Float> seekBarLayout) {
+
+    }
+
     @Override // AdapterView.OnItemSelectedListener
     public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
         switch (parent.getId()) {

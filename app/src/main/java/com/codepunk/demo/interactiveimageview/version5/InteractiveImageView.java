@@ -22,6 +22,8 @@ import android.widget.OverScroller;
 import com.codepunk.demo.R;
 import com.codepunk.demo.support.DisplayCompat;
 
+import java.util.Locale;
+
 /*
  * TODO Play with cropToPadding
  */
@@ -63,9 +65,15 @@ public class InteractiveImageView extends AppCompatImageView
     private ScaleGestureDetector mScaleGestureDetector;
     private OverScroller mScroller;
 
+    private final float[] mMatrixValues = new float[9];
+    private final float[] mPts = new float[2];
     private final Matrix mBaselineImageMatrix = new Matrix();
+    private final Matrix mImageMatrixInternal = new Matrix();
+    private final Matrix mImageMatrix = new Matrix();
     private final PointF mMaxScale = new PointF();
     private final PointF mMinScale = new PointF();
+    private final RectF mSrcRect = new RectF();
+    private final RectF mDstRect = new RectF();
 
     private int mInvalidFlags;
     //endregion Fields
@@ -246,6 +254,26 @@ public class InteractiveImageView extends AppCompatImageView
         return (dr == null ? -1 : dr.getIntrinsicWidth());
     }
 
+    public float getImageCenterX() {
+        // TODO synchronized?
+        getImageMatrixInternal().invert(mImageMatrix);
+        mImageMatrix.getValues(mMatrixValues);
+        mPts[0] = (getWidth() - getPaddingLeft() - getPaddingRight()) * 0.5f;
+        mPts[1] = 0.0f; //(getHeight() - getPaddingTop() - getPaddingBottom()) * 0.5f;
+        mImageMatrix.mapPoints(mPts);
+        return mPts[0];
+    }
+
+    public float getImageCenterY() {
+        // TODO synchronized?
+        getImageMatrixInternal().invert(mImageMatrix);
+        mImageMatrix.getValues(mMatrixValues);
+        mPts[0] = 0.0f; //(getWidth() - getPaddingLeft() - getPaddingRight()) * 0.5f;
+        mPts[1] = (getHeight() - getPaddingTop() - getPaddingBottom()) * 0.5f;
+        mImageMatrix.mapPoints(mPts);
+        return mPts[1];
+    }
+
     public float getImageMaxScaleX() {
         getImageMaxScale(null);
         return mMaxScale.x;
@@ -264,6 +292,16 @@ public class InteractiveImageView extends AppCompatImageView
     public float getImageMinScaleY() {
         getImageMinScale(null);
         return mMinScale.y;
+    }
+
+    public float getImageScaleX() {
+        getImageMatrixInternal().getValues(mMatrixValues);
+        return mMatrixValues[Matrix.MSCALE_X];
+    }
+
+    public float getImageScaleY() {
+        getImageMatrixInternal().getValues(mMatrixValues);
+        return mMatrixValues[Matrix.MSCALE_Y];
     }
 
     public int getInteractivity() {
@@ -309,6 +347,10 @@ public class InteractiveImageView extends AppCompatImageView
         } else {
             mGestureDetector = null;
         }
+    }
+
+    public void setLayout(float sx, float sy, float cx, float cy) {
+        setLayoutInternal(sx, sy, cx, cy, false);
     }
     //endregion Methods
 
@@ -384,7 +426,7 @@ public class InteractiveImageView extends AppCompatImageView
                     } else {
                         // Generate the required transform.
                         mBaselineImageMatrix.setRectToRect(
-                                new RectF(0, 0, dwidth, dheight),
+                                new RectF(0, 0, dwidth, dheight), // TODO Use buckets
                                 new RectF(0, 0, vwidth, vheight),
                                 scaleTypeToScaleToFit(scaleType));
                     }
@@ -399,24 +441,38 @@ public class InteractiveImageView extends AppCompatImageView
         }
     }
 
-    @SuppressWarnings("SameParameterValue ")
+    /**
+     * Returns the view's optional matrix, enhanced to reflect when the scale type is FIT_XY.
+     * If there is no matrix, this method will return an identity matrix. Do not change this
+     * matrix in place but make a copy.
+     * @return The optional matrix
+     */
+    protected Matrix getImageMatrixInternal() {
+        if (ScaleType.FIT_XY == super.getScaleType()) {
+            getBaselineImageMatrix(ScaleType.FIT_XY, mImageMatrixInternal);
+        } else {
+            mImageMatrixInternal.set(getImageMatrix());
+        }
+        return mImageMatrixInternal;
+    }
+
+    @SuppressWarnings("SameParameterValue")
     protected void getImageMaxScale(PointF outPoint) {
         if ((mInvalidFlags & INVALID_FLAG_IMAGE_MAX_SCALE) == INVALID_FLAG_IMAGE_MAX_SCALE) {
             synchronized (mMaxScale) {
                 mInvalidFlags &= ~INVALID_FLAG_IMAGE_MAX_SCALE;
                 if (drawableHasIntrinsicSize()) {
-                    final RectF src = new RectF(
+                    mSrcRect.set(
                             0,
                             0,
                             getDrawableIntrinsicWidth(),
                             getDrawableIntrinsicHeight());
-                    final RectF dst = new RectF();
                     getBaselineImageMatrix(null);
                     final float[] values = new float[9];
                     mBaselineImageMatrix.getValues(values);
-                    mBaselineImageMatrix.mapRect(dst, src);
-                    final float baselineWidth = dst.width();
-                    final float baselineHeight = dst.height();
+                    mBaselineImageMatrix.mapRect(mDstRect, mSrcRect);
+                    final float baselineWidth = mDstRect.width();
+                    final float baselineHeight = mDstRect.height();
                     final float baselineBreadth = Math.min(baselineWidth, baselineHeight);
                     final float baselineLength = Math.max(baselineWidth, baselineHeight);
 
@@ -484,6 +540,14 @@ public class InteractiveImageView extends AppCompatImageView
             default:
                 return null;
         }
+    }
+
+    protected void setLayoutInternal(float sx, float sy, float cx, float cy, boolean fromUser) {
+        // Need to resolve the scale x/y passed in
+        Log.d(LOG_TAG, String.format(
+                Locale.US,
+                "setLayoutInternal: sx=%.2f, sy=%.2f, cx=%.2f, cy=%.2f, fromUser=%b",
+                sx, sy, cx, cy, fromUser));
     }
     //endregion Protected methods
 
