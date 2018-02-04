@@ -65,15 +65,20 @@ public class InteractiveImageView extends AppCompatImageView
     private ScaleGestureDetector mScaleGestureDetector;
     private OverScroller mScroller;
 
+    private float mMaxScaleX;
+    private float mMaxScaleY;
+    private float mMinScaleX;
+    private float mMinScaleY;
+
     private final float[] mMatrixValues = new float[9];
     private final float[] mPts = new float[2];
     private final Matrix mBaselineImageMatrix = new Matrix();
     private final Matrix mImageMatrixInternal = new Matrix();
     private final Matrix mImageMatrix = new Matrix();
-    private final PointF mMaxScale = new PointF();
-    private final PointF mMinScale = new PointF();
     private final RectF mSrcRect = new RectF();
     private final RectF mDstRect = new RectF();
+
+    private final Object mLock = new Object();
 
     private int mInvalidFlags;
     //endregion Fields
@@ -255,43 +260,43 @@ public class InteractiveImageView extends AppCompatImageView
     }
 
     public float getImageCenterX() {
-        // TODO synchronized?
-        getImageMatrixInternal().invert(mImageMatrix);
-        mImageMatrix.getValues(mMatrixValues);
-        mPts[0] = (getWidth() - getPaddingLeft() - getPaddingRight()) * 0.5f;
-        mPts[1] = 0.0f; //(getHeight() - getPaddingTop() - getPaddingBottom()) * 0.5f;
-        mImageMatrix.mapPoints(mPts);
-        return mPts[0];
+        synchronized (mLock) {
+            getImageMatrixInternal().invert(mImageMatrix);
+            mPts[0] = (getWidth() - getPaddingLeft() - getPaddingRight()) * 0.5f;
+            mPts[1] = 0.0f;
+            mImageMatrix.mapPoints(mPts);
+            return mPts[0] / getDrawableIntrinsicWidth();
+        }
     }
 
     public float getImageCenterY() {
-        // TODO synchronized?
-        getImageMatrixInternal().invert(mImageMatrix);
-        mImageMatrix.getValues(mMatrixValues);
-        mPts[0] = 0.0f; //(getWidth() - getPaddingLeft() - getPaddingRight()) * 0.5f;
-        mPts[1] = (getHeight() - getPaddingTop() - getPaddingBottom()) * 0.5f;
-        mImageMatrix.mapPoints(mPts);
-        return mPts[1];
+        synchronized (mLock) {
+            getImageMatrixInternal().invert(mImageMatrix);
+            mPts[0] = 0.0f;
+            mPts[1] = (getHeight() - getPaddingTop() - getPaddingBottom()) * 0.5f;
+            mImageMatrix.mapPoints(mPts);
+            return mPts[1] / getDrawableIntrinsicHeight();
+        }
     }
 
     public float getImageMaxScaleX() {
-        getImageMaxScale(null);
-        return mMaxScale.x;
+        getImageMaxScale();
+        return mMaxScaleX;
     }
 
     public float getImageMaxScaleY() {
-        getImageMaxScale(null);
-        return mMaxScale.y;
+        getImageMaxScale();
+        return mMaxScaleY;
     }
 
     public float getImageMinScaleX() {
-        getImageMinScale(null);
-        return mMinScale.x;
+        getImageMinScale();
+        return mMinScaleX;
     }
 
     public float getImageMinScaleY() {
-        getImageMinScale(null);
-        return mMinScale.y;
+        getImageMinScale();
+        return mMinScaleY;
     }
 
     public float getImageScaleX() {
@@ -366,9 +371,9 @@ public class InteractiveImageView extends AppCompatImageView
 
     @SuppressWarnings("SpellCheckingInspection")
     protected void getBaselineImageMatrix(ScaleType scaleType, Matrix outMatrix) {
-        if ((mInvalidFlags & INVALID_FLAG_BASELINE_IMAGE_MATRIX) ==
-                INVALID_FLAG_BASELINE_IMAGE_MATRIX) {
-            synchronized (mBaselineImageMatrix) {
+        synchronized (mLock) {
+            if ((mInvalidFlags & INVALID_FLAG_BASELINE_IMAGE_MATRIX) ==
+                    INVALID_FLAG_BASELINE_IMAGE_MATRIX) {
                 mInvalidFlags &= ~INVALID_FLAG_BASELINE_IMAGE_MATRIX;
                 if (drawableHasIntrinsicSize()) {
                     // We need to do the scaling ourselves.
@@ -425,19 +430,21 @@ public class InteractiveImageView extends AppCompatImageView
                         mBaselineImageMatrix.postTranslate(dx, dy);
                     } else {
                         // Generate the required transform.
+                        mSrcRect.set(0.0f, 0.0f, dwidth, dheight);
+                        mDstRect.set(0.0f, 0.0f, vwidth, vheight);
                         mBaselineImageMatrix.setRectToRect(
-                                new RectF(0, 0, dwidth, dheight), // TODO Use buckets
-                                new RectF(0, 0, vwidth, vheight),
+                                mSrcRect,
+                                mDstRect,
                                 scaleTypeToScaleToFit(scaleType));
                     }
                 } else {
                     mBaselineImageMatrix.reset();
                 }
             }
-        }
 
-        if (outMatrix != null && outMatrix != mBaselineImageMatrix) {
-            outMatrix.set(mBaselineImageMatrix);
+            if (outMatrix != null && outMatrix != mBaselineImageMatrix) {
+                outMatrix.set(mBaselineImageMatrix);
+            }
         }
     }
 
@@ -456,11 +463,12 @@ public class InteractiveImageView extends AppCompatImageView
         return mImageMatrixInternal;
     }
 
-    @SuppressWarnings("SameParameterValue")
-    protected void getImageMaxScale(PointF outPoint) {
-        if ((mInvalidFlags & INVALID_FLAG_IMAGE_MAX_SCALE) == INVALID_FLAG_IMAGE_MAX_SCALE) {
-            synchronized (mMaxScale) {
-                mInvalidFlags &= ~INVALID_FLAG_IMAGE_MAX_SCALE;
+    // TODO JavaDoc needs to state that method must call setImageMaxScale if overridden
+    protected void getImageMaxScale() {
+        synchronized (mLock) {
+            if ((mInvalidFlags & INVALID_FLAG_IMAGE_MAX_SCALE) == INVALID_FLAG_IMAGE_MAX_SCALE) {
+                final float maxScaleX;
+                final float maxScaleY;
                 if (drawableHasIntrinsicSize()) {
                     mSrcRect.set(
                             0,
@@ -496,32 +504,25 @@ public class InteractiveImageView extends AppCompatImageView
                     }
                     final float viewBasedScale = availableSize / baselineBreadth;
                     final float scale = Math.max(screenBasedScale, viewBasedScale);
-                    mMaxScale.set(scale * values[Matrix.MSCALE_X], scale * values[Matrix.MSCALE_Y]);
+                    maxScaleX = scale * values[Matrix.MSCALE_X];
+                    maxScaleY = scale * values[Matrix.MSCALE_Y];
                 } else {
-                    mMaxScale.set(1.0f, 1.0f);
+                    maxScaleX = maxScaleY = 1.0f;
                 }
+                setImageMaxScale(maxScaleX, maxScaleY);
             }
-        }
-
-        if (outPoint != null && outPoint != mMaxScale) {
-            outPoint.set(mMaxScale);
         }
     }
 
-    @SuppressWarnings("SameParameterValue ")
-    protected void getImageMinScale(PointF outPoint) {
-        if ((mInvalidFlags & INVALID_FLAG_IMAGE_MIN_SCALE) == INVALID_FLAG_IMAGE_MIN_SCALE) {
-            synchronized (mMinScale) {
-                mInvalidFlags &= ~INVALID_FLAG_IMAGE_MIN_SCALE;
+    // TODO JavaDoc needs to state that method must call setImageMinScale if overridden
+    protected void getImageMinScale() {
+        synchronized (mLock) {
+            if ((mInvalidFlags & INVALID_FLAG_IMAGE_MIN_SCALE) == INVALID_FLAG_IMAGE_MIN_SCALE) {
                 getBaselineImageMatrix(null);
                 final float[] values = new float[9];
                 mBaselineImageMatrix.getValues(values);
-                mMinScale.set(values[Matrix.MSCALE_X], values[Matrix.MSCALE_Y]);
+                setImageMinScale(values[Matrix.MSCALE_X], values[Matrix.MSCALE_Y]);
             }
-        }
-
-        if (outPoint != null && outPoint != mMinScale) {
-            outPoint.set(mMinScale);
         }
     }
 
@@ -542,12 +543,38 @@ public class InteractiveImageView extends AppCompatImageView
         }
     }
 
+    protected void setImageMaxScale(float sx, float sy) {
+        mInvalidFlags &= ~INVALID_FLAG_IMAGE_MAX_SCALE;
+        mMaxScaleX = sx;
+        mMaxScaleY = sy;
+    }
+
+    protected void setImageMinScale(float sx, float sy) {
+        mInvalidFlags &= ~INVALID_FLAG_IMAGE_MIN_SCALE;
+        mMinScaleX = sx;
+        mMinScaleY = sy;
+    }
+
     protected void setLayoutInternal(float sx, float sy, float cx, float cy, boolean fromUser) {
-        // Need to resolve the scale x/y passed in
-        Log.d(LOG_TAG, String.format(
-                Locale.US,
-                "setLayoutInternal: sx=%.2f, sy=%.2f, cx=%.2f, cy=%.2f, fromUser=%b",
-                sx, sy, cx, cy, fromUser));
+        // TODO synchronize
+        final float resolvedSx = sx; // TODO TEMP
+        final float resolvedSy = sy; // TODO TEMP
+
+        getBaselineImageMatrix(mImageMatrix);
+        mImageMatrix.getValues(mMatrixValues);
+        mMatrixValues[Matrix.MSCALE_X] = resolvedSx;
+        mMatrixValues[Matrix.MSCALE_Y] = resolvedSy;
+
+        // TODO NEXT Convert center points
+
+        mImageMatrix.setValues(mMatrixValues);
+
+        if (ScaleType.MATRIX != super.getScaleType()) {
+            super.setScaleType(ScaleType.MATRIX);
+        }
+
+        super.setImageMatrix(mImageMatrix);
+        // invalidate() ?
     }
     //endregion Protected methods
 

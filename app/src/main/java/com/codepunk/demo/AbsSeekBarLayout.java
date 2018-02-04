@@ -25,9 +25,6 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
     //region Constants
     private static final String LOG_TAG = AbsSeekBarLayout.class.getSimpleName();
     private static final DecimalFormat DEFAULT_DECIMAL_FORMAT = new DecimalFormat();
-    private static final int WHAT_NONE = 0;
-    private static final int WHAT_PROGRESS = 1;
-    private static final int WHAT_VALUE = 2;
     //endregion Constants
 
     //region Nested classes
@@ -50,6 +47,8 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
     protected T mMinValue;
     protected T mMaxValue;
     protected T mValue;
+
+    protected boolean mValueDirty = true;
 
     private Handler mUpdateHandler = new Handler(this);
     private OnSeekBarChangeListener<T> mOnSeekBarChangeListener;
@@ -75,37 +74,26 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
     //region Implemented methods
     @Override
     public boolean handleMessage(Message message) {
-        if (message.what == WHAT_NONE || message.what == WHAT_PROGRESS) {
+        final boolean valueDirty = mValueDirty;
+        if (mValueDirty) {
             mValue = progressToValue(
                     mSeekBar.getProgress(),
                     mSeekBar.getMax(),
                     mMinValue,
                     mMaxValue);
+            mValueDirty = false;
         }
         updateUI();
-        if (message.what == WHAT_PROGRESS && mOnSeekBarChangeListener != null) {
-            mOnSeekBarChangeListener.onProgressChanged(
-                    this,
-                    message.arg1,
-                    message.arg2 != 0);
-        }
         return true;
     }
 
     @Override
     public void onProgressChanged(SeekBar bar, int progress, boolean fromUser) {
-        if (fromUser) {
-            Message message = new Message();
-            message.what = WHAT_PROGRESS;
-            message.arg1 = progress;
-            message.arg2 = (fromUser ? 1 : 0);
-            mUpdateHandler.sendMessage(message);
-        }
-        /*
+        mValue = progressToValue(mSeekBar.getProgress(), mSeekBar.getMax(), mMinValue, mMaxValue);
+        updateUI();
         if (mOnSeekBarChangeListener != null) {
             mOnSeekBarChangeListener.onProgressChanged(this, progress, fromUser);
         }
-        */
     }
 
     @Override
@@ -142,12 +130,16 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
 
     public void setMaxValue(T maxValue) {
         mMaxValue = maxValue;
-        mUpdateHandler.sendEmptyMessage(WHAT_NONE);
+        mValueDirty = true;
+        mUpdateHandler.removeMessages(0);
+        mUpdateHandler.sendEmptyMessage(0);
     }
 
     public void setMinValue(T minValue) {
         mMinValue = minValue;
-        mUpdateHandler.sendEmptyMessage(WHAT_NONE);
+        mValueDirty = true;
+        mUpdateHandler.removeMessages(0);
+        mUpdateHandler.sendEmptyMessage(0);
     }
 
     public void setOnSeekBarChangeListener(OnSeekBarChangeListener<T> listener) {
@@ -164,7 +156,6 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
 
     public void setValue(T value) {
         mValue = value;
-        // TODO send this as a message
         mSeekBar.setProgress(valueToProgress(value, mMinValue, mMaxValue, mSeekBar.getMax()));
     }
     //endregion Methods
