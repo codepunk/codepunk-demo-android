@@ -4,10 +4,10 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.Matrix;
-import android.graphics.PointF;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.support.annotation.Nullable;
+import android.support.v4.math.MathUtils;
 import android.support.v4.view.GestureDetectorCompat;
 import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
@@ -21,8 +21,6 @@ import android.widget.OverScroller;
 
 import com.codepunk.demo.R;
 import com.codepunk.demo.support.DisplayCompat;
-
-import java.util.Locale;
 
 /*
  * TODO Play with cropToPadding
@@ -526,6 +524,16 @@ public class InteractiveImageView extends AppCompatImageView
         }
     }
 
+    @SuppressWarnings("unused")
+    protected float resolveScaleX(float sx, float minScaleX, float maxScaleX, boolean fromUser) {
+        return MathUtils.clamp(sx, minScaleX, maxScaleX);
+    }
+
+    @SuppressWarnings("unused")
+    protected float resolveScaleY(float sy, float minScaleY, float maxScaleY, boolean fromUser) {
+        return MathUtils.clamp(sy, minScaleY, maxScaleY);
+    }
+
     protected static Matrix.ScaleToFit scaleTypeToScaleToFit(ScaleType scaleType) {
         if (scaleType == null) {
             return null;
@@ -557,15 +565,26 @@ public class InteractiveImageView extends AppCompatImageView
 
     protected void setLayoutInternal(float sx, float sy, float cx, float cy, boolean fromUser) {
         // TODO synchronize
-        final float resolvedSx = sx; // TODO TEMP
-        final float resolvedSy = sy; // TODO TEMP
+        final float resolvedSx =
+                resolveScaleX(sx, getImageMinScaleX(), getImageMaxScaleX(), fromUser);
+        final float resolvedSy =
+                resolveScaleY(sy, getImageMinScaleY(), getImageMaxScaleY(), fromUser);
 
-        getBaselineImageMatrix(mImageMatrix);
-        mImageMatrix.getValues(mMatrixValues);
+        // Q: Do I want baseline here? Or current? Does it matter? If the matrix is set manually,
+        // THAT becomes the baseline so skew, rotate etc. are preserved. If the image is set
+        // using setScaleType, the baseline will have skew, rotate of 0 so we're still good.
+        // Since it doesn't seem to matter, getting current matrix is probably the simpler choice.
+
+        mImageMatrix.set(getImageMatrixInternal());
         mMatrixValues[Matrix.MSCALE_X] = resolvedSx;
         mMatrixValues[Matrix.MSCALE_Y] = resolvedSy;
+        mImageMatrix.setValues(mMatrixValues);
+
 
         // TODO NEXT Convert center points
+        // That is, take cx and cy (percentages into the image) and, along with size/skew, etc.
+        // figure out the pixel x/y of the center
+        //
 
         mImageMatrix.setValues(mMatrixValues);
 
