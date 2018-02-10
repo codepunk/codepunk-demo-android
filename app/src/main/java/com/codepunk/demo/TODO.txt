@@ -1,0 +1,9 @@
+TODO NEXT:
+In InteractiveImageViewControlsFragment:
+resetClamps? mLockBtn.isChecked when sliding?
+
+In InteractiveImageView:
+Clean up setLayoutInternal
+
+TODO:
+Play with cropToPadding, see how it behaves. (Like "viewport" in my original concept?)
