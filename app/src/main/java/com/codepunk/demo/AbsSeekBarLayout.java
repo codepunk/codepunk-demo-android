@@ -13,6 +13,7 @@ import android.support.v7.widget.AppCompatTextView;
 import android.util.AttributeSet;
 import android.widget.SeekBar;
 
+import com.codepunk.demo.support.ProgressBarCompat;
 import com.codepunk.demo.support.ViewCompat;
 
 import java.text.DecimalFormat;
@@ -155,8 +156,14 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
     }
 
     public void setValue(T value) {
+        setValue(value, false);
+    }
+
+    public void setValue(T value, boolean animate) {
         mValue = value;
-        mSeekBar.setProgress(valueToProgress(value, mMinValue, mMaxValue, mSeekBar.getMax()));
+        ProgressBarCompat.setProgress(
+                mSeekBar,
+                valueToProgress(value, mMinValue, mMaxValue, mSeekBar.getMax()), animate);
     }
     //endregion Methods
 

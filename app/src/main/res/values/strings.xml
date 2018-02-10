@@ -6,10 +6,10 @@
     <string name="label_drawable">Drawable:</string>
     <string name="label_image">Image:</string>
     <string name="label_scale_type">Scale Type:</string>
-    <string name="label_pan">Pan:</string>
+    <string name="label_center">Center:</string>
     <string name="label_scale">Scale:</string>
-    <string name="label_pan_x">Pan X:</string>
-    <string name="label_pan_y">Pan Y:</string>
+    <string name="label_center_x">Center X:</string>
+    <string name="label_center_y">Center Y:</string>
     <string name="label_scale_x">Scale X:</string>
     <string name="label_scale_y">Scale Y:</string>
 

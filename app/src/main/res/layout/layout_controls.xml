@@ -45,7 +45,7 @@
             android:id="@+id/label_pan"
             android:layout_width="@dimen/controls_section_label_view_width"
             android:layout_height="wrap_content"
-            android:text="@string/label_pan" />
+            android:text="@string/label_center" />
 
         <android.support.v7.widget.AppCompatImageView
             android:layout_width="wrap_content"

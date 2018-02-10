@@ -40,19 +40,19 @@
         android:entries="@array/scale_types" />
 
     <com.codepunk.demo.FloatSeekBarLayout
-        android:id="@+id/layout_seek_bar_pan_x"
+        android:id="@+id/layout_seek_bar_center_x"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="@dimen/standard_margin"
-        android:label="@string/label_pan_x"
+        android:label="@string/label_center_x"
         android:format="0%" />
 
     <com.codepunk.demo.FloatSeekBarLayout
-        android:id="@+id/layout_seek_bar_pan_y"
+        android:id="@+id/layout_seek_bar_center_y"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="@dimen/standard_margin"
-        android:label="@string/label_pan_y"
+        android:label="@string/label_center_y"
         android:format="0%" />
 
     <RelativeLayout

@@ -9,6 +9,7 @@ import android.graphics.drawable.Drawable;
 import android.support.annotation.Nullable;
 import android.support.v4.math.MathUtils;
 import android.support.v4.view.GestureDetectorCompat;
+import android.support.v4.view.ViewCompat;
 import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
@@ -23,6 +24,8 @@ import com.codepunk.demo.R;
 import com.codepunk.demo.support.DisplayCompat;
 
 /*
+ * TODO NEXT Clean up setLayoutInternal
+ *           Are there times when manipulating sliders that I don't want to update the other dimension?
  * TODO Play with cropToPadding
  */
 
@@ -512,6 +515,82 @@ public class InteractiveImageView extends AppCompatImageView
         }
     }
 
+    protected float getImageMaxTransX(int availableWidth, float scaledImageWidth) {
+        final float diff = availableWidth - scaledImageWidth;
+        if (diff > 0) {
+            // Image width is smaller than available width
+            final boolean isRtl =
+                    ViewCompat.getLayoutDirection(this) == ViewCompat.LAYOUT_DIRECTION_RTL;
+            switch (mScaleType) {
+                case FIT_START:
+                    return (isRtl ? diff : 0.0f);
+                case FIT_END:
+                    return (isRtl ? 0.0f : diff);
+                default:
+                    return diff * 0.5f;
+            }
+        } else {
+            // Image width is larger than available width
+            return 0.0f;
+        }
+    }
+
+    protected float getImageMaxTransY(int availableHeight, float scaledImageHeight) {
+        final float diff = availableHeight - scaledImageHeight;
+        if (diff > 0) {
+            // Image height is smaller than available height
+            switch (mScaleType) {
+                case FIT_START:
+                    return 0.0f;
+                case FIT_END:
+                    return diff;
+                default:
+                    return diff * 0.5f;
+            }
+        } else {
+            // Image height is larger than available height
+            return 0.0f;
+        }
+    }
+
+    protected float getImageMinTransX(int availableWidth, float scaledImageWidth) {
+        final float diff = availableWidth - scaledImageWidth;
+        if (diff > 0) {
+            // Image width is smaller than available width
+            final boolean isRtl =
+                    ViewCompat.getLayoutDirection(this) == ViewCompat.LAYOUT_DIRECTION_RTL;
+            switch (mScaleType) {
+                case FIT_START:
+                    return (isRtl ? diff : 0.0f);
+                case FIT_END:
+                    return (isRtl ? 0.0f : diff);
+                default:
+                    return diff * 0.5f;
+            }
+        } else {
+            // Image width is larger than available width
+            return diff;
+        }
+    }
+
+    protected float getImageMinTransY(int availableHeight, float scaledImageHeight) {
+        final float diff = availableHeight - scaledImageHeight;
+        if (diff > 0) {
+            // Image height is smaller than available height
+            switch (mScaleType) {
+                case FIT_START:
+                    return 0.0f;
+                case FIT_END:
+                    return diff;
+                default:
+                    return diff * 0.5f;
+            }
+        } else {
+            // Image height is larger than available height
+            return diff;
+        }
+    }
+
     // TODO JavaDoc needs to state that method must call setImageMinScale if overridden
     protected void getImageMinScale() {
         synchronized (mLock) {
@@ -532,6 +611,16 @@ public class InteractiveImageView extends AppCompatImageView
     @SuppressWarnings("unused")
     protected float resolveScaleY(float sy, float minScaleY, float maxScaleY, boolean fromUser) {
         return MathUtils.clamp(sy, minScaleY, maxScaleY);
+    }
+
+    @SuppressWarnings("unused")
+    protected float resolveTransX(float tx, float minTransX, float maxTransX, boolean fromUser) {
+        return MathUtils.clamp(tx, minTransX, maxTransX);
+    }
+
+    @SuppressWarnings("unused")
+    protected float resolveTransY(float ty, float minTransY, float maxTransY, boolean fromUser) {
+        return MathUtils.clamp(ty, minTransY, maxTransY);
     }
 
     protected static Matrix.ScaleToFit scaleTypeToScaleToFit(ScaleType scaleType) {
@@ -565,27 +654,47 @@ public class InteractiveImageView extends AppCompatImageView
 
     protected void setLayoutInternal(float sx, float sy, float cx, float cy, boolean fromUser) {
         // TODO synchronize
+        // TODO check intrinsic size?
         final float resolvedSx =
                 resolveScaleX(sx, getImageMinScaleX(), getImageMaxScaleX(), fromUser);
         final float resolvedSy =
                 resolveScaleY(sy, getImageMinScaleY(), getImageMaxScaleY(), fromUser);
-
-        // Q: Do I want baseline here? Or current? Does it matter? If the matrix is set manually,
-        // THAT becomes the baseline so skew, rotate etc. are preserved. If the image is set
-        // using setScaleType, the baseline will have skew, rotate of 0 so we're still good.
-        // Since it doesn't seem to matter, getting current matrix is probably the simpler choice.
 
         mImageMatrix.set(getImageMatrixInternal());
         mMatrixValues[Matrix.MSCALE_X] = resolvedSx;
         mMatrixValues[Matrix.MSCALE_Y] = resolvedSy;
         mImageMatrix.setValues(mMatrixValues);
 
+        // What's the size of the resulting rect at the current scale?
+        final int intrinsicWidth = getDrawableIntrinsicWidth();
+        final int intrinsicHeight = getDrawableIntrinsicHeight();
+        mSrcRect.set(0.0f, 0.0f, intrinsicWidth, intrinsicHeight);
+        mImageMatrix.mapRect(mDstRect, mSrcRect);
+        final float mappedWidth = mDstRect.width();
+        final float mappedHeight = mDstRect.height();
 
-        // TODO NEXT Convert center points
-        // That is, take cx and cy (percentages into the image) and, along with size/skew, etc.
-        // figure out the pixel x/y of the center
-        //
+        mPts[0] = intrinsicWidth * cx;
+        mPts[1] = intrinsicHeight * cy;
+        mImageMatrix.mapPoints(mPts);
 
+        final int availableWidth = getWidth() - getPaddingLeft() - getPaddingRight();
+        final int availableHeight = getHeight() - getPaddingTop() - getPaddingBottom();
+        final float tx = mMatrixValues[Matrix.MTRANS_X] + availableWidth * 0.5f - mPts[0];
+        final float ty = mMatrixValues[Matrix.MTRANS_Y] + availableHeight * 0.5f - mPts[1];
+
+        final float resolvedTransX = resolveTransX(
+                tx,
+                getImageMinTransX(availableWidth, mappedWidth),
+                getImageMaxTransX(availableWidth, mappedWidth),
+                fromUser);
+        final float resolvedTransY = resolveTransY(
+                ty,
+                getImageMinTransY(availableHeight, mappedHeight),
+                getImageMaxTransY(availableHeight, mappedHeight),
+                fromUser);
+
+        mMatrixValues[Matrix.MTRANS_X] = resolvedTransX;
+        mMatrixValues[Matrix.MTRANS_Y] = resolvedTransY;
         mImageMatrix.setValues(mMatrixValues);
 
         if (ScaleType.MATRIX != super.getScaleType()) {
