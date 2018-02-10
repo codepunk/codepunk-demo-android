@@ -26,8 +26,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-// TODO NEXT resetClamps? mLockBtn.isChecked when sliding?
-
 public class InteractiveImageViewControlsFragment extends Fragment
         implements AbsSeekBarLayout.OnSeekBarChangeListener<Float>,
                 AdapterView.OnItemSelectedListener,
@@ -125,40 +123,49 @@ public class InteractiveImageViewControlsFragment extends Fragment
             AbsSeekBarLayout<Float> seekBarLayout,
             int progress,
             boolean fromUser) {
-        mManipulatedSeekBars.add(seekBarLayout);
-        final int id = seekBarLayout.getId();
-        switch (id) {
-            case R.id.layout_seek_bar_center_x: {
-                final float sx = mImageView.getImageScaleX();
-                final float sy = mImageView.getImageScaleY();
-                final float cx = seekBarLayout.getValue();
-                final float cy = mImageView.getImageCenterY();
-                mImageView.setLayout(sx, sy, cx, cy);
-                break;
-            }
-            case R.id.layout_seek_bar_center_y: {
-                final float sx = mImageView.getImageScaleX();
-                final float sy = mImageView.getImageScaleY();
-                final float cx = mImageView.getImageCenterX();
-                final float cy = seekBarLayout.getValue();
-                mImageView.setLayout(sx, sy, cx, cy);
-                break;
-            }
-            case R.id.layout_seek_bar_scale_x: {
-                final float sx = seekBarLayout.getValue();
-                final float sy = mImageView.getImageScaleY();
-                final float cx = mImageView.getImageCenterX();
-                final float cy = mImageView.getImageCenterY();
-                mImageView.setLayout(sx, sy, cx, cy);
-                break;
-            }
-            case R.id.layout_seek_bar_scale_y: {
-                final float sx = mImageView.getImageScaleX();
-                final float sy = seekBarLayout.getValue();
-                final float cx = mImageView.getImageCenterX();
-                final float cy = mImageView.getImageCenterY();
-                mImageView.setLayout(sx, sy, cx, cy);
-                break;
+        if (fromUser) {
+            final int id = seekBarLayout.getId();
+            switch (id) {
+                case R.id.layout_seek_bar_center_x: {
+                    mManipulatedSeekBars.add(mCenterXSeekBarLayout);
+                    mManipulatedSeekBars.add(mCenterYSeekBarLayout);
+                    final float sx = mImageView.getImageScaleX();
+                    final float sy = mImageView.getImageScaleY();
+                    final float cx = seekBarLayout.getValue();
+                    final float cy = mImageView.getImageCenterY();
+                    mImageView.setLayout(sx, sy, cx, cy);
+                    break;
+                }
+                case R.id.layout_seek_bar_center_y: {
+                    mManipulatedSeekBars.add(mCenterXSeekBarLayout);
+                    mManipulatedSeekBars.add(mCenterYSeekBarLayout);
+                    final float sx = mImageView.getImageScaleX();
+                    final float sy = mImageView.getImageScaleY();
+                    final float cx = mImageView.getImageCenterX();
+                    final float cy = seekBarLayout.getValue();
+                    mImageView.setLayout(sx, sy, cx, cy);
+                    break;
+                }
+                case R.id.layout_seek_bar_scale_x: {
+                    mManipulatedSeekBars.add(mScaleXSeekBarLayout);
+                    mManipulatedSeekBars.add(mScaleYSeekBarLayout);
+                    final float sx = seekBarLayout.getValue();
+                    final float sy = mImageView.getImageScaleY();
+                    final float cx = mImageView.getImageCenterX();
+                    final float cy = mImageView.getImageCenterY();
+                    mImageView.setLayout(sx, sy, cx, cy);
+                    break;
+                }
+                case R.id.layout_seek_bar_scale_y: {
+                    mManipulatedSeekBars.add(mScaleXSeekBarLayout);
+                    mManipulatedSeekBars.add(mScaleYSeekBarLayout);
+                    final float sx = mImageView.getImageScaleX();
+                    final float sy = seekBarLayout.getValue();
+                    final float cx = mImageView.getImageCenterX();
+                    final float cy = mImageView.getImageCenterY();
+                    mImageView.setLayout(sx, sy, cx, cy);
+                    break;
+                }
             }
         }
     }
@@ -216,7 +223,7 @@ public class InteractiveImageViewControlsFragment extends Fragment
             mScaleXSeekBarLayout.setValue(mImageView.getImageScaleX(), true);
         }
         if (!mManipulatedSeekBars.remove(mScaleYSeekBarLayout)) {
-            mScaleYSeekBarLayout.setValue(mImageView.getImageScaleX(), true);
+            mScaleYSeekBarLayout.setValue(mImageView.getImageScaleY(), true);
         }
     }
 

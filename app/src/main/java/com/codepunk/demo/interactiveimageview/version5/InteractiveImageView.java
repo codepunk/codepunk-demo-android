@@ -23,12 +23,6 @@ import android.widget.OverScroller;
 import com.codepunk.demo.R;
 import com.codepunk.demo.support.DisplayCompat;
 
-/*
- * TODO NEXT Clean up setLayoutInternal
- *           Are there times when manipulating sliders that I don't want to update the other dimension?
- * TODO Play with cropToPadding
- */
-
 public class InteractiveImageView extends AppCompatImageView
         implements GestureDetector.OnGestureListener,
         GestureDetector.OnDoubleTapListener,
