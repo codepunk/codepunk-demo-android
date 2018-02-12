@@ -1,9 +1,11 @@
 TODO NEXT:
-In InteractiveImageViewControlsFragment:
-resetClamps? mLockBtn.isChecked when sliding?
 
 In InteractiveImageView:
 Clean up setLayoutInternal
+
+In InteractiveImageViewControlsFragment:
+Save/restore state of scale, center, etc.
+Research: Does ImageView remember Matrix values after configuration change?
 
 TODO:
 Play with cropToPadding, see how it behaves. (Like "viewport" in my original concept?)

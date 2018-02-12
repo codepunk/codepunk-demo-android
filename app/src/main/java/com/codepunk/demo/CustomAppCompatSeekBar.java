@@ -80,20 +80,20 @@ public class CustomAppCompatSeekBar extends AppCompatSeekBar
         return mClampedMax;
     }
 
-    public void setClampedMax(int clampedMax) {
+    public void setClampedMax(int max) {
         if (mClampedMinInitialized) {
-            if (clampedMax < mClampedMin) {
-                clampedMax = mClampedMin;
+            if (max < mClampedMin) {
+                max = mClampedMin;
             }
         }
         mClampedMaxInitialized = true;
-        if (mClampedMinInitialized && clampedMax != mClampedMax) {
-            mClampedMax = clampedMax;
-            if (getProgress() > clampedMax) {
-                setProgress(clampedMax);
+        if (mClampedMinInitialized && max != mClampedMax) {
+            mClampedMax = max;
+            if (getProgress() > max) {
+                setProgress(max);
             }
         } else {
-            mClampedMax = clampedMax;
+            mClampedMax = max;
         }
     }
 
@@ -101,20 +101,20 @@ public class CustomAppCompatSeekBar extends AppCompatSeekBar
         return mClampedMin;
     }
 
-    public void setClampedMin(int clampedMin) {
+    public void setClampedMin(int min) {
         if (mClampedMaxInitialized) {
-            if (clampedMin > mClampedMax) {
-                clampedMin = mClampedMax;
+            if (min > mClampedMax) {
+                min = mClampedMax;
             }
         }
         mClampedMinInitialized = true;
-        if (mClampedMaxInitialized && clampedMin != mClampedMin) {
-            mClampedMin = clampedMin;
-            if (getProgress() < clampedMin) {
-                setProgress(clampedMin);
+        if (mClampedMaxInitialized && min != mClampedMin) {
+            mClampedMin = min;
+            if (getProgress() < min) {
+                setProgress(min);
             }
         } else {
-            mClampedMin = clampedMin;
+            mClampedMin = min;
         }
     }
     //endregion Methods

@@ -39,15 +39,15 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
     //region Fields
     protected AppCompatTextView mLabelText;
     protected AppCompatTextView mValueText;
-    protected AppCompatTextView mMinValueText;
     protected AppCompatTextView mMaxValueText;
+    protected AppCompatTextView mMinValueText;
     protected CustomAppCompatSeekBar mSeekBar;
 
     protected DecimalFormat mDecimalFormat = null;
 
-    protected T mMinValue;
-    protected T mMaxValue;
-    protected T mValue;
+    @NonNull protected T mMaxValue = getInitialValue();
+    @NonNull protected T mMinValue = getInitialValue();
+    @NonNull protected T mValue = getInitialValue();
 
     protected boolean mValueDirty = true;
 
@@ -77,11 +77,7 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
     public boolean handleMessage(Message message) {
         final boolean valueDirty = mValueDirty;
         if (mValueDirty) {
-            mValue = progressToValue(
-                    mSeekBar.getProgress(),
-                    mSeekBar.getMax(),
-                    mMinValue,
-                    mMaxValue);
+            mValue = progressToValue(mSeekBar.getProgress());
             mValueDirty = false;
         }
         updateUI();
@@ -90,7 +86,7 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
 
     @Override
     public void onProgressChanged(SeekBar bar, int progress, boolean fromUser) {
-        mValue = progressToValue(mSeekBar.getProgress(), mSeekBar.getMax(), mMinValue, mMaxValue);
+        mValue = progressToValue(mSeekBar.getProgress());
         updateUI();
         if (mOnSeekBarChangeListener != null) {
             mOnSeekBarChangeListener.onProgressChanged(this, progress, fromUser);
@@ -113,8 +109,20 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
     //endregion Implemented methods
 
     //region Methods
-    public T getValue() {
+    public float getRelativeProgress() {
+        return (float) mSeekBar.getProgress() / mSeekBar.getMax();
+    }
+
+    public @NonNull T getValue() {
         return mValue;
+    }
+
+    public void setClampedMax(int max) {
+        mSeekBar.setClampedMax(max);
+    }
+
+    public void setClampedMin(int min) {
+        mSeekBar.setClampedMin(min);
     }
 
     public void setFormat(String format) {
@@ -129,14 +137,14 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
         mLabelText.setText(resId);
     }
 
-    public void setMaxValue(T maxValue) {
+    public void setMaxValue(@NonNull T maxValue) {
         mMaxValue = maxValue;
         mValueDirty = true;
         mUpdateHandler.removeMessages(0);
         mUpdateHandler.sendEmptyMessage(0);
     }
 
-    public void setMinValue(T minValue) {
+    public void setMinValue(@NonNull T minValue) {
         mMinValue = minValue;
         mValueDirty = true;
         mUpdateHandler.removeMessages(0);
@@ -155,37 +163,31 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
         mSeekBar.setMax(range);
     }
 
-    public void setValue(T value) {
+    public void setValue(@NonNull T value) {
         setValue(value, false);
     }
 
-    public void setValue(T value, boolean animate) {
+    public void setValue(@NonNull T value, boolean animate) {
         mValue = value;
         ProgressBarCompat.setProgress(
                 mSeekBar,
-                valueToProgress(value, mMinValue, mMaxValue, mSeekBar.getMax()), animate);
+                valueToProgress(value), animate);
     }
+
+    public abstract T progressToValue(int progress);
+
+    public abstract int valueToProgress(@NonNull T value);
     //endregion Methods
 
     //region Protected methods
+    protected abstract T getInitialValue();
+
     protected void updateUI() {
         final DecimalFormat format = getDecimalFormat();
         mMinValueText.setText(format.format(mMinValue.doubleValue()));
         mMaxValueText.setText(format.format(mMaxValue.doubleValue()));
         mValueText.setText(format.format(mValue.doubleValue()));
     }
-
-    protected abstract T progressToValue(
-            int progress,
-            int maxProgress,
-            @NonNull T minValue,
-            @NonNull T maxValue);
-
-    protected abstract int valueToProgress(
-            @NonNull T value,
-            @NonNull T minValue,
-            @NonNull T maxValue,
-            int maxProgress);
     //endregion Protected methods
 
     //region Private methods
@@ -199,7 +201,6 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
             AttributeSet attrs,
             int defStyleAttr,
             int defStyleRes) {
-
         final Resources resources = context.getResources();
         final int standardMargin =
                 resources.getDimensionPixelOffset(R.dimen.standard_margin);

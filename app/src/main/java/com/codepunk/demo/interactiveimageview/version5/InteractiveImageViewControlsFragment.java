@@ -30,10 +30,14 @@ public class InteractiveImageViewControlsFragment extends Fragment
         implements AbsSeekBarLayout.OnSeekBarChangeListener<Float>,
                 AdapterView.OnItemSelectedListener,
                 DemoInteractiveImageView.DemoInteractiveImageViewListener,
+                View.OnClickListener,
                 View.OnTouchListener {
     //region Constants
     private static final String LOG_TAG =
             InteractiveImageViewControlsFragment.class.getSimpleName();
+
+    private static final String CLASS_NAME = InteractiveImageViewControlsFragment.class.getName();
+    private static final String KEY_SCALE_LOCKED = CLASS_NAME + ".scaleLocked";
     //endregion Constants
 
     //region Fields
@@ -96,12 +100,21 @@ public class InteractiveImageViewControlsFragment extends Fragment
         mScaleXSeekBarLayout = view.findViewById(R.id.layout_seek_bar_scale_x);
         mScaleYSeekBarLayout = view.findViewById(R.id.layout_seek_bar_scale_y);
 
+        if (savedInstanceState == null) {
+
+        } else {
+            mLockButton.setChecked(
+                    savedInstanceState.getBoolean(KEY_SCALE_LOCKED,
+                            false));
+        }
+
         mImageSpinner.setOnItemSelectedListener(this);
         mScaleTypeSpinner.setOnItemSelectedListener(this);
         mCenterXSeekBarLayout.setOnSeekBarChangeListener(this);
         mCenterYSeekBarLayout.setOnSeekBarChangeListener(this);
         mScaleXSeekBarLayout.setOnSeekBarChangeListener(this);
         mScaleYSeekBarLayout.setOnSeekBarChangeListener(this);
+        mLockButton.setOnClickListener(this);
 
         // Prevent drawer from intercepting touch event from seek bars
         mCenterXSeekBarLayout.setSeekBarOnTouchListener(this);
@@ -115,6 +128,13 @@ public class InteractiveImageViewControlsFragment extends Fragment
         mCenterYSeekBarLayout.setMinValue(0.0f);
         mCenterYSeekBarLayout.setMaxValue(1.0f);
     }
+
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putBoolean(KEY_SCALE_LOCKED, mLockButton.isChecked());
+    }
+
     //endregion Lifecycle methods
 
     //region Implemented methods
@@ -125,48 +145,49 @@ public class InteractiveImageViewControlsFragment extends Fragment
             boolean fromUser) {
         if (fromUser) {
             final int id = seekBarLayout.getId();
+            float sx = mImageView.getImageScaleX();
+            float sy = mImageView.getImageScaleY();
+            float cx = mImageView.getImageCenterX();
+            float cy = mImageView.getImageCenterY();
             switch (id) {
                 case R.id.layout_seek_bar_center_x: {
                     mManipulatedSeekBars.add(mCenterXSeekBarLayout);
                     mManipulatedSeekBars.add(mCenterYSeekBarLayout);
-                    final float sx = mImageView.getImageScaleX();
-                    final float sy = mImageView.getImageScaleY();
-                    final float cx = seekBarLayout.getValue();
-                    final float cy = mImageView.getImageCenterY();
-                    mImageView.setLayout(sx, sy, cx, cy);
+                    cx = seekBarLayout.getValue();
                     break;
                 }
                 case R.id.layout_seek_bar_center_y: {
                     mManipulatedSeekBars.add(mCenterXSeekBarLayout);
                     mManipulatedSeekBars.add(mCenterYSeekBarLayout);
-                    final float sx = mImageView.getImageScaleX();
-                    final float sy = mImageView.getImageScaleY();
-                    final float cx = mImageView.getImageCenterX();
-                    final float cy = seekBarLayout.getValue();
-                    mImageView.setLayout(sx, sy, cx, cy);
+                    cy = seekBarLayout.getValue();
                     break;
                 }
                 case R.id.layout_seek_bar_scale_x: {
                     mManipulatedSeekBars.add(mScaleXSeekBarLayout);
                     mManipulatedSeekBars.add(mScaleYSeekBarLayout);
-                    final float sx = seekBarLayout.getValue();
-                    final float sy = mImageView.getImageScaleY();
-                    final float cx = mImageView.getImageCenterX();
-                    final float cy = mImageView.getImageCenterY();
-                    mImageView.setLayout(sx, sy, cx, cy);
+                    final float oldSx = sx;
+                    sx = seekBarLayout.getValue();
+                    if (mLockButton.isChecked()) {
+                        sy *= sx / oldSx;
+                        mScaleYSeekBarLayout.setValue(sy);
+                    }
                     break;
                 }
                 case R.id.layout_seek_bar_scale_y: {
                     mManipulatedSeekBars.add(mScaleXSeekBarLayout);
                     mManipulatedSeekBars.add(mScaleYSeekBarLayout);
-                    final float sx = mImageView.getImageScaleX();
-                    final float sy = seekBarLayout.getValue();
-                    final float cx = mImageView.getImageCenterX();
-                    final float cy = mImageView.getImageCenterY();
-                    mImageView.setLayout(sx, sy, cx, cy);
+                    final float oldSy = sy;
+                    sy = seekBarLayout.getValue();
+                    if (mLockButton.isChecked()) {
+                        sx *= sy / oldSy;
+                        mScaleXSeekBarLayout.setValue(sx);
+                    }
                     break;
                 }
+                default:
+                    return;
             }
+            mImageView.setLayout(sx, sy, cx, cy);
         }
     }
 
@@ -184,12 +205,14 @@ public class InteractiveImageViewControlsFragment extends Fragment
     public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
         switch (parent.getId()) {
             case R.id.spinner_image:
+                mPendingResetClamps = true;
                 if (mImageView != null && position >= 0 && position < mImageEntryValues.size()) {
                     mPendingResetClamps = true;
                     mImageView.setImageResource(mImageEntryValues.get(position));
                 }
                 break;
             case R.id.spinner_scale_type:
+                mPendingResetClamps = true;
                 if (mImageView != null && position >= 0 && position < mScaleTypeEntryValues.size()) {
                     mPendingResetClamps = true;
                     mImageView.setScaleType(
@@ -208,6 +231,13 @@ public class InteractiveImageViewControlsFragment extends Fragment
     public void onDraw(InteractiveImageView view, Canvas canvas) {
         updateScaleTypeSpinner();
 
+        if (mPendingResetClamps) {
+            mScaleXSeekBarLayout.setClampedMin(Integer.MIN_VALUE);
+            mScaleXSeekBarLayout.setClampedMax(Integer.MAX_VALUE);
+            mScaleYSeekBarLayout.setClampedMin(Integer.MIN_VALUE);
+            mScaleYSeekBarLayout.setClampedMax(Integer.MAX_VALUE);
+        }
+
         mScaleXSeekBarLayout.setMinValue(mImageView.getImageMinScaleX());
         mScaleXSeekBarLayout.setMaxValue(mImageView.getImageMaxScaleX());
         mScaleYSeekBarLayout.setMinValue(mImageView.getImageMinScaleY());
@@ -224,6 +254,11 @@ public class InteractiveImageViewControlsFragment extends Fragment
         }
         if (!mManipulatedSeekBars.remove(mScaleYSeekBarLayout)) {
             mScaleYSeekBarLayout.setValue(mImageView.getImageScaleY(), true);
+        }
+
+        if (mPendingResetClamps) {
+            mPendingResetClamps = false;
+            resetClamps();
         }
     }
 
@@ -248,6 +283,13 @@ public class InteractiveImageViewControlsFragment extends Fragment
         mImageSpinner.setSelection(mImageEntryValues.indexOf(resId), false);
     }
 
+    @Override
+    public void onClick(View view) {
+        if (view == mLockButton) {
+            resetClamps();
+        }
+    }
+
     @SuppressLint("ClickableViewAccessibility")
     @Override // View.OnTouchListener
     public boolean onTouch(View view, MotionEvent event) {
@@ -261,6 +303,52 @@ public class InteractiveImageViewControlsFragment extends Fragment
         mImageView = imageView;
         mImageView.setDemoInteractiveImageViewListener(this);
         updateScaleTypeSpinner();
+    }
+    //endregion Methods
+
+    //region Private methods
+    private void resetClamps() {
+        final float minScaleX = mImageView.getImageMinScaleX();
+        final float maxScaleX = mImageView.getImageMaxScaleX();
+        final float minScaleY = mImageView.getImageMinScaleY();
+        final float maxScaleY = mImageView.getImageMaxScaleY();
+        final int scaleXClampedMin;
+        final int scaleXClampedMax;
+        final int scaleYClampedMin;
+        final int scaleYClampedMax;
+        if (mLockButton.isChecked()) {
+            final float currentScaleX = mScaleXSeekBarLayout.getValue();
+            final float currentScaleY = mScaleYSeekBarLayout.getValue();
+            final float shrinkFactor;
+            final float growFactor;
+            if (mScaleXSeekBarLayout.getRelativeProgress() <
+                    mScaleYSeekBarLayout.getRelativeProgress()) {
+                shrinkFactor = currentScaleX / minScaleX;
+                growFactor = maxScaleY / currentScaleY;
+                scaleXClampedMin = Integer.MIN_VALUE;
+                scaleXClampedMax =
+                        mScaleXSeekBarLayout.valueToProgress(currentScaleX * growFactor);
+                scaleYClampedMin =
+                        mScaleYSeekBarLayout.valueToProgress(currentScaleY / shrinkFactor);
+                scaleYClampedMax = Integer.MAX_VALUE;
+            } else {
+                shrinkFactor = currentScaleY / minScaleY;
+                growFactor = maxScaleX / currentScaleX;
+                scaleXClampedMin =
+                        mScaleXSeekBarLayout.valueToProgress(currentScaleX / shrinkFactor);
+                scaleXClampedMax = Integer.MAX_VALUE;
+                scaleYClampedMin = Integer.MIN_VALUE;
+                scaleYClampedMax =
+                        mScaleYSeekBarLayout.valueToProgress(currentScaleY * growFactor);
+            }
+        } else {
+            scaleXClampedMin = scaleYClampedMin = Integer.MIN_VALUE;
+            scaleXClampedMax = scaleYClampedMax = Integer.MAX_VALUE;
+        }
+        mScaleXSeekBarLayout.setClampedMin(scaleXClampedMin);
+        mScaleXSeekBarLayout.setClampedMax(scaleXClampedMax);
+        mScaleYSeekBarLayout.setClampedMin(scaleYClampedMin);
+        mScaleYSeekBarLayout.setClampedMax(scaleYClampedMax);
     }
 
     private void updateScaleTypeSpinner() {
