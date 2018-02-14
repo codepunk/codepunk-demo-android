@@ -7,6 +7,7 @@ import android.graphics.Canvas;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
@@ -22,9 +23,7 @@ import com.codepunk.demo.R;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 public class InteractiveImageViewControlsFragment extends Fragment
         implements AbsSeekBarLayout.OnSeekBarChangeListener<Float>,
@@ -38,6 +37,10 @@ public class InteractiveImageViewControlsFragment extends Fragment
 
     private static final String CLASS_NAME = InteractiveImageViewControlsFragment.class.getName();
     private static final String KEY_SCALE_LOCKED = CLASS_NAME + ".scaleLocked";
+    private static final String KEY_SX = CLASS_NAME + ".sx";
+    private static final String KEY_SY = CLASS_NAME + ".sy";
+    private static final String KEY_CX = CLASS_NAME + ".cx";
+    private static final String KEY_CY = CLASS_NAME + ".cy";
     //endregion Constants
 
     //region Fields
@@ -53,9 +56,16 @@ public class InteractiveImageViewControlsFragment extends Fragment
     private FloatSeekBarLayout mScaleYSeekBarLayout;
     private DemoInteractiveImageView mImageView;
 
-    private final Set<AbsSeekBarLayout> mManipulatedSeekBars = new HashSet<>();
+    private boolean mDisallowUpdatingSeekBars = false;
 
     private boolean mPendingResetClamps = true;
+
+    private int mImageResId = Integer.MIN_VALUE;
+    private float mSx;
+    private float mSy;
+    private float mCx;
+    private float mCy;
+    private boolean mPopulateValuesOnDraw;
     //endregion Fields
 
     //region Constructors
@@ -67,6 +77,7 @@ public class InteractiveImageViewControlsFragment extends Fragment
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Log.d(LOG_TAG, "SASTEST: onCreate");
         final Resources res = getResources();
         TypedArray array = res.obtainTypedArray(R.array.image_res_ids);
         final int length = array.length();
@@ -82,6 +93,7 @@ public class InteractiveImageViewControlsFragment extends Fragment
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
+        Log.d(LOG_TAG, "SASTEST: onCreateView");
         // Inflate the layout for this fragment
         return inflater.inflate(
                 R.layout.fragment_interactive_image_view_controls,
@@ -92,35 +104,45 @@ public class InteractiveImageViewControlsFragment extends Fragment
     @Override
     public void onViewCreated(View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        Log.d(LOG_TAG, "SASTEST: onViewCreated");
         mImageSpinner = view.findViewById(R.id.spinner_image);
         mScaleTypeSpinner = view.findViewById(R.id.spinner_scale_type);
-        mCenterXSeekBarLayout = view.findViewById(R.id.layout_seek_bar_center_x);
-        mCenterYSeekBarLayout = view.findViewById(R.id.layout_seek_bar_center_y);
-        mLockButton = view.findViewById(R.id.btn_lock);
         mScaleXSeekBarLayout = view.findViewById(R.id.layout_seek_bar_scale_x);
         mScaleYSeekBarLayout = view.findViewById(R.id.layout_seek_bar_scale_y);
+        mLockButton = view.findViewById(R.id.btn_lock);
+        mCenterXSeekBarLayout = view.findViewById(R.id.layout_seek_bar_center_x);
+        mCenterYSeekBarLayout = view.findViewById(R.id.layout_seek_bar_center_y);
 
         if (savedInstanceState == null) {
-
+            mPopulateValuesOnDraw = true;
         } else {
             mLockButton.setChecked(
-                    savedInstanceState.getBoolean(KEY_SCALE_LOCKED,
-                            false));
+                    savedInstanceState.getBoolean(KEY_SCALE_LOCKED,false));
+            /* TODO
+            mSx = savedInstanceState.getFloat(KEY_SX, 0.0f);
+            mSy = savedInstanceState.getFloat(KEY_SY, 0.0f);
+            mCx = savedInstanceState.getFloat(KEY_CX, 0.0f);
+            mCy = savedInstanceState.getFloat(KEY_CY, 0.0f);
+            mScaleXSeekBarLayout.setValue(mSx);
+            mScaleYSeekBarLayout.setValue(mSy);
+            mCenterXSeekBarLayout.setValue(mCx);
+            mCenterYSeekBarLayout.setValue(mCy);
+            */
         }
 
         mImageSpinner.setOnItemSelectedListener(this);
         mScaleTypeSpinner.setOnItemSelectedListener(this);
-        mCenterXSeekBarLayout.setOnSeekBarChangeListener(this);
-        mCenterYSeekBarLayout.setOnSeekBarChangeListener(this);
         mScaleXSeekBarLayout.setOnSeekBarChangeListener(this);
         mScaleYSeekBarLayout.setOnSeekBarChangeListener(this);
         mLockButton.setOnClickListener(this);
+        mCenterXSeekBarLayout.setOnSeekBarChangeListener(this);
+        mCenterYSeekBarLayout.setOnSeekBarChangeListener(this);
 
         // Prevent drawer from intercepting touch event from seek bars
-        mCenterXSeekBarLayout.setSeekBarOnTouchListener(this);
-        mCenterYSeekBarLayout.setSeekBarOnTouchListener(this);
         mScaleXSeekBarLayout.setSeekBarOnTouchListener(this);
         mScaleYSeekBarLayout.setSeekBarOnTouchListener(this);
+        mCenterXSeekBarLayout.setSeekBarOnTouchListener(this);
+        mCenterYSeekBarLayout.setSeekBarOnTouchListener(this);
 
         // Initialize center seek bars
         mCenterXSeekBarLayout.setMinValue(0.0f);
@@ -130,9 +152,20 @@ public class InteractiveImageViewControlsFragment extends Fragment
     }
 
     @Override
+    public void onViewStateRestored(@Nullable Bundle savedInstanceState) {
+        super.onViewStateRestored(savedInstanceState);
+        Log.d(LOG_TAG, "SASTEST: onViewStateRestored");
+    }
+
+    @Override
     public void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
+        Log.d(LOG_TAG, "SASTEST: onSaveInstanceState");
         outState.putBoolean(KEY_SCALE_LOCKED, mLockButton.isChecked());
+        outState.putFloat(KEY_SX, mSx);
+        outState.putFloat(KEY_SY, mSy);
+        outState.putFloat(KEY_CX, mCx);
+        outState.putFloat(KEY_CY, mCy);
     }
 
     //endregion Lifecycle methods
@@ -143,51 +176,42 @@ public class InteractiveImageViewControlsFragment extends Fragment
             AbsSeekBarLayout<Float> seekBarLayout,
             int progress,
             boolean fromUser) {
+        Log.d(LOG_TAG, "SASTEST: onProgressChanged: " + getResources().getResourceEntryName(seekBarLayout.getId()));
         if (fromUser) {
+            mDisallowUpdatingSeekBars = true;
             final int id = seekBarLayout.getId();
-            float sx = mImageView.getImageScaleX();
-            float sy = mImageView.getImageScaleY();
-            float cx = mImageView.getImageCenterX();
-            float cy = mImageView.getImageCenterY();
             switch (id) {
                 case R.id.layout_seek_bar_center_x: {
-                    mManipulatedSeekBars.add(mCenterXSeekBarLayout);
-                    mManipulatedSeekBars.add(mCenterYSeekBarLayout);
-                    cx = seekBarLayout.getValue();
+                    mCx = seekBarLayout.getValue();
                     break;
                 }
                 case R.id.layout_seek_bar_center_y: {
-                    mManipulatedSeekBars.add(mCenterXSeekBarLayout);
-                    mManipulatedSeekBars.add(mCenterYSeekBarLayout);
-                    cy = seekBarLayout.getValue();
+                    mCy = seekBarLayout.getValue();
                     break;
                 }
                 case R.id.layout_seek_bar_scale_x: {
-                    mManipulatedSeekBars.add(mScaleXSeekBarLayout);
-                    mManipulatedSeekBars.add(mScaleYSeekBarLayout);
-                    final float oldSx = sx;
-                    sx = seekBarLayout.getValue();
+                    final float oldSx = mSx;
+                    mSx = seekBarLayout.getValue();
                     if (mLockButton.isChecked()) {
-                        sy *= sx / oldSx;
-                        mScaleYSeekBarLayout.setValue(sy);
+                        mSy *= mSx / oldSx;
+                        mScaleYSeekBarLayout.setValue(mSy);
                     }
                     break;
                 }
                 case R.id.layout_seek_bar_scale_y: {
-                    mManipulatedSeekBars.add(mScaleXSeekBarLayout);
-                    mManipulatedSeekBars.add(mScaleYSeekBarLayout);
-                    final float oldSy = sy;
-                    sy = seekBarLayout.getValue();
+                    final float oldSy = mSy;
+                    mSy = seekBarLayout.getValue();
                     if (mLockButton.isChecked()) {
-                        sx *= sy / oldSy;
-                        mScaleXSeekBarLayout.setValue(sx);
+                        mSx *= mSy / oldSy;
+                        mScaleXSeekBarLayout.setValue(mSx);
                     }
                     break;
                 }
                 default:
+                    mDisallowUpdatingSeekBars = false;
                     return;
             }
-            mImageView.setLayout(sx, sy, cx, cy);
+            mImageView.setLayout(mSx, mSy, mCx, mCy);
         }
     }
 
@@ -203,12 +227,18 @@ public class InteractiveImageViewControlsFragment extends Fragment
 
     @Override // AdapterView.OnItemSelectedListener
     public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+        Log.d(LOG_TAG, "SASTEST: onItemSelected: " + getResources().getResourceEntryName(parent.getId()));
         switch (parent.getId()) {
             case R.id.spinner_image:
                 mPendingResetClamps = true;
                 if (mImageView != null && position >= 0 && position < mImageEntryValues.size()) {
                     mPendingResetClamps = true;
-                    mImageView.setImageResource(mImageEntryValues.get(position));
+                    mPopulateValuesOnDraw = true;
+                    final int imageResId = mImageEntryValues.get(position);
+                    if (mImageResId != imageResId) {
+                        mImageResId = imageResId;
+                        mImageView.setImageResource(mImageResId);
+                    }
                 }
                 break;
             case R.id.spinner_scale_type:
@@ -229,7 +259,16 @@ public class InteractiveImageViewControlsFragment extends Fragment
 
     @Override // DemoInteractiveImageView.DemoInteractiveImageViewListener
     public void onDraw(InteractiveImageView view, Canvas canvas) {
+        Log.d(LOG_TAG, "SASTEST: onDraw");
         updateScaleTypeSpinner();
+
+        if (mPopulateValuesOnDraw) {
+            mPopulateValuesOnDraw = false;
+            mSx = mImageView.getImageScaleX();
+            mSy = mImageView.getImageScaleY();
+            mCx = mImageView.getImageCenterX();
+            mCy = mImageView.getImageCenterY();
+        }
 
         if (mPendingResetClamps) {
             mScaleXSeekBarLayout.setClampedMin(Integer.MIN_VALUE);
@@ -243,17 +282,13 @@ public class InteractiveImageViewControlsFragment extends Fragment
         mScaleYSeekBarLayout.setMinValue(mImageView.getImageMinScaleY());
         mScaleYSeekBarLayout.setMaxValue(mImageView.getImageMaxScaleY());
 
-        if (!mManipulatedSeekBars.remove(mCenterXSeekBarLayout)) {
-            mCenterXSeekBarLayout.setValue(mImageView.getImageCenterX(), true);
-        }
-        if (!mManipulatedSeekBars.remove(mCenterYSeekBarLayout)) {
-            mCenterYSeekBarLayout.setValue(mImageView.getImageCenterY(), true);
-        }
-        if (!mManipulatedSeekBars.remove(mScaleXSeekBarLayout)) {
-            mScaleXSeekBarLayout.setValue(mImageView.getImageScaleX(), true);
-        }
-        if (!mManipulatedSeekBars.remove(mScaleYSeekBarLayout)) {
-            mScaleYSeekBarLayout.setValue(mImageView.getImageScaleY(), true);
+        if (mDisallowUpdatingSeekBars) {
+            mDisallowUpdatingSeekBars = false;
+        } else {
+            mScaleXSeekBarLayout.setValue(mSx, true);
+            mScaleYSeekBarLayout.setValue(mSy, true);
+            mCenterXSeekBarLayout.setValue(mCx, true);
+            mCenterYSeekBarLayout.setValue(mCy, true);
         }
 
         if (mPendingResetClamps) {
@@ -280,7 +315,11 @@ public class InteractiveImageViewControlsFragment extends Fragment
 
     @Override // DemoInteractiveImageView.DemoInteractiveImageViewListener
     public void onSetImageResource(InteractiveImageView view, int resId) {
-        mImageSpinner.setSelection(mImageEntryValues.indexOf(resId), false);
+        mImageResId = resId;
+        int position = mImageEntryValues.indexOf(resId);
+        if (position != mImageSpinner.getSelectedItemPosition()) {
+            mImageSpinner.setSelection(position, false);
+        }
     }
 
     @Override

@@ -1,4 +1,6 @@
 TODO NEXT:
+In InteractiveImageViewControlsFragment:
+Really think about how/when we're setting spinner values/mins/maxes, ImageView sx/sy/cx/cy, etc.
 
 In InteractiveImageView:
 Clean up setLayoutInternal

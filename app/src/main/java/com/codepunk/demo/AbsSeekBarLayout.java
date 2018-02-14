@@ -3,14 +3,14 @@ package com.codepunk.demo;
 import android.content.Context;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
-import android.os.Handler;
-import android.os.Message;
+import android.graphics.Canvas;
 import android.support.annotation.NonNull;
 import android.support.constraint.ConstraintLayout;
 import android.support.constraint.ConstraintSet;
 import android.support.v4.view.GravityCompat;
 import android.support.v7.widget.AppCompatTextView;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.widget.SeekBar;
 
 import com.codepunk.demo.support.ProgressBarCompat;
@@ -20,8 +20,7 @@ import java.text.DecimalFormat;
 
 @SuppressWarnings("unused")
 public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayout
-        implements Handler.Callback,
-        SeekBar.OnSeekBarChangeListener {
+        implements SeekBar.OnSeekBarChangeListener {
 
     //region Constants
     private static final String LOG_TAG = AbsSeekBarLayout.class.getSimpleName();
@@ -49,9 +48,9 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
     @NonNull protected T mMinValue = getInitialValue();
     @NonNull protected T mValue = getInitialValue();
 
-    protected boolean mValueDirty = true;
+    protected boolean mUiDirty = true;
 
-    private Handler mUpdateHandler = new Handler(this);
+    // TODO private Handler mUpdateHandler = new Handler(this);
     private OnSeekBarChangeListener<T> mOnSeekBarChangeListener;
     //endregion Fields
 
@@ -72,22 +71,28 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
     }
     //endregion Constructors
 
+    //region Inherited methods
+    @Override
+    protected void dispatchDraw(Canvas canvas) {
+        Log.d(LOG_TAG, "SASTEST: dispatchDraw: " + getResources().getResourceEntryName(getId()));
+        if (mUiDirty) {
+            mUiDirty = false;
+            final DecimalFormat format = getDecimalFormat();
+            mMinValueText.setText(format.format(mMinValue.doubleValue()));
+            mMaxValueText.setText(format.format(mMaxValue.doubleValue()));
+            mValueText.setText(format.format(mValue.doubleValue()));
+        }
+        super.dispatchDraw(canvas);
+    }
+    //endregion Inherited methods
+
     //region Implemented methods
     @Override
-    public boolean handleMessage(Message message) {
-        final boolean valueDirty = mValueDirty;
-        if (mValueDirty) {
-            mValue = progressToValue(mSeekBar.getProgress());
-            mValueDirty = false;
-        }
-        updateUI();
-        return true;
-    }
-
-    @Override
     public void onProgressChanged(SeekBar bar, int progress, boolean fromUser) {
+        Log.d(LOG_TAG, "SASTEST: onProgressChanged: " + getResources().getResourceEntryName(getId()));
         mValue = progressToValue(mSeekBar.getProgress());
-        updateUI();
+        mUiDirty = true;
+        invalidate();
         if (mOnSeekBarChangeListener != null) {
             mOnSeekBarChangeListener.onProgressChanged(this, progress, fromUser);
         }
@@ -139,16 +144,16 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
 
     public void setMaxValue(@NonNull T maxValue) {
         mMaxValue = maxValue;
-        mValueDirty = true;
-        mUpdateHandler.removeMessages(0);
-        mUpdateHandler.sendEmptyMessage(0);
+        setValue(mValue);
+        mUiDirty = true;
+        invalidate();
     }
 
     public void setMinValue(@NonNull T minValue) {
         mMinValue = minValue;
-        mValueDirty = true;
-        mUpdateHandler.removeMessages(0);
-        mUpdateHandler.sendEmptyMessage(0);
+        setValue(mValue);
+        mUiDirty = true;
+        invalidate();
     }
 
     public void setOnSeekBarChangeListener(OnSeekBarChangeListener<T> listener) {
@@ -169,9 +174,14 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
 
     public void setValue(@NonNull T value, boolean animate) {
         mValue = value;
-        ProgressBarCompat.setProgress(
-                mSeekBar,
-                valueToProgress(value), animate);
+        final int progress = valueToProgress(value);
+        if (Math.abs(mSeekBar.getProgress() - progress) <= 2) {
+            mSeekBar.setProgress(progress);
+        } else {
+            ProgressBarCompat.setProgress(mSeekBar, progress, animate);
+        }
+        mUiDirty = true;
+        invalidate();
     }
 
     public abstract T progressToValue(int progress);
@@ -181,13 +191,6 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
 
     //region Protected methods
     protected abstract T getInitialValue();
-
-    protected void updateUI() {
-        final DecimalFormat format = getDecimalFormat();
-        mMinValueText.setText(format.format(mMinValue.doubleValue()));
-        mMaxValueText.setText(format.format(mMaxValue.doubleValue()));
-        mValueText.setText(format.format(mValue.doubleValue()));
-    }
     //endregion Protected methods
 
     //region Private methods
@@ -201,6 +204,9 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
             AttributeSet attrs,
             int defStyleAttr,
             int defStyleRes) {
+        Log.d(LOG_TAG, "SASTEST: initAbsSeekBarLayout: " + getResources().getResourceEntryName(getId()));
+        setWillNotDraw(false);
+
         final Resources resources = context.getResources();
         final int standardMargin =
                 resources.getDimensionPixelOffset(R.dimen.standard_margin);

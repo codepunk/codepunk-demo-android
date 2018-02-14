@@ -29,7 +29,7 @@ public class InteractiveImageView extends AppCompatImageView
         ScaleGestureDetector.OnScaleGestureListener {
 
     //region Constants
-    public static final String LOG_TAG = InteractiveImageView.class.getSimpleName();
+    private static final String LOG_TAG = InteractiveImageView.class.getSimpleName();
     static final float MAX_SCALE_BREADTH_MULTIPLIER = 3.0f;
     static final float MAX_SCALE_LENGTH_MULTIPLIER = 5.0f;
 
@@ -75,6 +75,11 @@ public class InteractiveImageView extends AppCompatImageView
 
     private final Object mLock = new Object();
 
+    private boolean mPendingLayout = false;
+    private float mPendingSx;
+    private float mPendingSy;
+    private float mPendingCx;
+    private float mPendingCy;
     private int mInvalidFlags;
     //endregion Fields
 
@@ -109,6 +114,35 @@ public class InteractiveImageView extends AppCompatImageView
         return mScaleType;
     }
 
+    /*
+    @Override
+    public void layout(int l, int t, int r, int b) {
+        super.layout(l, t, r, b);
+        if (mPendingLayout) {
+            mPendingLayout = false;
+            setLayoutInternal(mPendingSx, mPendingSy, mPendingCx, mPendingCy, false);
+            mPendingSx = mPendingSy = mPendingCx = mPendingCy = 0.0f;
+        }
+    }
+    */
+
+    @Override
+    protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
+        super.onLayout(changed, left, top, right, bottom);
+        Log.d(LOG_TAG, "SASTEST: onLayout");
+        if (mPendingLayout) {
+            mPendingLayout = false;
+            setLayoutInternal(
+                    mPendingSx,
+                    mPendingSy,
+                    mPendingCx,
+                    mPendingCy,
+                    false,
+                    false);
+            mPendingSx = mPendingSy = mPendingCx = mPendingCy = 0.0f;
+        }
+    }
+
     @SuppressLint("ClickableViewAccessibility")
     @Override
     public boolean onTouchEvent(MotionEvent event) {
@@ -130,12 +164,14 @@ public class InteractiveImageView extends AppCompatImageView
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
+        Log.d(LOG_TAG, "SASTEST: onSizeChanged");
         mInvalidFlags |= INVALID_FLAG_DEFAULT;
     }
 
     @Override
     public void setImageDrawable(@Nullable Drawable drawable) {
         super.setImageDrawable(drawable);
+        Log.d(LOG_TAG, "SASTEST: setImageDrawable");
         mInvalidFlags |= INVALID_FLAG_DEFAULT;
     }
 
@@ -350,7 +386,7 @@ public class InteractiveImageView extends AppCompatImageView
     }
 
     public void setLayout(float sx, float sy, float cx, float cy) {
-        setLayoutInternal(sx, sy, cx, cy, false);
+        setLayoutInternal(sx, sy, cx, cy, false, true);
     }
     //endregion Methods
 
@@ -646,9 +682,19 @@ public class InteractiveImageView extends AppCompatImageView
         mMinScaleY = sy;
     }
 
-    protected void setLayoutInternal(float sx, float sy, float cx, float cy, boolean fromUser) {
+    protected void setLayoutInternal(float sx, float sy, float cx, float cy, boolean fromUser, boolean checkIsLaidOut) {
         // TODO synchronize
         // TODO check intrinsic size?
+        // TODO save values as "pending" if we haven't laid out yet
+        if (checkIsLaidOut && !ViewCompat.isLaidOut(this)) {
+            mPendingSx = sx;
+            mPendingSy = sy;
+            mPendingCx = cx;
+            mPendingCy = cy;
+            mPendingLayout = true;
+            return;
+        }
+
         final float resolvedSx =
                 resolveScaleX(sx, getImageMinScaleX(), getImageMaxScaleX(), fromUser);
         final float resolvedSy =
@@ -719,6 +765,7 @@ public class InteractiveImageView extends AppCompatImageView
             AttributeSet attrs,
             int defStyleAttr,
             int defStyleRes) {
+        Log.d(LOG_TAG, "SASTEST: initializeInteractiveImageView");
         TypedArray a = context.obtainStyledAttributes(
                 attrs,
                 R.styleable.InteractiveImageView,

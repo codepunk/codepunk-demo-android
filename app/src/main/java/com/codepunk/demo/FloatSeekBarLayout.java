@@ -9,6 +9,7 @@ import android.support.v4.math.MathUtils;
 import android.util.AttributeSet;
 
 public class FloatSeekBarLayout extends AbsSeekBarLayout<Float> {
+    /*
     protected static class SavedState extends BaseSavedState {
         public static final Parcelable.Creator<SavedState> CREATOR =
                 new Parcelable.Creator<SavedState>() {
@@ -43,6 +44,7 @@ public class FloatSeekBarLayout extends AbsSeekBarLayout<Float> {
             out.writeValue(value);
         }
     }
+    */
 
     public FloatSeekBarLayout(Context context) {
         super(context);
@@ -56,6 +58,7 @@ public class FloatSeekBarLayout extends AbsSeekBarLayout<Float> {
         super(context, attrs, defStyleAttr);
     }
 
+    /*
     @Override
     protected void onRestoreInstanceState(Parcelable state) {
         if (!(state instanceof SavedState)) {
@@ -80,6 +83,7 @@ public class FloatSeekBarLayout extends AbsSeekBarLayout<Float> {
         ss.value = mValue;
         return ss;
     }
+    */
 
     @Override
     public Float progressToValue(int progress) {

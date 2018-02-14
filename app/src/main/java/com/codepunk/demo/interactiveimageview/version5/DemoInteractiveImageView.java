@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Canvas;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 
@@ -16,6 +17,10 @@ public class DemoInteractiveImageView extends InteractiveImageView {
         void onSetImageResource(InteractiveImageView view, int resId);
     }
     //endregion Nested classes
+
+    //region Constants
+    public static final String LOG_TAG = DemoInteractiveImageView.class.getSimpleName();
+    //endregion Constants
 
     //region Fields
     private int mLastResId;
@@ -44,6 +49,7 @@ public class DemoInteractiveImageView extends InteractiveImageView {
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
+        Log.d(LOG_TAG, "SASTEST: onDraw");
         if (mDemoInteractiveImageViewListener != null) {
             mDemoInteractiveImageViewListener.onDraw(this, canvas);
         }
