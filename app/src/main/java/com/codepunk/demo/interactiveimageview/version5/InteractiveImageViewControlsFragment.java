@@ -154,10 +154,10 @@ public class InteractiveImageViewControlsFragment extends Fragment
         new Handler().post(new Runnable() {
             @Override
             public void run() {
-                mImageSpinner.setOnItemSelectedListener(InteractiveImageViewControlsFragment.this);
-                mScaleTypeSpinner.setOnItemSelectedListener(InteractiveImageViewControlsFragment.this);
-
-                // TODO CLEAN Seems that after rotation, mImageSpinner doesn't yet have a selected item. How to fix?
+                mImageSpinner.setOnItemSelectedListener(
+                        InteractiveImageViewControlsFragment.this);
+                mScaleTypeSpinner.setOnItemSelectedListener(
+                        InteractiveImageViewControlsFragment.this);
                 final int position = mImageSpinner.getSelectedItemPosition();
                 final @DrawableRes int resId = mImageEntryValues.get(position);
                 mImageView.setImageResource(resId);
