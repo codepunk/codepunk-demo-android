@@ -9,7 +9,7 @@ import android.support.v4.math.MathUtils;
 import android.util.AttributeSet;
 
 public class FloatSeekBarLayout extends AbsSeekBarLayout<Float> {
-    /*
+    /* TODO CLEAN
     protected static class SavedState extends BaseSavedState {
         public static final Parcelable.Creator<SavedState> CREATOR =
                 new Parcelable.Creator<SavedState>() {
@@ -58,7 +58,7 @@ public class FloatSeekBarLayout extends AbsSeekBarLayout<Float> {
         super(context, attrs, defStyleAttr);
     }
 
-    /*
+    /* TODO CLEAN
     @Override
     protected void onRestoreInstanceState(Parcelable state) {
         if (!(state instanceof SavedState)) {

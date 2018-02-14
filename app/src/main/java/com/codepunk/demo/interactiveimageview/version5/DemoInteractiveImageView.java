@@ -8,13 +8,14 @@ import android.util.Log;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 
+import java.util.Locale;
+
 public class DemoInteractiveImageView extends InteractiveImageView {
     //region Nested classes
     public interface DemoInteractiveImageViewListener {
         void onDraw(InteractiveImageView view, Canvas canvas);
         void onInteractionBegin(InteractiveImageView view);
         void onInteractionEnd(InteractiveImageView view);
-        void onSetImageResource(InteractiveImageView view, int resId);
     }
     //endregion Nested classes
 
@@ -23,7 +24,6 @@ public class DemoInteractiveImageView extends InteractiveImageView {
     //endregion Constants
 
     //region Fields
-    private int mLastResId;
     private DemoInteractiveImageViewListener mDemoInteractiveImageViewListener;
     private boolean mInteracting = false;
     //endregion Fields
@@ -31,17 +31,14 @@ public class DemoInteractiveImageView extends InteractiveImageView {
     //region Constructors
     public DemoInteractiveImageView(Context context) {
         super(context);
-        initDemoInteractiveImageView(context, null);
     }
 
     public DemoInteractiveImageView(Context context, AttributeSet attrs) {
         super(context, attrs);
-        initDemoInteractiveImageView(context, attrs);
     }
 
     public DemoInteractiveImageView(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
-        initDemoInteractiveImageView(context, attrs);
     }
     //endregion Constructors
 
@@ -92,37 +89,18 @@ public class DemoInteractiveImageView extends InteractiveImageView {
     @Override
     public void setImageResource(int resId) {
         super.setImageResource(resId);
-        mLastResId = resId;
-        if (mDemoInteractiveImageViewListener != null) {
-            mDemoInteractiveImageViewListener.onSetImageResource(this, mLastResId);
+        String entryName;
+        try {
+            entryName = getResources().getResourceEntryName(resId);
+        } catch (Resources.NotFoundException e) {
+            entryName = "[Not Found]";
         }
+        Log.d(LOG_TAG, String.format(Locale.ENGLISH, "SASTEST: setImageResource: resId=%d (%s)", resId, entryName));
     }
+
     //endregion Inherited methods
 
     //region Methods
-    private void initDemoInteractiveImageView(
-            Context context,
-            AttributeSet attrs) {
-        if (attrs != null) {
-            try {
-                final String src = getResources().getResourceEntryName(android.R.attr.src);
-                final int count = attrs.getAttributeCount();
-                for (int i = 0; i < count; i++) {
-                    final String name = attrs.getAttributeName(i);
-                    if (src.equals(name)) {
-                        mLastResId = attrs.getAttributeResourceValue(i, 0);
-                        if (mDemoInteractiveImageViewListener != null) {
-                            mDemoInteractiveImageViewListener.onSetImageResource(this, mLastResId);
-                        }
-                        break;
-                    }
-                }
-            } catch (Resources.NotFoundException e) {
-                // No-op
-            }
-        }
-    }
-
     private void onInteractionBegin() {
         mInteracting = true;
         if (mDemoInteractiveImageViewListener != null) {
@@ -139,9 +117,6 @@ public class DemoInteractiveImageView extends InteractiveImageView {
 
     public void setDemoInteractiveImageViewListener(DemoInteractiveImageViewListener listener) {
         mDemoInteractiveImageViewListener = listener;
-        if (mDemoInteractiveImageViewListener != null) {
-            mDemoInteractiveImageViewListener.onSetImageResource(this, mLastResId);
-        }
     }
     //endregion Methods
 }

@@ -5,6 +5,8 @@ import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.graphics.Canvas;
 import android.os.Bundle;
+import android.os.Handler;
+import android.support.annotation.DrawableRes;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.util.Log;
@@ -60,7 +62,6 @@ public class InteractiveImageViewControlsFragment extends Fragment
 
     private boolean mPendingResetClamps = true;
 
-    private int mImageResId = Integer.MIN_VALUE;
     private float mSx;
     private float mSy;
     private float mCx;
@@ -115,6 +116,8 @@ public class InteractiveImageViewControlsFragment extends Fragment
 
         if (savedInstanceState == null) {
             mPopulateValuesOnDraw = true;
+            final int position = mImageEntryValues.indexOf(R.drawable.wilderness_lodge);
+            mImageSpinner.setSelection(position, false);
         } else {
             mLockButton.setChecked(
                     savedInstanceState.getBoolean(KEY_SCALE_LOCKED,false));
@@ -130,8 +133,6 @@ public class InteractiveImageViewControlsFragment extends Fragment
             */
         }
 
-        mImageSpinner.setOnItemSelectedListener(this);
-        mScaleTypeSpinner.setOnItemSelectedListener(this);
         mScaleXSeekBarLayout.setOnSeekBarChangeListener(this);
         mScaleYSeekBarLayout.setOnSeekBarChangeListener(this);
         mLockButton.setOnClickListener(this);
@@ -149,6 +150,20 @@ public class InteractiveImageViewControlsFragment extends Fragment
         mCenterXSeekBarLayout.setMaxValue(1.0f);
         mCenterYSeekBarLayout.setMinValue(0.0f);
         mCenterYSeekBarLayout.setMaxValue(1.0f);
+
+        new Handler().post(new Runnable() {
+            @Override
+            public void run() {
+                mImageSpinner.setOnItemSelectedListener(InteractiveImageViewControlsFragment.this);
+                mScaleTypeSpinner.setOnItemSelectedListener(InteractiveImageViewControlsFragment.this);
+
+                // TODO CLEAN Seems that after rotation, mImageSpinner doesn't yet have a selected item. How to fix?
+                final int position = mImageSpinner.getSelectedItemPosition();
+                final @DrawableRes int resId = mImageEntryValues.get(position);
+                mImageView.setImageResource(resId);
+                updateScaleTypeSpinner();
+            }
+        });
     }
 
     @Override
@@ -235,10 +250,7 @@ public class InteractiveImageViewControlsFragment extends Fragment
                     mPendingResetClamps = true;
                     mPopulateValuesOnDraw = true;
                     final int imageResId = mImageEntryValues.get(position);
-                    if (mImageResId != imageResId) {
-                        mImageResId = imageResId;
-                        mImageView.setImageResource(mImageResId);
-                    }
+                    mImageView.setImageResource(imageResId);
                 }
                 break;
             case R.id.spinner_scale_type:
@@ -313,15 +325,6 @@ public class InteractiveImageViewControlsFragment extends Fragment
         }
     }
 
-    @Override // DemoInteractiveImageView.DemoInteractiveImageViewListener
-    public void onSetImageResource(InteractiveImageView view, int resId) {
-        mImageResId = resId;
-        int position = mImageEntryValues.indexOf(resId);
-        if (position != mImageSpinner.getSelectedItemPosition()) {
-            mImageSpinner.setSelection(position, false);
-        }
-    }
-
     @Override
     public void onClick(View view) {
         if (view == mLockButton) {
@@ -341,7 +344,6 @@ public class InteractiveImageViewControlsFragment extends Fragment
     public void setImageView(DemoInteractiveImageView imageView) {
         mImageView = imageView;
         mImageView.setDemoInteractiveImageViewListener(this);
-        updateScaleTypeSpinner();
     }
     //endregion Methods
 

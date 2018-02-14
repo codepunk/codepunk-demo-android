@@ -14,8 +14,6 @@ public class InteractiveImageViewActivity extends AppCompatActivity {
 
     //region Fields
     private DrawerLayout mDrawerLayout;
-    private DemoInteractiveImageView mImageView;
-    private InteractiveImageViewControlsFragment mControlsFragment;
     //endregion Fields
 
     //region Lifecycle methods
@@ -25,15 +23,15 @@ public class InteractiveImageViewActivity extends AppCompatActivity {
         setContentView(R.layout.activity_interactive_image_view_v5);
 
         mDrawerLayout = findViewById(R.id.layout_drawer);
-        mImageView = findViewById(R.id.image);
 
         mDrawerLayout.requestDisallowInterceptTouchEvent(true);
         mDrawerLayout.setScrimColor(Color.TRANSPARENT);
 
-        mControlsFragment =
+        final InteractiveImageViewControlsFragment fragment =
                 (InteractiveImageViewControlsFragment) getSupportFragmentManager()
                         .findFragmentById(R.id.fragment_controls);
-        mControlsFragment.setImageView(mImageView);
+        final DemoInteractiveImageView imageView = findViewById(R.id.image);
+        fragment.setImageView(imageView);
     }
 
     @Override
