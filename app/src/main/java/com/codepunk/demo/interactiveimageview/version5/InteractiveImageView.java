@@ -23,6 +23,8 @@ import android.widget.OverScroller;
 import com.codepunk.demo.R;
 import com.codepunk.demo.support.DisplayCompat;
 
+import java.util.Locale;
+
 public class InteractiveImageView extends AppCompatImageView
         implements GestureDetector.OnGestureListener,
         GestureDetector.OnDoubleTapListener,
@@ -110,6 +112,64 @@ public class InteractiveImageView extends AppCompatImageView
 
     //region Inherited methods
     @Override
+    public void computeScroll() {
+        super.computeScroll();
+        // TODO synchronized
+        // TODO This has a lot of similar logic as setLayoutInternal. Consolidate?
+        if (mScroller != null) {
+            if (mScroller.computeScrollOffset()) {
+                mImageMatrix.set(getImageMatrixInternal());
+                mImageMatrix.getValues(mMatrixValues);
+
+                // The scroller isn't finished, meaning a fling or programmatic
+                // pan operation is currently active.
+                mSrcRect.set(
+                        0.0f,
+                        0.0f,
+                        getDrawableIntrinsicWidth(),
+                        getDrawableIntrinsicHeight());
+                mImageMatrix.mapRect(mDstRect, mSrcRect);
+                final float mappedWidth = mDstRect.width();
+                final float mappedHeight = mDstRect.height();
+
+                final int availableWidth = getWidth() - getPaddingLeft() - getPaddingRight();
+                final int availableHeight = getHeight() - getPaddingTop() - getPaddingBottom();
+                final int tx = mScroller.getCurrX();
+                final int ty = mScroller.getCurrY();
+
+                final float resolvedTransX = resolveTransX(
+                        tx,
+                        getImageMinTransX(availableWidth, mappedWidth),
+                        getImageMaxTransX(availableWidth, mappedWidth),
+                        true);
+                final float resolvedTransY = resolveTransY(
+                        ty,
+                        getImageMinTransY(availableHeight, mappedHeight),
+                        getImageMaxTransY(availableHeight, mappedHeight),
+                        true);
+
+                if (mMatrixValues[Matrix.MTRANS_X] == resolvedTransX &&
+                        mMatrixValues[Matrix.MTRANS_Y] == resolvedTransY) {
+                    // No change; fling is finished
+                    mScroller.forceFinished(true);
+                    return;
+                }
+
+                mMatrixValues[Matrix.MTRANS_X] = resolvedTransX;
+                mMatrixValues[Matrix.MTRANS_Y] = resolvedTransY;
+                mImageMatrix.setValues(mMatrixValues);
+
+                if (ScaleType.MATRIX != super.getScaleType()) {
+                    super.setScaleType(ScaleType.MATRIX);
+                }
+                super.setImageMatrix(mImageMatrix);
+
+                ViewCompat.postInvalidateOnAnimation(this);
+            }
+        }
+    }
+
+    @Override
     public ScaleType getScaleType() {
         return mScaleType;
     }
@@ -187,7 +247,9 @@ public class InteractiveImageView extends AppCompatImageView
     //region Interface methods
     @Override // GestureDetector.OnGestureListener
     public boolean onDown(MotionEvent e) {
-        //Log.d(LOG_TAG, "onDown");
+        if (mScroller != null) {
+            mScroller.forceFinished(true);
+        }
         return true;
     }
 
@@ -207,8 +269,47 @@ public class InteractiveImageView extends AppCompatImageView
 
     @Override // GestureDetector.OnGestureListener
     public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
-        Log.d(LOG_TAG, "onScroll");
-        return false;
+        // TODO synchronized
+        // TODO This has a lot of similar logic as setLayoutInternal. Consolidate?
+        mImageMatrix.set(getImageMatrixInternal());
+        mImageMatrix.getValues(mMatrixValues);
+
+        // What's the size of the resulting rect at the current scale?
+        mSrcRect.set(
+                0.0f,
+                0.0f,
+                getDrawableIntrinsicWidth(),
+                getDrawableIntrinsicHeight());
+        mImageMatrix.mapRect(mDstRect, mSrcRect);
+        final float mappedWidth = mDstRect.width();
+        final float mappedHeight = mDstRect.height();
+
+        final int availableWidth = getWidth() - getPaddingLeft() - getPaddingRight();
+        final int availableHeight = getHeight() - getPaddingTop() - getPaddingBottom();
+        float tx = mMatrixValues[Matrix.MTRANS_X] - distanceX;
+        float ty = mMatrixValues[Matrix.MTRANS_Y] - distanceY;
+
+        final float resolvedTransX = resolveTransX(
+                tx,
+                getImageMinTransX(availableWidth, mappedWidth),
+                getImageMaxTransX(availableWidth, mappedWidth),
+                true);
+        final float resolvedTransY = resolveTransY(
+                ty,
+                getImageMinTransY(availableHeight, mappedHeight),
+                getImageMaxTransY(availableHeight, mappedHeight),
+                true);
+
+        mMatrixValues[Matrix.MTRANS_X] = resolvedTransX;
+        mMatrixValues[Matrix.MTRANS_Y] = resolvedTransY;
+        mImageMatrix.setValues(mMatrixValues);
+
+        if (ScaleType.MATRIX != super.getScaleType()) {
+            super.setScaleType(ScaleType.MATRIX);
+        }
+
+        super.setImageMatrix(mImageMatrix);
+        return true;
     }
 
     @Override // GestureDetector.OnGestureListener
@@ -218,7 +319,36 @@ public class InteractiveImageView extends AppCompatImageView
 
     @Override // GestureDetector.OnGestureListener
     public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
-        Log.d(LOG_TAG, "onFling");
+        // TODO synchronized
+        // TODO This has a lot of similar logic as setLayoutInternal. Consolidate?
+        if (mScroller != null) {
+            mScroller.forceFinished(true);
+
+            // What's the size of the resulting rect at the current scale?
+            mSrcRect.set(
+                    0.0f,
+                    0.0f,
+                    getDrawableIntrinsicWidth(),
+                    getDrawableIntrinsicHeight());
+            mImageMatrix.mapRect(mDstRect, mSrcRect);
+            final float mappedWidth = mDstRect.width();
+            final float mappedHeight = mDstRect.height();
+
+            final int availableWidth = getWidth() - getPaddingLeft() - getPaddingRight();
+            final int availableHeight = getHeight() - getPaddingTop() - getPaddingBottom();
+            getImageMatrixInternal().getValues(mMatrixValues);
+            mScroller.fling(
+                    (int) mMatrixValues[Matrix.MTRANS_X],
+                    (int) mMatrixValues[Matrix.MTRANS_Y],
+                    (int) velocityX,
+                    (int) velocityY,
+                    (int) getImageMinTransX(availableWidth, mappedWidth),
+                    (int) getImageMaxTransX(availableWidth, mappedWidth),
+                    (int) getImageMinTransY(availableHeight, mappedHeight),
+                    (int) getImageMaxTransY(availableHeight, mappedHeight),
+                    (int) (availableWidth * 0.5f),
+                    (int) (availableHeight * 0.5f));
+        }
         return false;
     }
 

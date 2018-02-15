@@ -65,7 +65,6 @@ public class InteractiveImageViewControlsFragment extends Fragment
     private float mSy;
     private float mCx;
     private float mCy;
-    private boolean mPopulateValuesOnDraw;
     //endregion Fields
 
     //region Constructors
@@ -134,7 +133,6 @@ public class InteractiveImageViewControlsFragment extends Fragment
     public void onViewStateRestored(@Nullable Bundle savedInstanceState) {
         super.onViewStateRestored(savedInstanceState);
         if (savedInstanceState == null) {
-            mPopulateValuesOnDraw = true;
             mImageView.setImageResource(DEFAULT_DRAWABLE_RES_ID);
             final int position = mImageEntryValues.indexOf(DEFAULT_DRAWABLE_RES_ID);
             mImageSpinner.setSelection(position, false);
@@ -227,7 +225,6 @@ public class InteractiveImageViewControlsFragment extends Fragment
             case R.id.spinner_image:
                 if (setImageResourceByPosition(position)) {
                     mPendingResetClamps = true;
-                    mPopulateValuesOnDraw = true;
                 }
                 break;
             case R.id.spinner_scale_type:
@@ -250,13 +247,10 @@ public class InteractiveImageViewControlsFragment extends Fragment
             mScaleTypeSpinner.setSelection(position, false);
         }
 
-        if (mPopulateValuesOnDraw) {
-            mPopulateValuesOnDraw = false;
-            mSx = mImageView.getImageScaleX();
-            mSy = mImageView.getImageScaleY();
-            mCx = mImageView.getImageCenterX();
-            mCy = mImageView.getImageCenterY();
-        }
+        mSx = mImageView.getImageScaleX();
+        mSy = mImageView.getImageScaleY();
+        mCx = mImageView.getImageCenterX();
+        mCy = mImageView.getImageCenterY();
 
         if (mPendingResetClamps) {
             mScaleXSeekBarLayout.setClampedMin(Integer.MIN_VALUE);
@@ -273,10 +267,10 @@ public class InteractiveImageViewControlsFragment extends Fragment
         if (mDisallowUpdatingSeekBars) {
             mDisallowUpdatingSeekBars = false;
         } else {
-            mScaleXSeekBarLayout.setValue(mSx, true);
-            mScaleYSeekBarLayout.setValue(mSy, true);
-            mCenterXSeekBarLayout.setValue(mCx, true);
-            mCenterYSeekBarLayout.setValue(mCy, true);
+            mScaleXSeekBarLayout.setValue(mSx, false);
+            mScaleYSeekBarLayout.setValue(mSy, false);
+            mCenterXSeekBarLayout.setValue(mCx, false);
+            mCenterYSeekBarLayout.setValue(mCy, false);
         }
 
         if (mPendingResetClamps) {
