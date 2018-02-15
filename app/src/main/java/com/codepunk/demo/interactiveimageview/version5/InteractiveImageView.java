@@ -114,31 +114,12 @@ public class InteractiveImageView extends AppCompatImageView
         return mScaleType;
     }
 
-    /*
     @Override
     public void layout(int l, int t, int r, int b) {
         super.layout(l, t, r, b);
         if (mPendingLayout) {
             mPendingLayout = false;
             setLayoutInternal(mPendingSx, mPendingSy, mPendingCx, mPendingCy, false);
-            mPendingSx = mPendingSy = mPendingCx = mPendingCy = 0.0f;
-        }
-    }
-    */
-
-    @Override
-    protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
-        super.onLayout(changed, left, top, right, bottom);
-        Log.d(LOG_TAG, "SASTEST: onLayout");
-        if (mPendingLayout) {
-            mPendingLayout = false;
-            setLayoutInternal(
-                    mPendingSx,
-                    mPendingSy,
-                    mPendingCx,
-                    mPendingCy,
-                    false,
-                    false);
             mPendingSx = mPendingSy = mPendingCx = mPendingCy = 0.0f;
         }
     }
@@ -164,14 +145,12 @@ public class InteractiveImageView extends AppCompatImageView
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
-        Log.d(LOG_TAG, "SASTEST: onSizeChanged");
         mInvalidFlags |= INVALID_FLAG_DEFAULT;
     }
 
     @Override
     public void setImageDrawable(@Nullable Drawable drawable) {
         super.setImageDrawable(drawable);
-        Log.d(LOG_TAG, "SASTEST: setImageDrawable");
         mInvalidFlags |= INVALID_FLAG_DEFAULT;
     }
 
@@ -386,7 +365,7 @@ public class InteractiveImageView extends AppCompatImageView
     }
 
     public void setLayout(float sx, float sy, float cx, float cy) {
-        setLayoutInternal(sx, sy, cx, cy, false, true);
+        setLayoutInternal(sx, sy, cx, cy, false);
     }
     //endregion Methods
 
@@ -682,11 +661,10 @@ public class InteractiveImageView extends AppCompatImageView
         mMinScaleY = sy;
     }
 
-    protected void setLayoutInternal(float sx, float sy, float cx, float cy, boolean fromUser, boolean checkIsLaidOut) {
+    protected void setLayoutInternal(float sx, float sy, float cx, float cy, boolean fromUser) {
         // TODO synchronize
         // TODO check intrinsic size?
-        // TODO save values as "pending" if we haven't laid out yet
-        if (checkIsLaidOut && !ViewCompat.isLaidOut(this)) {
+        if (!ViewCompat.isLaidOut(this)) {
             mPendingSx = sx;
             mPendingSy = sy;
             mPendingCx = cx;
@@ -701,6 +679,7 @@ public class InteractiveImageView extends AppCompatImageView
                 resolveScaleY(sy, getImageMinScaleY(), getImageMaxScaleY(), fromUser);
 
         mImageMatrix.set(getImageMatrixInternal());
+        mImageMatrix.getValues(mMatrixValues);
         mMatrixValues[Matrix.MSCALE_X] = resolvedSx;
         mMatrixValues[Matrix.MSCALE_Y] = resolvedSy;
         mImageMatrix.setValues(mMatrixValues);
@@ -765,7 +744,6 @@ public class InteractiveImageView extends AppCompatImageView
             AttributeSet attrs,
             int defStyleAttr,
             int defStyleRes) {
-        Log.d(LOG_TAG, "SASTEST: initializeInteractiveImageView");
         TypedArray a = context.obtainStyledAttributes(
                 attrs,
                 R.styleable.InteractiveImageView,

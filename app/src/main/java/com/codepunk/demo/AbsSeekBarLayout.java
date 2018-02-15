@@ -10,7 +10,6 @@ import android.support.constraint.ConstraintSet;
 import android.support.v4.view.GravityCompat;
 import android.support.v7.widget.AppCompatTextView;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.widget.SeekBar;
 
 import com.codepunk.demo.support.ProgressBarCompat;
@@ -74,7 +73,6 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
     //region Inherited methods
     @Override
     protected void dispatchDraw(Canvas canvas) {
-        Log.d(LOG_TAG, "SASTEST: dispatchDraw: " + getResources().getResourceEntryName(getId()));
         if (mUiDirty) {
             mUiDirty = false;
             final DecimalFormat format = getDecimalFormat();
@@ -89,7 +87,6 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
     //region Implemented methods
     @Override
     public void onProgressChanged(SeekBar bar, int progress, boolean fromUser) {
-        Log.d(LOG_TAG, "SASTEST: onProgressChanged: " + getResources().getResourceEntryName(getId()));
         mValue = progressToValue(mSeekBar.getProgress());
         mUiDirty = true;
         invalidate();
@@ -204,7 +201,6 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
             AttributeSet attrs,
             int defStyleAttr,
             int defStyleRes) {
-        Log.d(LOG_TAG, "SASTEST: initAbsSeekBarLayout: " + getResources().getResourceEntryName(getId()));
         setWillNotDraw(false);
 
         final Resources resources = context.getResources();
