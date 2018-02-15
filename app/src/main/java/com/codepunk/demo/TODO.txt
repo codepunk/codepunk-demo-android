@@ -1,4 +1,5 @@
 TODO NEXT:
+Address all TODO synchronized
 Catch when scrolling image view and we hit drawer. Drawer intercepts touch. Messes with alpha etc.
 
 In InteractiveImageView:
@@ -10,4 +11,5 @@ Research: Does ImageView remember Matrix values after configuration change?
 
 TODO:
 Edge Effects !!
+Double-tap to zoom
 Play with cropToPadding, see how it behaves. (Like "viewport" in my original concept?)

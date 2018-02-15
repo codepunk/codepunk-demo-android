@@ -67,6 +67,8 @@ public class InteractiveImageView extends AppCompatImageView
     private float mMinScaleX;
     private float mMinScaleY;
 
+    private float mLastSpan;
+
     private final float[] mMatrixValues = new float[9];
     private final float[] mPts = new float[2];
     private final Matrix mBaselineImageMatrix = new Matrix();
@@ -372,19 +374,28 @@ public class InteractiveImageView extends AppCompatImageView
 
     @Override // ScaleGestureDetector.OnScaleGestureListener
     public boolean onScale(ScaleGestureDetector detector) {
-        Log.d(LOG_TAG, "onScale");
-        return false;
+        // TODO synchronized
+        final float currentSpan = detector.getCurrentSpan();
+        final float spanDelta = (currentSpan / mLastSpan);
+        getImageMatrixInternal().getValues(mMatrixValues);
+        setLayoutInternal(
+                mMatrixValues[Matrix.MSCALE_X] *= spanDelta,
+                mMatrixValues[Matrix.MSCALE_Y] *= spanDelta,
+                getImageCenterX(),
+                getImageCenterY(),
+                true);
+        mLastSpan = currentSpan;
+        return true;
     }
 
     @Override // ScaleGestureDetector.OnScaleGestureListener
     public boolean onScaleBegin(ScaleGestureDetector detector) {
-        Log.d(LOG_TAG, "onScaleBegin");
+        mLastSpan = detector.getCurrentSpan();
         return true;
     }
 
     @Override // ScaleGestureDetector.OnScaleGestureListener
     public void onScaleEnd(ScaleGestureDetector detector) {
-        Log.d(LOG_TAG, "onScaleEnd");
     }
     //endregion Interface methods
 
