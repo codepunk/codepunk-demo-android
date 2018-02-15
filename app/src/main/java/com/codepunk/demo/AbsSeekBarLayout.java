@@ -204,8 +204,7 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
         setWillNotDraw(false);
 
         final Resources resources = context.getResources();
-        final int standardMargin =
-                resources.getDimensionPixelOffset(R.dimen.standard_margin);
+        final int margin = resources.getDimensionPixelOffset(R.dimen.small_margin);
         final int valueWidth =
                 resources.getDimensionPixelSize(R.dimen.extended_seek_bar_value_view_width);
 
@@ -258,7 +257,7 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
                 ConstraintSet.START,
                 R.id.text_label,
                 ConstraintSet.END,
-                standardMargin);
+                margin);
         constraintSet.connect(
                 R.id.text_value,
                 ConstraintSet.TOP,
@@ -277,7 +276,7 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
                 ConstraintSet.TOP,
                 R.id.text_label,
                 ConstraintSet.BOTTOM,
-                standardMargin);
+                margin);
 
         constraintSet.constrainWidth(R.id.text_max_value, valueWidth);
         constraintSet.constrainHeight(R.id.text_max_value, LayoutParams.WRAP_CONTENT);
@@ -291,7 +290,7 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
                 ConstraintSet.TOP,
                 R.id.text_label,
                 ConstraintSet.BOTTOM,
-                standardMargin);
+                margin);
 
         constraintSet.constrainWidth(R.id.seek_value, 0);
         constraintSet.constrainHeight(R.id.seek_value, LayoutParams.WRAP_CONTENT);
@@ -300,19 +299,19 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
                 ConstraintSet.START,
                 R.id.text_min_value,
                 ConstraintSet.END,
-                standardMargin);
+                margin);
         constraintSet.connect(
                 R.id.seek_value,
                 ConstraintSet.END,
                 R.id.text_max_value,
                 ConstraintSet.START,
-                standardMargin);
+                margin);
         constraintSet.connect(
                 R.id.seek_value,
                 ConstraintSet.TOP,
                 R.id.text_label,
                 ConstraintSet.BOTTOM,
-                standardMargin);
+                margin);
 
         constraintSet.applyTo(this);
 
