@@ -9,6 +9,7 @@
         <attr name="centerY" format="float" />
         <attr name="clampedMax" format="integer" />
         <attr name="clampedMin" format="integer" />
+        <attr name="zoomPivots" format="reference" />
         <attr name="panEnabled" format="boolean" />
         <attr name="scaleX" format="float">
             <enum name="auto" value="-1" />
@@ -36,11 +37,12 @@
     <declare-styleable name="InteractiveImageView">
         <attr name="centerX" />
         <attr name="centerY" />
+        <attr name="interactivity" />
         <attr name="panEnabled" />
         <attr name="scaleX" />
         <attr name="scaleY" />
         <attr name="zoomEnabled" />
-        <attr name="interactivity" />
+        <attr name="zoomPivots" />
     </declare-styleable>
 
     <declare-styleable name="AbsSeekBarLayout">

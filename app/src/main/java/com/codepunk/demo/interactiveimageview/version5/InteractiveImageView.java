@@ -6,6 +6,7 @@ import android.content.res.TypedArray;
 import android.graphics.Matrix;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
+import android.support.annotation.ArrayRes;
 import android.support.annotation.Nullable;
 import android.support.v4.math.MathUtils;
 import android.support.v4.view.GestureDetectorCompat;
@@ -21,9 +22,8 @@ import android.view.WindowManager;
 import android.widget.OverScroller;
 
 import com.codepunk.demo.R;
+import com.codepunk.demo.Scaler;
 import com.codepunk.demo.support.DisplayCompat;
-
-import java.util.Locale;
 
 public class InteractiveImageView extends AppCompatImageView
         implements GestureDetector.OnGestureListener,
@@ -34,6 +34,7 @@ public class InteractiveImageView extends AppCompatImageView
     private static final String LOG_TAG = InteractiveImageView.class.getSimpleName();
     static final float MAX_SCALE_BREADTH_MULTIPLIER = 3.0f;
     static final float MAX_SCALE_LENGTH_MULTIPLIER = 5.0f;
+    final float FLOAT_EPSILON = 0.005f;
 
     public static final int INTERACTIVITY_FLAG_NONE = 0;
     public static final int INTERACTIVITY_FLAG_SCROLL = 0x00000001;
@@ -55,12 +56,14 @@ public class InteractiveImageView extends AppCompatImageView
 
     //region Fields
     private int mInteractivity;
+    private float[] mZoomPivots;
 
     private ScaleType mScaleType = super.getScaleType();
 
     private GestureDetectorCompat mGestureDetector;
     private ScaleGestureDetector mScaleGestureDetector;
     private OverScroller mScroller;
+    private Scaler mScaler;
 
     private float mMaxScaleX;
     private float mMaxScaleY;
@@ -118,6 +121,8 @@ public class InteractiveImageView extends AppCompatImageView
         super.computeScroll();
         // TODO synchronized
         // TODO This has a lot of similar logic as setLayoutInternal. Consolidate?
+        boolean needsInvalidate = false;
+
         if (mScroller != null) {
             if (mScroller.computeScrollOffset()) {
                 mImageMatrix.set(getImageMatrixInternal());
@@ -154,7 +159,7 @@ public class InteractiveImageView extends AppCompatImageView
                         mMatrixValues[Matrix.MTRANS_Y] == resolvedTransY) {
                     // No change; fling is finished
                     mScroller.forceFinished(true);
-                    return;
+                    return; // TODO Don't want to return though!
                 }
 
                 mMatrixValues[Matrix.MTRANS_X] = resolvedTransX;
@@ -165,9 +170,25 @@ public class InteractiveImageView extends AppCompatImageView
                     super.setScaleType(ScaleType.MATRIX);
                 }
                 super.setImageMatrix(mImageMatrix);
-
-                ViewCompat.postInvalidateOnAnimation(this);
+                needsInvalidate = true;
             }
+        }
+
+        if (mScaler != null) {
+            if (mScaler.computeScale()) {
+                // Performs the scale since a scale is in progress (either programmatically or via
+                // double-touch).
+                float sx = mScaler.getCurrScaleX();
+                float sy = mScaler.getCurrScaleY();
+                float cx = getImageCenterX(); // TODO
+                float cy = getImageCenterY(); // TODO
+                setLayoutInternal(sx, sy, cx, cy, true); // fromUser? Or not fromUser?
+                needsInvalidate = true;
+            }
+        }
+
+        if (needsInvalidate) {
+            ViewCompat.postInvalidateOnAnimation(this);
         }
     }
 
@@ -251,6 +272,10 @@ public class InteractiveImageView extends AppCompatImageView
     public boolean onDown(MotionEvent e) {
         if (mScroller != null) {
             mScroller.forceFinished(true);
+        }
+        if (mScaler != null) {
+            Log.d("Scaler", "InteractiveImageView.onDown");
+//            mScaler.forceFinished(true);
         }
         return true;
     }
@@ -362,8 +387,63 @@ public class InteractiveImageView extends AppCompatImageView
 
     @Override // GestureDetector.OnDoubleTapListener
     public boolean onDoubleTap(MotionEvent e) {
-        Log.d(LOG_TAG, "onDoubleTap");
-        return false;
+        // TODO This if statement might not be necessary
+        // TODO Clean this
+        // TODO synchronized
+        if ((mInteractivity & INTERACTIVITY_FLAG_DOUBLE_TAP) == INTERACTIVITY_FLAG_DOUBLE_TAP) {
+            final float minScaleX = getImageMinScaleX();
+            final float maxScaleX = getImageMaxScaleX();
+            final float rangeX = maxScaleX - minScaleX;
+            final float relativeScaleX = (Math.abs(rangeX) < FLOAT_EPSILON ?
+                    0.0f :
+                    (getImageScaleX() - minScaleX) / rangeX);
+            int targetPivotIndexX = 0;
+            for (int index = 0; index < mZoomPivots.length; index++) {
+                if (mZoomPivots[index] - relativeScaleX > FLOAT_EPSILON) {
+                    targetPivotIndexX = index;
+                    break;
+                }
+            }
+
+            final float minScaleY = getImageMinScaleY();
+            final float maxScaleY = getImageMaxScaleY();
+            final float rangeY = maxScaleY - minScaleY;
+            final float relativeScaleY = (Math.abs(rangeY) < FLOAT_EPSILON ?
+                    0.0f :
+                    (getImageScaleY() - minScaleY) / rangeY);
+            int targetPivotIndexY = 0;
+            for (int index = 0; index < mZoomPivots.length; index++) {
+                if (mZoomPivots[index] - relativeScaleY > FLOAT_EPSILON) {
+                    targetPivotIndexY = index;
+                    break;
+                }
+            }
+
+            final int targetPivotIndex = (targetPivotIndexX == 0 || targetPivotIndexY == 0 ?
+                    0 :
+                    Math.max(targetPivotIndexX, targetPivotIndexY));
+
+            final float sx = minScaleX + rangeX * mZoomPivots[targetPivotIndex];
+            final float sy = minScaleY + rangeY * mZoomPivots[targetPivotIndex];
+            final float cx = getImageCenterX(); // TODO NEXT
+            final float cy = getImageCenterY(); // TODO NEXT
+
+            if (mScaler == null) {
+                setLayoutInternal(sx, sy, cx, cy, true); // TODO NEXT Animate with Scaler
+            } else {
+                mScaler.forceFinished(true);
+
+                getImageMatrixInternal().getValues(mMatrixValues);
+
+                mScaler.startScale(
+                        mMatrixValues[Matrix.MSCALE_X],
+                        mMatrixValues[Matrix.MSCALE_Y],
+                        sx,
+                        sy);
+                ViewCompat.postInvalidateOnAnimation(this);
+            }
+        }
+        return true;
     }
 
     @Override // GestureDetector.OnDoubleTapListener
@@ -498,15 +578,26 @@ public class InteractiveImageView extends AppCompatImageView
             if (mGestureDetector == null) {
                 mGestureDetector = new GestureDetectorCompat(getContext(), this);
             }
-            // mGestureDetector.setIsLongpressEnabled(false); // TODO Yes? No?
+            mGestureDetector.setIsLongpressEnabled(false); // TODO Yes? No?
             mGestureDetector.setOnDoubleTapListener(doubleTapEnabled ? this : null);
         } else {
             mGestureDetector = null;
+        }
+        if (doubleTapEnabled) {
+            if (mScaler == null) {
+                mScaler = new Scaler(getContext());
+            }
+        } else {
+            mScaler = null;
         }
     }
 
     public void setLayout(float sx, float sy, float cx, float cy) {
         setLayoutInternal(sx, sy, cx, cy, false);
+    }
+
+    public void setZoomPivots(float... pivots) {
+        mZoomPivots = pivots;
     }
     //endregion Methods
 
@@ -520,7 +611,6 @@ public class InteractiveImageView extends AppCompatImageView
         getBaselineImageMatrix(mScaleType, outMatrix);
     }
 
-    @SuppressWarnings("SpellCheckingInspection")
     protected void getBaselineImageMatrix(ScaleType scaleType, Matrix outMatrix) {
         synchronized (mLock) {
             if ((mInvalidFlags & INVALID_FLAG_BASELINE_IMAGE_MATRIX) ==
@@ -894,6 +984,19 @@ public class InteractiveImageView extends AppCompatImageView
         setInteractivity(a.getInt(
                 R.styleable.InteractiveImageView_interactivity,
                 INTERACTIVITY_FLAG_ALL));
+
+        final @ArrayRes int resId =
+                a.getResourceId(R.styleable.InteractiveImageView_zoomPivots, -1);
+        if (resId != -1) {
+            TypedArray ta = getResources().obtainTypedArray(resId);
+            final int length = ta.length();
+            final float[] zoomPivots = new float[length];
+            for (int i = 0; i < length; i++) {
+                zoomPivots[i] = ta.getFloat(i, Float.NaN);
+            }
+            setZoomPivots(zoomPivots);
+            ta.recycle();
+        }
 
         a.recycle();
     }

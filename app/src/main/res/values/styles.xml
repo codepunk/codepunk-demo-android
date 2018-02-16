@@ -10,6 +10,7 @@
         <item name="scaleY">auto</item>
         <item name="zoomEnabled">true</item>
         <item name="interactivity">all</item>
+        <item name="zoomPivots">@array/zoom_pivots</item>
     </style>
 
     <style name="InteractiveImageViewEx" parent="InteractiveImageView">

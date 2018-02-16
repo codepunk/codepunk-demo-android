@@ -13,6 +13,10 @@ public class DemoInteractiveImageView extends InteractiveImageView {
         void onInteractionBegin(InteractiveImageView view);
         void onInteractionEnd(InteractiveImageView view);
     }
+
+    public interface SingleTapConfirmedListener {
+        void onSingleTapConfirmed(DemoInteractiveImageView view);
+    }
     //endregion Nested classes
 
     //region Constants
@@ -21,6 +25,7 @@ public class DemoInteractiveImageView extends InteractiveImageView {
 
     //region Fields
     private DemoInteractiveImageViewListener mDemoInteractiveImageViewListener;
+    private SingleTapConfirmedListener mSingleTapConfirmedListener;
     private boolean mInteracting = false;
     //endregion Fields
 
@@ -74,6 +79,15 @@ public class DemoInteractiveImageView extends InteractiveImageView {
     }
 
     @Override
+    public boolean onSingleTapConfirmed(MotionEvent e) {
+        final boolean retVal = super.onSingleTapConfirmed(e);
+        if (mSingleTapConfirmedListener != null) {
+            mSingleTapConfirmedListener.onSingleTapConfirmed(this);
+        }
+        return retVal;
+    }
+
+    @Override
     public boolean onUp(MotionEvent e) {
         final boolean retVal = super.onUp(e);
         // TODO At end of fling?
@@ -89,6 +103,10 @@ public class DemoInteractiveImageView extends InteractiveImageView {
 
     public void setDemoInteractiveImageViewListener(DemoInteractiveImageViewListener listener) {
         mDemoInteractiveImageViewListener = listener;
+    }
+
+    public void setSingleTapConfirmedListener(SingleTapConfirmedListener listener) {
+        mSingleTapConfirmedListener = listener;
     }
     //endregion Methods
 

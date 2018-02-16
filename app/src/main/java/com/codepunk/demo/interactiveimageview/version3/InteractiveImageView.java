@@ -544,7 +544,7 @@ public class InteractiveImageView extends AppCompatImageView {
         if (mZoomEnabled != enabled) {
             mZoomEnabled = enabled;
             if (enabled) {
-                // TODO Zoomer?
+                // TODO Scaler?
                 mOnScaleGestureListener = new ZoomOnScaleGestureListener();
                 mScaleGestureDetector =
                         new ScaleGestureDetector(getContext(), mOnScaleGestureListener);
