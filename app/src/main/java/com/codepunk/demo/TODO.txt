@@ -1,7 +1,5 @@
 TODO NEXT:
 Address all TODO synchronized
-Catch when scrolling image view and we hit drawer. Drawer intercepts touch. Messes with alpha etc.
-
 Test to see if image is at "baseline" before saving/restoring on config change
 
 In InteractiveImageView:

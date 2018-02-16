@@ -83,6 +83,16 @@ public class DemoInteractiveImageView extends InteractiveImageView {
     //endregion Inherited methods
 
     //region Methods
+    public boolean isInteracting() {
+        return mInteracting;
+    }
+
+    public void setDemoInteractiveImageViewListener(DemoInteractiveImageViewListener listener) {
+        mDemoInteractiveImageViewListener = listener;
+    }
+    //endregion Methods
+
+    //region Private methods
     private void onInteractionBegin() {
         mInteracting = true;
         if (mDemoInteractiveImageViewListener != null) {
@@ -96,9 +106,5 @@ public class DemoInteractiveImageView extends InteractiveImageView {
             mDemoInteractiveImageViewListener.onInteractionEnd(this);
         }
     }
-
-    public void setDemoInteractiveImageViewListener(DemoInteractiveImageViewListener listener) {
-        mDemoInteractiveImageViewListener = listener;
-    }
-    //endregion Methods
+    //endregion Private methods
 }
