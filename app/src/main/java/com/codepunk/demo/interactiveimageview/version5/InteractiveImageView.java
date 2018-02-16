@@ -14,7 +14,6 @@ import android.support.v4.view.ViewCompat;
 import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
-import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
@@ -35,6 +34,7 @@ public class InteractiveImageView extends AppCompatImageView
     static final float MAX_SCALE_BREADTH_MULTIPLIER = 3.0f;
     static final float MAX_SCALE_LENGTH_MULTIPLIER = 5.0f;
     final float FLOAT_EPSILON = 0.005f;
+    final float ZOOM_PIVOT_EPSILON = 0.2f;
 
     public static final int INTERACTIVITY_FLAG_NONE = 0;
     public static final int INTERACTIVITY_FLAG_SCROLL = 0x00000001;
@@ -180,9 +180,9 @@ public class InteractiveImageView extends AppCompatImageView
                 // double-touch).
                 float sx = mScaler.getCurrScaleX();
                 float sy = mScaler.getCurrScaleY();
-                float cx = getImageCenterX(); // TODO
-                float cy = getImageCenterY(); // TODO
-                setLayoutInternal(sx, sy, cx, cy, true); // fromUser? Or not fromUser?
+                float cx = mScaler.getCurrCenterX();
+                float cy = mScaler.getCurrCenterY();
+                setLayoutInternal(sx, sy, cx, cy, true); // TODO fromUser? Or not fromUser?
                 needsInvalidate = true;
             }
         }
@@ -234,6 +234,7 @@ public class InteractiveImageView extends AppCompatImageView
     @Override
     public void setImageDrawable(@Nullable Drawable drawable) {
         super.setImageDrawable(drawable);
+        setScaleType(mScaleType);
         mInvalidFlags |= INVALID_FLAG_DEFAULT;
     }
 
@@ -274,8 +275,7 @@ public class InteractiveImageView extends AppCompatImageView
             mScroller.forceFinished(true);
         }
         if (mScaler != null) {
-            Log.d("Scaler", "InteractiveImageView.onDown");
-//            mScaler.forceFinished(true);
+            mScaler.forceFinished(true);
         }
         return true;
     }
@@ -381,74 +381,78 @@ public class InteractiveImageView extends AppCompatImageView
 
     @Override // GestureDetector.OnDoubleTapListener
     public boolean onSingleTapConfirmed(MotionEvent e) {
-        Log.d(LOG_TAG, "onSingleTapConfirmed");
+//        Log.d(LOG_TAG, "onSingleTapConfirmed");
         return false;
     }
 
     @Override // GestureDetector.OnDoubleTapListener
     public boolean onDoubleTap(MotionEvent e) {
-        // TODO This if statement might not be necessary
-        // TODO Clean this
-        // TODO synchronized
-        if ((mInteractivity & INTERACTIVITY_FLAG_DOUBLE_TAP) == INTERACTIVITY_FLAG_DOUBLE_TAP) {
-            final float minScaleX = getImageMinScaleX();
-            final float maxScaleX = getImageMaxScaleX();
-            final float rangeX = maxScaleX - minScaleX;
-            final float relativeScaleX = (Math.abs(rangeX) < FLOAT_EPSILON ?
-                    0.0f :
-                    (getImageScaleX() - minScaleX) / rangeX);
-            int targetPivotIndexX = 0;
-            for (int index = 0; index < mZoomPivots.length; index++) {
-                if (mZoomPivots[index] - relativeScaleX > FLOAT_EPSILON) {
-                    targetPivotIndexX = index;
-                    break;
-                }
-            }
-
-            final float minScaleY = getImageMinScaleY();
-            final float maxScaleY = getImageMaxScaleY();
-            final float rangeY = maxScaleY - minScaleY;
-            final float relativeScaleY = (Math.abs(rangeY) < FLOAT_EPSILON ?
-                    0.0f :
-                    (getImageScaleY() - minScaleY) / rangeY);
-            int targetPivotIndexY = 0;
-            for (int index = 0; index < mZoomPivots.length; index++) {
-                if (mZoomPivots[index] - relativeScaleY > FLOAT_EPSILON) {
-                    targetPivotIndexY = index;
-                    break;
-                }
-            }
-
-            final int targetPivotIndex = (targetPivotIndexX == 0 || targetPivotIndexY == 0 ?
-                    0 :
-                    Math.max(targetPivotIndexX, targetPivotIndexY));
-
-            final float sx = minScaleX + rangeX * mZoomPivots[targetPivotIndex];
-            final float sy = minScaleY + rangeY * mZoomPivots[targetPivotIndex];
-            final float cx = getImageCenterX(); // TODO NEXT
-            final float cy = getImageCenterY(); // TODO NEXT
-
-            if (mScaler == null) {
-                setLayoutInternal(sx, sy, cx, cy, true); // TODO NEXT Animate with Scaler
-            } else {
-                mScaler.forceFinished(true);
-
-                getImageMatrixInternal().getValues(mMatrixValues);
-
-                mScaler.startScale(
-                        mMatrixValues[Matrix.MSCALE_X],
-                        mMatrixValues[Matrix.MSCALE_Y],
-                        sx,
-                        sy);
-                ViewCompat.postInvalidateOnAnimation(this);
-            }
-        }
-        return true;
+        return false;
     }
 
     @Override // GestureDetector.OnDoubleTapListener
     public boolean onDoubleTapEvent(MotionEvent e) {
-        //Log.d(LOG_TAG, "onDoubleTapEvent");
+        if (e.getAction() == MotionEvent.ACTION_UP) {
+            // TODO This if statement might not be necessary
+            // TODO Clean this
+            // TODO synchronized
+            if ((mInteractivity & INTERACTIVITY_FLAG_DOUBLE_TAP) == INTERACTIVITY_FLAG_DOUBLE_TAP) {
+                final float minScaleX = getImageMinScaleX();
+                final float maxScaleX = getImageMaxScaleX();
+                final float rangeX = maxScaleX - minScaleX;
+                final float relativeScaleX = (Math.abs(rangeX) < FLOAT_EPSILON ?
+                        0.0f :
+                        (getImageScaleX() - minScaleX) / rangeX);
+                int targetPivotIndexX = 0;
+                for (int index = 0; index < mZoomPivots.length; index++) {
+                    if (mZoomPivots[index] - relativeScaleX > ZOOM_PIVOT_EPSILON) {
+                        targetPivotIndexX = index;
+                        break;
+                    }
+                }
+
+                final float minScaleY = getImageMinScaleY();
+                final float maxScaleY = getImageMaxScaleY();
+                final float rangeY = maxScaleY - minScaleY;
+                final float relativeScaleY = (Math.abs(rangeY) < FLOAT_EPSILON ?
+                        0.0f :
+                        (getImageScaleY() - minScaleY) / rangeY);
+                int targetPivotIndexY = 0;
+                for (int index = 0; index < mZoomPivots.length; index++) {
+                    if (mZoomPivots[index] - relativeScaleY > ZOOM_PIVOT_EPSILON) {
+                        targetPivotIndexY = index;
+                        break;
+                    }
+                }
+
+                final int targetPivotIndex = (targetPivotIndexX == 0 || targetPivotIndexY == 0 ?
+                        0 :
+                        Math.max(targetPivotIndexX, targetPivotIndexY));
+
+                final float sx = minScaleX + rangeX * mZoomPivots[targetPivotIndex];
+                final float sy = minScaleY + rangeY * mZoomPivots[targetPivotIndex];
+                final float cx = absoluteToRelativeX(e.getX());
+                final float cy = absoluteToRelativeY(e.getY());
+
+                if (mScaler == null) {
+                    setLayoutInternal(sx, sy, cx, cy, true);
+                } else {
+                    mScaler.forceFinished(true);
+
+                    mScaler.startScale(
+                            getImageScaleX(),
+                            getImageScaleY(),
+                            getImageCenterX(),
+                            getImageCenterY(),
+                            sx,
+                            sy,
+                            cx,
+                            cy);
+                    ViewCompat.postInvalidateOnAnimation(this);
+                }
+                return true;
+            }
+        }
         return false;
     }
 
@@ -480,6 +484,26 @@ public class InteractiveImageView extends AppCompatImageView
     //endregion Interface methods
 
     //region Methods
+    public float absoluteToRelativeX(float x) {
+        synchronized (mLock) {
+            getImageMatrixInternal().invert(mImageMatrix);
+            mPts[0] = x;
+            mPts[1] = 0.0f;
+            mImageMatrix.mapPoints(mPts);
+            return mPts[0] / getDrawableIntrinsicWidth();
+        }
+    }
+
+    public float absoluteToRelativeY(float y) {
+        synchronized (mLock) {
+            getImageMatrixInternal().invert(mImageMatrix);
+            mPts[0] = 0.0f;
+            mPts[1] = y;
+            mImageMatrix.mapPoints(mPts);
+            return mPts[1] / getDrawableIntrinsicHeight();
+        }
+    }
+
     protected int getDrawableIntrinsicHeight() {
         final Drawable dr = getDrawable();
         return (dr == null ? -1 : dr.getIntrinsicHeight());
@@ -491,23 +515,11 @@ public class InteractiveImageView extends AppCompatImageView
     }
 
     public float getImageCenterX() {
-        synchronized (mLock) {
-            getImageMatrixInternal().invert(mImageMatrix);
-            mPts[0] = (getWidth() - getPaddingLeft() - getPaddingRight()) * 0.5f;
-            mPts[1] = 0.0f;
-            mImageMatrix.mapPoints(mPts);
-            return mPts[0] / getDrawableIntrinsicWidth();
-        }
+        return absoluteToRelativeX(getWidth() * 0.5f);
     }
 
     public float getImageCenterY() {
-        synchronized (mLock) {
-            getImageMatrixInternal().invert(mImageMatrix);
-            mPts[0] = 0.0f;
-            mPts[1] = (getHeight() - getPaddingTop() - getPaddingBottom()) * 0.5f;
-            mImageMatrix.mapPoints(mPts);
-            return mPts[1] / getDrawableIntrinsicHeight();
-        }
+        return absoluteToRelativeY(getHeight() * 0.5f);
     }
 
     public float getImageMaxScaleX() {

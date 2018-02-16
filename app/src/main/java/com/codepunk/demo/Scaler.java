@@ -18,11 +18,8 @@ package com.codepunk.demo;
 
 import android.content.Context;
 import android.os.SystemClock;
-import android.util.Log;
 import android.view.animation.DecelerateInterpolator;
 import android.view.animation.Interpolator;
-
-import java.util.Locale;
 
 /**
  * A simple class that animates double-touch zoom gestures. Functionally similar to a {@link
@@ -55,6 +52,10 @@ public class Scaler {
 
     private float mCurrentScaleY;
 
+    private float mCurrentCenterX;
+
+    private float mCurrentCenterY;
+
     /**
      * The time the zoom started, computed using {@link SystemClock#elapsedRealtime()}.
      */
@@ -64,6 +65,10 @@ public class Scaler {
 
     private float mStartScaleY;
 
+    private float mStartCenterX;
+
+    private float mStartCenterY;
+
     /**
      * The destination zoom factor.
      */
@@ -71,6 +76,10 @@ public class Scaler {
     private float mEndScaleX;
 
     private float mEndScaleY;
+
+    private float mEndCenterX;
+
+    private float mEndCenterY;
 
     public Scaler(Context context) {
         mInterpolator = new DecelerateInterpolator();
@@ -85,7 +94,6 @@ public class Scaler {
      * @see android.widget.Scroller#forceFinished(boolean)
      */
     public void forceFinished(boolean finished) {
-        Log.d(LOG_TAG, String.format(Locale.ENGLISH, "forceFinished: finished=%b", finished));
         mFinished = finished;
     }
 
@@ -95,11 +103,11 @@ public class Scaler {
      * @see android.widget.Scroller#abortAnimation()
      */
     public void abortAnimation() {
-        Log.d(LOG_TAG, "abortAnimation");
         mFinished = true;
-//        mCurrentZoom = mEndZoom;
         mCurrentScaleX = mEndScaleX;
         mCurrentScaleY = mEndScaleY;
+        mCurrentCenterX = mEndCenterX;
+        mCurrentCenterY = mEndCenterY;
     }
 
     /*
@@ -116,15 +124,32 @@ public class Scaler {
     }
      */
 
-    public void startScale(float startScaleX, float startScaleY, float endScaleX, float endScaleY) {
+    /**
+     * Starts a scale from 1.0 to (1.0 + endZoom). That is, to zoom from 100% to 125%, endZoom should
+     * by 0.25f. TODO Change description
+     *
+     * @see android.widget.Scroller#startScroll(int, int, int, int)
+     */
+    public void startScale(
+            float startScaleX,
+            float startScaleY,
+            float startCenterX,
+            float startCenterY,
+            float endScaleX,
+            float endScaleY,
+            float endCenterX,
+            float endCenterY) {
         mStartRTC = SystemClock.elapsedRealtime();
         mCurrentScaleX = mStartScaleX = startScaleX;
         mCurrentScaleY = mStartScaleY = startScaleY;
+        mCurrentCenterX = mStartCenterX = startCenterX;
+        mCurrentCenterY = mStartCenterY = startCenterY;
         mEndScaleX = endScaleX;
         mEndScaleY = endScaleY;
+        mEndCenterX = endCenterX;
+        mEndCenterY = endCenterY;
 
         mFinished = false;
-        Log.d(LOG_TAG, String.format(Locale.ENGLISH, "startScale: mFinished=%b", mFinished));
     }
 
     /**
@@ -135,27 +160,26 @@ public class Scaler {
      */
     public boolean computeScale() {
         if (mFinished) {
-            Log.d(LOG_TAG, String.format(Locale.ENGLISH, "computeScale: mFinished=%b", false));
             return false;
         }
 
         long tRTC = SystemClock.elapsedRealtime() - mStartRTC;
 
-        Log.d(LOG_TAG, String.format(Locale.ENGLISH, "computeScale: mFinished=%b, tRTC=%d", mFinished, tRTC));
-
         if (tRTC >= mAnimationDurationMillis) {
             mFinished = true;
-//            mCurrentZoom = mEndZoom;
             mCurrentScaleX = mEndScaleX;
             mCurrentScaleY = mEndScaleY;
+            mCurrentCenterX = mEndCenterX;
+            mCurrentCenterY = mEndCenterY;
             return false;
         }
 
         float t = tRTC * 1f / mAnimationDurationMillis;
-//        mCurrentZoom = mEndZoom * mInterpolator.getInterpolation(t);
         float interpolation = mInterpolator.getInterpolation(t);
         mCurrentScaleX = mStartScaleX + (mEndScaleX - mStartScaleX) * interpolation;
         mCurrentScaleY = mStartScaleY + (mEndScaleY - mStartScaleY) * interpolation;
+        mCurrentCenterX = mStartCenterX + (mEndCenterX - mStartCenterX) * interpolation;
+        mCurrentCenterY = mStartCenterY + (mEndCenterY - mStartCenterY) * interpolation;
         return true;
     }
 
@@ -174,5 +198,13 @@ public class Scaler {
 
     public float getCurrScaleY() {
         return mCurrentScaleY;
+    }
+
+    public float getCurrCenterX() {
+        return mCurrentCenterX;
+    }
+
+    public float getCurrCenterY() {
+        return mCurrentCenterY;
     }
 }
