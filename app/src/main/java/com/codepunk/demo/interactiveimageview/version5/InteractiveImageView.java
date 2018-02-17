@@ -31,8 +31,8 @@ public class InteractiveImageView extends AppCompatImageView
 
     //region Constants
     private static final String LOG_TAG = InteractiveImageView.class.getSimpleName();
-    static final float MAX_SCALE_BREADTH_MULTIPLIER = 3.0f;
-    static final float MAX_SCALE_LENGTH_MULTIPLIER = 5.0f;
+    static final float MAX_SCALE_BREADTH_MULTIPLIER = 4.0f;
+    static final float MAX_SCALE_LENGTH_MULTIPLIER = 6.0f;
     final float FLOAT_EPSILON = 0.005f;
     final float ZOOM_PIVOT_EPSILON = 0.2f;
 
@@ -234,7 +234,7 @@ public class InteractiveImageView extends AppCompatImageView
     @Override
     public void setImageDrawable(@Nullable Drawable drawable) {
         super.setImageDrawable(drawable);
-        setScaleType(mScaleType);
+//        setScaleType(mScaleType); <-- TODO Setting this here messes up saving state after configuration change. How to reset?
         mInvalidFlags |= INVALID_FLAG_DEFAULT;
     }
 
