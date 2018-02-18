@@ -83,8 +83,8 @@ public class Scaler {
 
     public Scaler(Context context) {
         mInterpolator = new DecelerateInterpolator();
-        mAnimationDurationMillis = context.getResources().getInteger(
-                android.R.integer.config_shortAnimTime);
+        mAnimationDurationMillis = 3000;
+                //context.getResources().getInteger(android.R.integer.config_shortAnimTime);
     }
 
     /**

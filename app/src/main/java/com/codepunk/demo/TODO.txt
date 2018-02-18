@@ -16,3 +16,21 @@ TODO:
 Edge Effects !!
 Double-tap to zoom
 Play with cropToPadding, see how it behaves. (Like "viewport" in my original concept?)
+
+
+Version 6?
+
+Ooooook ...
+Make a private setLayoutInternal that simply adjusts the matrix. No adjustments.
+Make a public setLayout that takes (sx, sy, cx, cy, animate) as arguments.
+Make a nested ScaleScroller class that works like Scroller.
+Both mOverScroller and mScaleScroller are always implemented.
+Make a protected setLayout that takes (sx, sy, cx, cy, fromUser, animate) and resolves using fromUser
+    before calling private setLayoutInternal.
+
+TODO VERSION6 :
+x Next: A method to clamp sx, sy, cx, cy
+x Code the ScaleScroller
+x Then computeScroll
+Then fix gestures
+Edge effects
