@@ -164,7 +164,6 @@ public class InteractiveImageViewControlsFragment extends Fragment
         outState.putFloat(KEY_CX, mCx);
         outState.putFloat(KEY_CY, mCy);
     }
-
     //endregion Lifecycle methods
 
     //region Implemented methods

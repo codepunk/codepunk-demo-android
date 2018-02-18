@@ -29,8 +29,21 @@ Make a protected setLayout that takes (sx, sy, cx, cy, fromUser, animate) and re
     before calling private setLayoutInternal.
 
 TODO VERSION6 :
+TODO NEXT So close!
+I can't really animate based on scale and translate.
+What I need to do is:
+resolve target scale
+resolve center point based on target scale.
+Then ScaleScroller needs to animate on scaleX/Y and CENTER X/Y. (Currently it's doing Tx/Ty.
+Because, during the animation, centerX/Y needs to move over smoothly but we also need to know the
+farthest it can go.
+
+
 x Next: A method to clamp sx, sy, cx, cy
 x Code the ScaleScroller
 x Then computeScroll
-Then fix gestures
+Then fix gestures -- everything but double tap (see TODO NEXT above)
 Edge effects
+Make sure I'm checking all flags for scroll, fling, doubletap etc. and doing all synchronized where appropriate
+
+Also I kind of want to clean up how I'm throwing around mImageMatrix, mNewImageMatrix, mMatrixValues, mSrcRect & mDstRect etc.
