@@ -299,14 +299,14 @@ public class InteractiveImageView extends AppCompatImageView
     private final float[] mSrcPts = new float[2];
     private final float[] mDstPts = new float[2];
     private final Matrix mBaselineImageMatrix = new Matrix();
-    private final Matrix mImageMatrixInternal = new Matrix();
     private final Matrix mImageMatrix = new Matrix();
+    private final Matrix mNewImageMatrix = new Matrix();
     private final RectF mSrcRect = new RectF();
     private final RectF mDstRect = new RectF();
 
     private final Object mLock = new Object();
 
-    private Pair<PointF, PointF> mPendingLayout = null;
+    private Pair<PointF, PointF> mPendingScaleAndCenter = null;
     private int mInvalidFlags;
     //endregion Fields
 
@@ -353,83 +353,35 @@ public class InteractiveImageView extends AppCompatImageView
     public void computeScroll() {
         super.computeScroll();
 
-        boolean needsInvalidate = false;
+        synchronized (mLock) {
+            boolean needsInvalidate = false;
 
-        if (mScaleScroller.computeScaleAndScroll()) {
-            final float sx = mScaleScroller.getCurrScaleX();
-            final float sy = mScaleScroller.getCurrScaleY();
-            final float tx = mScaleScroller.getCurrTransX();
-            final float ty = mScaleScroller.getCurrTransY();
-            setLayoutInternal(sx, sy, tx, ty, false);
-            needsInvalidate = true;
-        }
-
-        if (needsInvalidate) {
-            ViewCompat.postInvalidateOnAnimation(this);
-        }
-
-        /* TODO VERSION6
-        // TODO synchronized
-        // TODO This has a lot of similar logic as setLayoutInternal. Consolidate?
-        boolean needsInvalidate = false;
-
-        if (mOverScroller != null) {
             if (mOverScroller.computeScrollOffset()) {
-                mImageMatrix.set(getImageMatrixInternal());
-                mImageMatrix.getValues(mMatrixValues);
-
-                // The scroller isn't finished, meaning a fling or programmatic
-                // pan operation is currently active.
-                mSrcRect.set(
-                        0.0f,
-                        0.0f,
-                        getDrawableIntrinsicWidth(),
-                        getDrawableIntrinsicHeight());
-                mImageMatrix.mapRect(mDstRect, mSrcRect);
-                final float mappedWidth = mDstRect.width();
-                final float mappedHeight = mDstRect.height();
-
-                final int availableWidth = getAvailableWidth();
-                final int availableHeight = getAvailableHeight();
-                final int tx = mOverScroller.getCurrX();
-                final int ty = mOverScroller.getCurrY();
-
-                final float resolvedTransX = resolveTransX(
-                        tx,
-                        getImageMinTransX(availableWidth, mappedWidth),
-                        getImageMaxTransX(availableWidth, mappedWidth),
-                        true);
-                final float resolvedTransY = resolveTransY(
-                        ty,
-                        getImageMinTransY(availableHeight, mappedHeight),
-                        getImageMaxTransY(availableHeight, mappedHeight),
-                        true);
-
-                if (mMatrixValues[MTRANS_X] == resolvedTransX &&
-                        mMatrixValues[MTRANS_Y] == resolvedTransY) {
-                    // No change; fling is finished
-                    mOverScroller.forceFinished(true);
-                    return; // TODO Don't want to return though!
-                }
-
-                mMatrixValues[MTRANS_X] = resolvedTransX;
-                mMatrixValues[MTRANS_Y] = resolvedTransY;
+                getImageMatrixValues(mMatrixValues);
+                mMatrixValues[MTRANS_X] = mOverScroller.getCurrX();
+                mMatrixValues[MTRANS_Y] = mOverScroller.getCurrY();
                 mImageMatrix.setValues(mMatrixValues);
-
-                if (ScaleType.MATRIX != super.getScaleType()) {
-                    super.setScaleType(ScaleType.MATRIX);
-                }
-                super.setImageMatrix(mImageMatrix);
+                needsInvalidate = true;
+            } else if (mScaleScroller.computeScaleAndScroll()) {
+                getImageMatrixValues(mMatrixValues);
+                mMatrixValues[MSCALE_X] = mScaleScroller.getCurrScaleX();
+                mMatrixValues[MSCALE_Y] = mScaleScroller.getCurrScaleY();
+                mMatrixValues[MTRANS_X] = mScaleScroller.getCurrTransX();
+                mMatrixValues[MTRANS_Y] = mScaleScroller.getCurrTransY();
+                mImageMatrix.setValues(mMatrixValues);
                 needsInvalidate = true;
             }
+
+            if (needsInvalidate) {
+                if (setScaleAndTranslate(mImageMatrix, false)) {
+                    ViewCompat.postInvalidateOnAnimation(this);
+                } else {
+                    // The image didn't move; consider the scale/fling done
+                    mOverScroller.forceFinished(true);
+                    mScaleScroller.forceFinished(true);
+                }
+            }
         }
-
-
-
-        if (needsInvalidate) {
-            ViewCompat.postInvalidateOnAnimation(this);
-        }
-        */
     }
 
     @Override
@@ -440,13 +392,13 @@ public class InteractiveImageView extends AppCompatImageView
     @Override
     public void layout(int l, int t, int r, int b) {
         super.layout(l, t, r, b);
-        if (mPendingLayout != null) {
-            setLayout(
-                    mPendingLayout.first.x,
-                    mPendingLayout.first.y,
-                    mPendingLayout.second.x,
-                    mPendingLayout.second.y);
-            mPendingLayout = null;
+        if (mPendingScaleAndCenter != null) {
+            setScaleAndCenter(
+                    mPendingScaleAndCenter.first.x,
+                    mPendingScaleAndCenter.first.y,
+                    mPendingScaleAndCenter.second.x,
+                    mPendingScaleAndCenter.second.y);
+            mPendingScaleAndCenter = null;
         }
     }
 
@@ -532,7 +484,7 @@ public class InteractiveImageView extends AppCompatImageView
     public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
         /* TODO VERSION6
         // TODO synchronized
-        // TODO This has a lot of similar logic as setLayoutInternal. Consolidate?
+        // TODO This has a lot of similar logic as setLayout. Consolidate?
         mImageMatrix.set(getImageMatrixInternal());
         mImageMatrix.getValues(mMatrixValues);
 
@@ -584,7 +536,7 @@ public class InteractiveImageView extends AppCompatImageView
     public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
         /* TODO VERSION6
         // TODO synchronized
-        // TODO This has a lot of similar logic as setLayoutInternal. Consolidate?
+        // TODO This has a lot of similar logic as setLayout. Consolidate?
         if (mOverScroller != null) {
             mOverScroller.forceFinished(true);
 
@@ -727,7 +679,7 @@ public class InteractiveImageView extends AppCompatImageView
                 final float resolvedCx = mPts[0] / getDrawableIntrinsicWidth();
                 final float resolvedCy = mPts[1] / getDrawableIntrinsicHeight();
 
-                // TODO END adjust. The above logic should maybe also appear in setLayout, and setLayoutInternal will always expect adjusted values
+                // TODO END adjust. The above logic should maybe also appear in setLayout, and setLayout will always expect adjusted values
 
                 if (mScaler == null) {
                     setLayout(resolvedSx, resolvedSy, resolvedCx, resolvedCy);
@@ -759,7 +711,7 @@ public class InteractiveImageView extends AppCompatImageView
         final float currentSpan = detector.getCurrentSpan();
         final float spanDelta = (currentSpan / mLastSpan);
         getImageMatrixInternal().getValues(mMatrixValues);
-        setLayoutInternal(
+        setLayout(
                 mMatrixValues[MSCALE_X] *= spanDelta,
                 mMatrixValues[MSCALE_Y] *= spanDelta,
                 getImageCenterX(),
@@ -919,17 +871,17 @@ public class InteractiveImageView extends AppCompatImageView
         */
     }
 
-    public void setLayout(float sx, float sy, float cx, float cy) {
-        setLayout(sx, sy, cx, cy, false);
+    public boolean setScaleAndCenter(float sx, float sy, float cx, float cy) {
+        return setScaleAndCenter(sx, sy, cx, cy, false);
     }
 
-    public void setLayout(float sx, float sy, float cx, float cy, boolean animate) {
+    public boolean setScaleAndCenter(float sx, float sy, float cx, float cy, boolean animate) {
         if (!ViewCompat.isLaidOut(this)) {
-            mPendingLayout = new Pair<>(new PointF(sx, sy), new PointF(cx, cy));
-            return;
+            mPendingScaleAndCenter = new Pair<>(new PointF(sx, sy), new PointF(cx, cy));
+            return false;
         }
 
-        setLayout(sx, sy, cx, cy, animate, false);
+        return setScaleAndCenter(sx, sy, cx, cy, animate, false);
     }
 
     public void setZoomPivots(float... pivots) {
@@ -1199,44 +1151,57 @@ public class InteractiveImageView extends AppCompatImageView
     }
 
     @SuppressWarnings("SameParameterValue")
-    protected void setLayout(
+    protected boolean setScaleAndCenter(
             float sx,
             float sy,
             float cx,
             float cy,
             boolean animate,
             boolean fromUser) {
-        // Resolve scale x/y and store the values in mImageMatrix
-        final float rSx = resolveScaleX(sx, getImageMinScaleX(), getImageMaxScaleX(), fromUser);
-        final float rSy = resolveScaleY(sy, getImageMinScaleY(), getImageMaxScaleY(), fromUser);
-        getImageMatrixValues(mMatrixValues);
-        mMatrixValues[MSCALE_X] = rSx;
-        mMatrixValues[MSCALE_Y] = rSy;
-        mImageMatrix.setValues(mMatrixValues);
+        synchronized (mLock) {
+            // TODO I will need to check these values so they are resolved at the SAME RATE and not
+            // independently? Or do that somehow in onScale?
+            getImageMatrixValues(mMatrixValues);
+            mMatrixValues[MSCALE_X] =
+                    resolveScaleX(sx, getImageMinScaleX(), getImageMaxScaleX(), fromUser);
+            mMatrixValues[MSCALE_Y] =
+                    resolveScaleY(sy, getImageMinScaleY(), getImageMaxScaleY(), fromUser);
+            mNewImageMatrix.setValues(mMatrixValues);
 
-        // Translate the matrix based on center x/y
-        centerToMatrix(mImageMatrix, cx, cy);
+            // Translate the matrix based on center x/y
+            centerToMatrix(mNewImageMatrix, cx, cy);
+            return setScaleAndTranslate(mNewImageMatrix, animate, fromUser);
+        }
+    }
 
-        // Get mapped rect
-        getDrawableIntrinsicRect(mSrcRect);
-        mImageMatrix.mapRect(mDstRect, mSrcRect);
+    /* This version has resolved scale in imageMatrix, but unresolved translation */
+    protected boolean setScaleAndTranslate(
+            @NonNull final Matrix imageMatrix,
+            boolean animate,
+            boolean fromUser) {
+        synchronized (mLock) {
+            // Get mapped rect
+            getDrawableIntrinsicRect(mSrcRect);
+            imageMatrix.mapRect(mDstRect, mSrcRect);
 
-        // Resolve mapped trans x/y values
-        final float mappedWidth = mDstRect.width();
-        final float mappedHeight = mDstRect.height();
-        mImageMatrix.getValues(mMatrixValues);
-        final float rTx = resolveTransX(
-                mMatrixValues[MTRANS_X],
-                getImageMinTransX(mappedWidth),
-                getImageMaxTransX(mappedWidth),
-                fromUser);
-        final float rTy = resolveTransY(
-                mMatrixValues[MTRANS_Y],
-                getImageMinTransY(mappedHeight),
-                getImageMaxTransY(mappedHeight),
-                fromUser);
+            // Resolve trans x/y values
+            final float mappedWidth = mDstRect.width();
+            final float mappedHeight = mDstRect.height();
+            imageMatrix.getValues(mMatrixValues);
+            mMatrixValues[MTRANS_X] = resolveTransX(
+                    mMatrixValues[MTRANS_X],
+                    getImageMinTransX(mappedWidth),
+                    getImageMaxTransX(mappedWidth),
+                    fromUser);
+            mMatrixValues[MTRANS_Y] = resolveTransY(
+                    mMatrixValues[MTRANS_Y],
+                    getImageMinTransY(mappedHeight),
+                    getImageMaxTransY(mappedHeight),
+                    fromUser);
 
-        setLayoutInternal(rSx, rSy, rTx, rTy, animate);
+            imageMatrix.setValues(mMatrixValues);
+            return setScaleAndTranslate(imageMatrix, animate);
+        }
     }
     //endregion Protected methods
 
@@ -1365,31 +1330,39 @@ public class InteractiveImageView extends AppCompatImageView
         }
     }
 
-    private void setLayoutInternal(float sx, float sy, float tx, float ty, boolean animate) {
+    private boolean setScaleAndTranslate(@NonNull final Matrix imageMatrix, boolean animate) {
         synchronized (mLock) {
-            getImageMatrixValues(mMatrixValues);
+            getImageMatrixInternal(mImageMatrix);
+            if (imageMatrix.equals(mImageMatrix)) {
+                // There is no change; we can exit
+                return false;
+            }
+
             if (animate) {
                 mScaleScroller.forceFinished(true);
+                getImageMatrixValues(mMatrixValues);
+                final float startSx = mMatrixValues[MSCALE_X];
+                final float startSy = mMatrixValues[MSCALE_Y];
+                final float startTx = mMatrixValues[MTRANS_X];
+                final float startTy = mMatrixValues[MTRANS_Y];
+                imageMatrix.getValues(mMatrixValues);
                 mScaleScroller.startScaleAndScroll(
+                        startSx,
+                        startSy,
+                        startTx,
+                        startTy,
                         mMatrixValues[MSCALE_X],
                         mMatrixValues[MSCALE_Y],
                         mMatrixValues[MTRANS_X],
-                        mMatrixValues[MTRANS_Y],
-                        sx,
-                        sy,
-                        tx,
-                        ty);
+                        mMatrixValues[MTRANS_Y]);
                 ViewCompat.postInvalidateOnAnimation(this);
             } else {
-                mMatrixValues[MSCALE_X] = sx;
-                mMatrixValues[MSCALE_Y] = sy;
-                mMatrixValues[MTRANS_X] = tx;
-                mMatrixValues[MTRANS_Y] = ty;
                 if (ScaleType.MATRIX != super.getScaleType()) {
                     super.setScaleType(ScaleType.MATRIX);
                 }
-                setImageMatrixValues(mMatrixValues);
+                super.setImageMatrix(imageMatrix);
             }
+            return true;
         }
     }
     //endregion Private methods

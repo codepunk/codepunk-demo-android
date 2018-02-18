@@ -148,7 +148,7 @@ public class InteractiveImageViewControlsFragment extends Fragment
             mScaleYSeekBarLayout.setValue(mSy);
             mCenterXSeekBarLayout.setValue(mCx);
             mCenterYSeekBarLayout.setValue(mCy);
-            mImageView.setLayout(mSx, mSy, mCx, mCy);
+            mImageView.setScaleAndCenter(mSx, mSy, mCx, mCy);
         }
 
         mImageSpinner.setOnItemSelectedListener(InteractiveImageViewControlsFragment.this);
@@ -207,7 +207,7 @@ public class InteractiveImageViewControlsFragment extends Fragment
                     mDisallowUpdatingSeekBars = false;
                     return;
             }
-            mImageView.setLayout(mSx, mSy, mCx, mCy);
+            mImageView.setScaleAndCenter(mSx, mSy, mCx, mCy);
         }
     }
 
