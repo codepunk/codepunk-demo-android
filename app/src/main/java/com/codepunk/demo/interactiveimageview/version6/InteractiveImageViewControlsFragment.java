@@ -40,21 +40,22 @@ public class InteractiveImageViewControlsFragment extends Fragment
     private static final String KEY_SCALE_LOCKED = CLASS_NAME + ".scaleLocked";
     private static final String KEY_SX = CLASS_NAME + ".sx";
     private static final String KEY_SY = CLASS_NAME + ".sy";
-    private static final String KEY_CX = CLASS_NAME + ".cx";
-    private static final String KEY_CY = CLASS_NAME + ".cy";
+    private static final String KEY_PX = CLASS_NAME + ".px";
+    private static final String KEY_PY = CLASS_NAME + ".py";
     //endregion Constants
 
     //region Fields
+
     private List<Integer> mImageEntryValues;
     private List<String> mScaleTypeEntryValues;
 
     private Spinner mImageSpinner;
     private Spinner mScaleTypeSpinner;
-    private FloatSeekBarLayout mCenterXSeekBarLayout;
-    private FloatSeekBarLayout mCenterYSeekBarLayout;
     private ToggleButton mLockButton;
     private FloatSeekBarLayout mScaleXSeekBarLayout;
     private FloatSeekBarLayout mScaleYSeekBarLayout;
+    private FloatSeekBarLayout mPivotXSeekBarLayout;
+    private FloatSeekBarLayout mPivotYSeekBarLayout;
     private DemoInteractiveImageView mImageView;
 
     private boolean mDisallowUpdatingSeekBars = false;
@@ -63,8 +64,8 @@ public class InteractiveImageViewControlsFragment extends Fragment
 
     private float mSx;
     private float mSy;
-    private float mCx;
-    private float mCy;
+    private float mPx;
+    private float mPy;
     //endregion Fields
 
     //region Constructors
@@ -106,26 +107,24 @@ public class InteractiveImageViewControlsFragment extends Fragment
         mScaleXSeekBarLayout = view.findViewById(R.id.layout_seek_bar_scale_x);
         mScaleYSeekBarLayout = view.findViewById(R.id.layout_seek_bar_scale_y);
         mLockButton = view.findViewById(R.id.btn_lock);
-        mCenterXSeekBarLayout = view.findViewById(R.id.layout_seek_bar_center_x);
-        mCenterYSeekBarLayout = view.findViewById(R.id.layout_seek_bar_center_y);
+        mPivotXSeekBarLayout = view.findViewById(R.id.layout_seek_bar_center_x);
+        mPivotYSeekBarLayout = view.findViewById(R.id.layout_seek_bar_center_y);
 
         mScaleXSeekBarLayout.setOnSeekBarChangeListener(this);
         mScaleYSeekBarLayout.setOnSeekBarChangeListener(this);
         mLockButton.setOnClickListener(this);
-        mCenterXSeekBarLayout.setOnSeekBarChangeListener(this);
-        mCenterYSeekBarLayout.setOnSeekBarChangeListener(this);
+        mPivotXSeekBarLayout.setOnSeekBarChangeListener(this);
+        mPivotYSeekBarLayout.setOnSeekBarChangeListener(this);
 
         // Prevent drawer from intercepting touch event from seek bars
         mScaleXSeekBarLayout.setSeekBarOnTouchListener(this);
         mScaleYSeekBarLayout.setSeekBarOnTouchListener(this);
-        mCenterXSeekBarLayout.setSeekBarOnTouchListener(this);
-        mCenterYSeekBarLayout.setSeekBarOnTouchListener(this);
+        mPivotXSeekBarLayout.setSeekBarOnTouchListener(this);
+        mPivotYSeekBarLayout.setSeekBarOnTouchListener(this);
 
         // Initialize center seek bars
-        mCenterXSeekBarLayout.setMinValue(0.0f);
-        mCenterXSeekBarLayout.setMaxValue(1.0f);
-        mCenterYSeekBarLayout.setMinValue(0.0f);
-        mCenterYSeekBarLayout.setMaxValue(1.0f);
+        mPivotXSeekBarLayout.setMinValue(0.0f);
+        mPivotYSeekBarLayout.setMinValue(0.0f);
 
     }
 
@@ -142,13 +141,13 @@ public class InteractiveImageViewControlsFragment extends Fragment
             setImageResourceByPosition(mImageSpinner.getSelectedItemPosition());
             mSx = savedInstanceState.getFloat(KEY_SX, 0.0f);
             mSy = savedInstanceState.getFloat(KEY_SY, 0.0f);
-            mCx = savedInstanceState.getFloat(KEY_CX, 0.0f);
-            mCy = savedInstanceState.getFloat(KEY_CY, 0.0f);
+            mPx = savedInstanceState.getFloat(KEY_PX, 0.0f);
+            mPy = savedInstanceState.getFloat(KEY_PY, 0.0f);
             mScaleXSeekBarLayout.setValue(mSx);
             mScaleYSeekBarLayout.setValue(mSy);
-            mCenterXSeekBarLayout.setValue(mCx);
-            mCenterYSeekBarLayout.setValue(mCy);
-            mImageView.setScaleAndCenter(mSx, mSy, mCx, mCy);
+            mPivotXSeekBarLayout.setValue(mPx);
+            mPivotYSeekBarLayout.setValue(mPy);
+            mImageView.setImageTransform(mSx, mSy, mPx, mPy);
         }
 
         mImageSpinner.setOnItemSelectedListener(InteractiveImageViewControlsFragment.this);
@@ -161,8 +160,8 @@ public class InteractiveImageViewControlsFragment extends Fragment
         outState.putBoolean(KEY_SCALE_LOCKED, mLockButton.isChecked());
         outState.putFloat(KEY_SX, mSx);
         outState.putFloat(KEY_SY, mSy);
-        outState.putFloat(KEY_CX, mCx);
-        outState.putFloat(KEY_CY, mCy);
+        outState.putFloat(KEY_PX, mPx);
+        outState.putFloat(KEY_PY, mPy);
     }
     //endregion Lifecycle methods
 
@@ -177,11 +176,11 @@ public class InteractiveImageViewControlsFragment extends Fragment
             final int id = seekBarLayout.getId();
             switch (id) {
                 case R.id.layout_seek_bar_center_x: {
-                    mCx = seekBarLayout.getValue();
+                    mPx = seekBarLayout.getValue();
                     break;
                 }
                 case R.id.layout_seek_bar_center_y: {
-                    mCy = seekBarLayout.getValue();
+                    mPy = seekBarLayout.getValue();
                     break;
                 }
                 case R.id.layout_seek_bar_scale_x: {
@@ -206,7 +205,7 @@ public class InteractiveImageViewControlsFragment extends Fragment
                     mDisallowUpdatingSeekBars = false;
                     return;
             }
-            mImageView.setScaleAndCenter(mSx, mSy, mCx, mCy);
+            mImageView.setImageTransform(mSx, mSy, mPx, mPy);
         }
     }
 
@@ -248,8 +247,8 @@ public class InteractiveImageViewControlsFragment extends Fragment
 
         mSx = mImageView.getImageScaleX();
         mSy = mImageView.getImageScaleY();
-        mCx = mImageView.getImageCenterX();
-        mCy = mImageView.getImageCenterY();
+        mPx = mImageView.getImagePivotX();
+        mPy = mImageView.getImagePivotY();
 
         if (mPendingResetClamps) {
             mScaleXSeekBarLayout.setClampedMin(Integer.MIN_VALUE);
@@ -262,14 +261,16 @@ public class InteractiveImageViewControlsFragment extends Fragment
         mScaleXSeekBarLayout.setMaxValue(mImageView.getImageMaxScaleX());
         mScaleYSeekBarLayout.setMinValue(mImageView.getImageMinScaleY());
         mScaleYSeekBarLayout.setMaxValue(mImageView.getImageMaxScaleY());
+        mPivotXSeekBarLayout.setMaxValue((float) mImageView.getDrawableIntrinsicWidth());
+        mPivotYSeekBarLayout.setMaxValue((float) mImageView.getDrawableIntrinsicHeight());
 
         if (mDisallowUpdatingSeekBars) {
             mDisallowUpdatingSeekBars = false;
         } else {
             mScaleXSeekBarLayout.setValue(mSx, false);
             mScaleYSeekBarLayout.setValue(mSy, false);
-            mCenterXSeekBarLayout.setValue(mCx, false);
-            mCenterYSeekBarLayout.setValue(mCy, false);
+            mPivotXSeekBarLayout.setValue(mPx, false);
+            mPivotYSeekBarLayout.setValue(mPy, false);
         }
 
         if (mPendingResetClamps) {

@@ -7,6 +7,7 @@ import android.graphics.Matrix;
 import android.graphics.PointF;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
+import android.os.Bundle;
 import android.os.SystemClock;
 import android.support.annotation.ArrayRes;
 import android.support.annotation.NonNull;
@@ -17,7 +18,6 @@ import android.support.v4.view.ViewCompat;
 import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
-import android.util.Pair;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
@@ -75,6 +75,16 @@ public class InteractiveImageView extends AppCompatImageView
         private boolean mFinished = true;
 
         /**
+         * The X value of the pivot point.
+         */
+        private float mPx;
+
+        /**
+         * The Y value of the pivot point.
+         */
+        private float mPy;
+
+        /**
          * The current scale X value; computed by {@link #computeScroll()}.
          */
         private float mCurrentSx;
@@ -85,14 +95,14 @@ public class InteractiveImageView extends AppCompatImageView
         private float mCurrentSy;
 
         /**
-         * The current translation X value; computed by {@link #computeScroll()}.
+         * The current X location of the pivot point; computed by {@link #computeScroll()}.
          */
-        private float mCurrentTx;
+        private float mCurrentX;
 
         /**
-         * The current translation Y value; computed by {@link #computeScroll()}.
+         * The current Y location of the pivot point; computed by {@link #computeScroll()}.
          */
-        private float mCurrentTy;
+        private float mCurrentY;
 
         /**
          * The time the zoom started, computed using {@link SystemClock#elapsedRealtime()}.
@@ -103,9 +113,9 @@ public class InteractiveImageView extends AppCompatImageView
 
         private float mStartSy;
 
-        private float mStartTx;
+        private float mStartX;
 
-        private float mStartTy;
+        private float mStartY;
 
         /**
          * The destination scale X.
@@ -118,14 +128,14 @@ public class InteractiveImageView extends AppCompatImageView
         private float mEndSy;
 
         /**
-         * The destination translation X.
+         * The destination X location of the pivot point.
          */
-        private float mEndTx;
+        private float mEndX;
 
         /**
-         * The destination translation Y.
+         * The destination Y location of the pivot point.
          */
-        private float mEndTy;
+        private float mEndY;
 
         public ScaleScroller(Context context) {
             mInterpolator = new DecelerateInterpolator();
@@ -143,8 +153,8 @@ public class InteractiveImageView extends AppCompatImageView
             mFinished = true;
             mCurrentSx = mEndSx;
             mCurrentSy = mEndSy;
-            mCurrentTx = mEndTx;
-            mCurrentTy = mEndTy;
+            mCurrentX = mEndX;
+            mCurrentY = mEndY;
         }
 
         /**
@@ -163,23 +173,27 @@ public class InteractiveImageView extends AppCompatImageView
          * @see android.widget.Scroller#startScroll(int, int, int, int)
          */
         void startScaleAndScroll(
+                float px,
+                float py,
                 float startSx, 
                 float startSy, 
-                float startTx, 
-                float startTy, 
+                float startX,
+                float startY,
                 float endSx, 
                 float endSy, 
-                float endTx, 
-                float endTy) {
+                float endX,
+                float endY) {
             mStartRTC = SystemClock.elapsedRealtime();
+            mPx = px;
+            mPy = py;
             mCurrentSx = mStartSx = startSx;
             mCurrentSy = mStartSy = startSy;
-            mCurrentTx = mStartTx = startTx;
-            mCurrentTy = mStartTy = startTy;
+            mCurrentX = mStartX = startX;
+            mCurrentY = mStartY = startY;
             mEndSx = endSx;
             mEndSy = endSy;
-            mEndTx = endTx;
-            mEndTy = endTy;
+            mEndX = endX;
+            mEndY = endY;
             mFinished = false;
         }
 
@@ -200,8 +214,8 @@ public class InteractiveImageView extends AppCompatImageView
                 mFinished = true;
                 mCurrentSx = mEndSx;
                 mCurrentSy = mEndSy;
-                mCurrentTx = mEndTx;
-                mCurrentTy = mEndTy;
+                mCurrentX = mEndX;
+                mCurrentY = mEndY;
                 return false;
             }
 
@@ -209,8 +223,8 @@ public class InteractiveImageView extends AppCompatImageView
             float interpolation = mInterpolator.getInterpolation(t);
             mCurrentSx = mStartSx + (mEndSx - mStartSx) * interpolation;
             mCurrentSy = mStartSy + (mEndSy - mStartSy) * interpolation;
-            mCurrentTx = mStartTx + (mEndTx - mStartTx) * interpolation;
-            mCurrentTy = mStartTy + (mEndTy - mStartTy) * interpolation;
+            mCurrentX = mStartX + (mEndX - mStartX) * interpolation;
+            mCurrentY = mStartY + (mEndY - mStartY) * interpolation;
             return true;
         }
 
@@ -238,8 +252,8 @@ public class InteractiveImageView extends AppCompatImageView
          *
          * @see android.widget.Scroller#getCurrX()
          */
-        float getCurrTransX() {
-            return mCurrentTx;
+        float getCurrX() {
+            return mCurrentX;
         }
 
         /**
@@ -247,18 +261,33 @@ public class InteractiveImageView extends AppCompatImageView
          *
          * @see android.widget.Scroller#getCurrX()
          */
-        float getCurrTransY() {
-            return mCurrentTy;
+        float getCurrY() {
+            return mCurrentY;
+        }
+
+        /**
+         * Returns the pivot X.
+         */
+        float getPx() {
+            return mPx;
+        }
+
+        /**
+         * Returns the pivot Y.
+         */
+        float getPy() {
+            return mPy;
         }
     }
     //endregion Nested classes
 
     //region Constants
     private static final String LOG_TAG = InteractiveImageView.class.getSimpleName();
-    static final float MAX_SCALE_BREADTH_MULTIPLIER = 4.0f;
-    static final float MAX_SCALE_LENGTH_MULTIPLIER = 6.0f;
-    final float FLOAT_EPSILON = 0.005f;
-    final float ZOOM_PIVOT_EPSILON = 0.2f;
+    private static final float MAX_SCALE_BREADTH_MULTIPLIER = 4.0f;
+    private static final float MAX_SCALE_LENGTH_MULTIPLIER = 6.0f;
+    private static final float FLOAT_EPSILON = 0.005f;
+    private static final float ZOOM_PIVOT_EPSILON = 0.2f;
+    private static final float CENTER = 0.5f;
 
     public static final int INTERACTIVITY_FLAG_NONE = 0;
     public static final int INTERACTIVITY_FLAG_SCROLL = 0x00000001;
@@ -276,6 +305,15 @@ public class InteractiveImageView extends AppCompatImageView
     private static final int INVALID_FLAG_DEFAULT = INVALID_FLAG_BASELINE_IMAGE_MATRIX |
             INVALID_FLAG_IMAGE_MAX_SCALE |
             INVALID_FLAG_IMAGE_MIN_SCALE;
+
+    private static final String KEY_ANIMATE = "animate";
+    private static final String KEY_PX = "px";
+    private static final String KEY_PY = "py";
+    private static final String KEY_RELATIVE = "relative";
+    private static final String KEY_SX = "sx";
+    private static final String KEY_SY = "sy";
+    private static final String KEY_X = "x";
+    private static final String KEY_Y = "y";
     //endregion Constants
 
     //region Fields
@@ -294,7 +332,12 @@ public class InteractiveImageView extends AppCompatImageView
     private float mMinScaleX;
     private float mMinScaleY;
 
+    private float mLastScrollPx;
+    private float mLastScrollPy;
+    private float mLastScrollX;
+    private float mLastScrollY;
     private float mLastSpan;
+    private PointF mScaleBeginDrawablePoint = new PointF();
 
     private final float[] mMatrixValues = new float[9];
     private final float[] mSrcPts = new float[2];
@@ -307,7 +350,7 @@ public class InteractiveImageView extends AppCompatImageView
 
     private final Object mLock = new Object();
 
-    private Pair<PointF, PointF> mPendingScaleAndCenter = null;
+    private Bundle mPendingTransformation = null;
     private int mInvalidFlags;
     //endregion Fields
 
@@ -356,31 +399,39 @@ public class InteractiveImageView extends AppCompatImageView
 
         synchronized (mLock) {
             boolean needsInvalidate = false;
-
             if (mOverScroller.computeScrollOffset()) {
-                getImageMatrixValues(mMatrixValues);
+                getImageMatrixInternal(mImageMatrix);
+                mNewImageMatrix.set(mImageMatrix);
+                mNewImageMatrix.getValues(mMatrixValues);
                 mMatrixValues[MTRANS_X] = mOverScroller.getCurrX();
                 mMatrixValues[MTRANS_Y] = mOverScroller.getCurrY();
                 mNewImageMatrix.setValues(mMatrixValues);
-                needsInvalidate = true;
+
+                if (!mImageMatrix.equals(mNewImageMatrix)) {
+                    if (super.getScaleType() != ScaleType.MATRIX) {
+                        super.setScaleType(ScaleType.MATRIX);
+                    }
+
+                    super.setImageMatrix(mNewImageMatrix);
+                    needsInvalidate = true;
+                }
             } else if (mScaleScroller.computeScaleAndScroll()) {
-                getImageMatrixValues(mMatrixValues);
-                mMatrixValues[MSCALE_X] = mScaleScroller.getCurrScaleX();
-                mMatrixValues[MSCALE_Y] = mScaleScroller.getCurrScaleY();
-                mMatrixValues[MTRANS_X] = mScaleScroller.getCurrTransX();
-                mMatrixValues[MTRANS_Y] = mScaleScroller.getCurrTransY();
-                mNewImageMatrix.setValues(mMatrixValues);
-                needsInvalidate = true;
+                final float px = mScaleScroller.getPx();
+                final float py = mScaleScroller.getPy();
+                final float sx = mScaleScroller.getCurrScaleX();
+                final float sy = mScaleScroller.getCurrScaleY();
+                final float x = mScaleScroller.getCurrX();
+                final float y = mScaleScroller.getCurrY();
+                /*
+                needsInvalidate = setImageTransformation(sx, sy, px, py, x, y, false);
+                */
             }
 
             if (needsInvalidate) {
-                if (setScaleAndTranslate(mNewImageMatrix, false)) {
-                    ViewCompat.postInvalidateOnAnimation(this);
-                } else {
-                    // The image didn't move; consider the scale/fling done
-                    mOverScroller.forceFinished(true);
-                    mScaleScroller.forceFinished(true);
-                }
+                ViewCompat.postInvalidateOnAnimation(this);
+            } else {
+                mOverScroller.abortAnimation();
+                mScaleScroller.abortAnimation();
             }
         }
     }
@@ -393,13 +444,22 @@ public class InteractiveImageView extends AppCompatImageView
     @Override
     public void layout(int l, int t, int r, int b) {
         super.layout(l, t, r, b);
-        if (mPendingScaleAndCenter != null) {
-            setScaleAndCenter(
-                    mPendingScaleAndCenter.first.x,
-                    mPendingScaleAndCenter.first.y,
-                    mPendingScaleAndCenter.second.x,
-                    mPendingScaleAndCenter.second.y);
-            mPendingScaleAndCenter = null;
+        if (mPendingTransformation != null) {
+            // TODO We can also defer this to when we have a layout AND a drawable?
+            final boolean relative = mPendingTransformation.getBoolean(KEY_RELATIVE);
+            final float sx = mPendingTransformation.getFloat(KEY_SX);
+            final float sy = mPendingTransformation.getFloat(KEY_SY);
+            final float px = mPendingTransformation.getFloat(KEY_PX);
+            final float py = mPendingTransformation.getFloat(KEY_PY);
+            final float x = mPendingTransformation.getFloat(KEY_X);
+            final float y = mPendingTransformation.getFloat(KEY_Y);
+            final boolean animate = mPendingTransformation.getBoolean(KEY_ANIMATE);
+            if (relative) {
+                setImageTransformRelative(sx, sy, px, py, x, y, animate);
+            } else {
+                setImageTransform(sx, sy, px, py, x, y, animate);
+            }
+            mPendingTransformation = null;
         }
     }
 
@@ -465,6 +525,16 @@ public class InteractiveImageView extends AppCompatImageView
     public boolean onDown(MotionEvent e) {
         mOverScroller.forceFinished(true);
         mScaleScroller.forceFinished(true);
+        synchronized (mLock) {
+            getImageMatrixInternal(mImageMatrix);
+            mLastScrollX = e.getX();
+            mLastScrollY = e.getY();
+            mSrcPts[0] = mLastScrollX;
+            mSrcPts[1] = mLastScrollY;
+            mapViewPointToDrawablePoint(mDstPts, mSrcPts, mImageMatrix);
+            mLastScrollPx = mDstPts[0];
+            mLastScrollPy = mDstPts[1];
+        }
         return true;
     }
 
@@ -484,9 +554,24 @@ public class InteractiveImageView extends AppCompatImageView
     @Override // GestureDetector.OnGestureListener
     public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
         synchronized (mLock) {
-            getImageMatrixInternal(mNewImageMatrix);
-            mNewImageMatrix.postTranslate(-distanceX, -distanceY);
-            setScaleAndTranslate(mNewImageMatrix, false, true);
+            setImageTransformInternal(
+                    getImageScaleX(),
+                    getImageScaleY(),
+                    mLastScrollPx,
+                    mLastScrollPy,
+                    mLastScrollX - distanceX,
+                    mLastScrollY - distanceY,
+                    true);
+
+            // TODO This code is repeating a bit. Consolidate?
+            getImageMatrixInternal(mImageMatrix);
+            mLastScrollX = e2.getX();
+            mLastScrollY = e2.getY();
+            mSrcPts[0] = mLastScrollX;
+            mSrcPts[1] = mLastScrollY;
+            mapViewPointToDrawablePoint(mDstPts, mSrcPts, mImageMatrix);
+            mLastScrollPx = mDstPts[0];
+            mLastScrollPy = mDstPts[1];
         }
         return true;
     }
@@ -500,9 +585,9 @@ public class InteractiveImageView extends AppCompatImageView
         synchronized (mLock) {
             getDrawableIntrinsicRect(mSrcRect);
             mImageMatrix.mapRect(mDstRect, mSrcRect);
+            mImageMatrix.getValues(mMatrixValues);
             final float mappedWidth = mDstRect.width();
             final float mappedHeight = mDstRect.height();
-            getImageMatrixValues(mMatrixValues);
             mOverScroller.fling(
                     (int) mMatrixValues[MTRANS_X],
                     (int) mMatrixValues[MTRANS_Y],
@@ -532,26 +617,27 @@ public class InteractiveImageView extends AppCompatImageView
     public boolean onDoubleTapEvent(MotionEvent e) {
         if ((mInteractivity & INTERACTIVITY_FLAG_DOUBLE_TAP) == INTERACTIVITY_FLAG_DOUBLE_TAP) {
             if (e.getAction() == MotionEvent.ACTION_UP) {
+                /*
                 synchronized (mLock) {
                     final float nextZoomPivot = getNextZoomPivot();
 
                     getImageMatrixValues(mMatrixValues);
                     final float minSx = getImageMinScaleX();
                     final float minSy = getImageMinScaleY();
-                    mMatrixValues[MSCALE_X] = minSx + (getImageMaxScaleX() - minSx) * nextZoomPivot;
-                    mMatrixValues[MSCALE_Y] = minSy + (getImageMaxScaleY() - minSy) * nextZoomPivot;
+                    final float sx = minSx + (getImageMaxScaleX() - minSx) * nextZoomPivot;
+                    final float sy = minSy + (getImageMaxScaleY() - minSy) * nextZoomPivot;
+                    mMatrixValues[MSCALE_X] = sx;
+                    mMatrixValues[MSCALE_Y] = sy;
                     mNewImageMatrix.setValues(mMatrixValues);
 
+                    final float x = e.getX();
+                    final float y = e.getY();
 
-                    this.matrixToCenter(mDstPts, mNewImageMatrix, e.getX(), e.getY());
-                    mMatrixValues[MTRANS_X] = mDstPts[0];
-                    mMatrixValues[MTRANS_Y] = mDstPts[1];
-                    mNewImageMatrix.setValues(mMatrixValues);
+                    absolutePositionToCenter(mDstPts, mNewImageMatrix, x, y);
 
-
-
-                    setScaleAndTranslate(mNewImageMatrix, true, false);
+                    setImageTransformation(sx, sy, mDstPts[0], mDstPts[1], x, y, true);
                 }
+                */
             }
         }
 
@@ -682,12 +768,16 @@ public class InteractiveImageView extends AppCompatImageView
         final float currentSpan = detector.getCurrentSpan();
         synchronized (mLock) {
             final float spanDelta = (currentSpan / mLastSpan);
-            getImageMatrixValues(mMatrixValues);
-            final float sx = mMatrixValues[MSCALE_X] * spanDelta;
-            final float sy = mMatrixValues[MSCALE_X] * spanDelta;
-            final float cx = getImageCenterX();
-            final float cy = getImageCenterY();
-            setScaleAndCenter(sx, sy, cx, cy, false, true);
+            getImageMatrixInternal(mImageMatrix);
+            mImageMatrix.getValues(mMatrixValues);
+            setImageTransformInternal(
+                    mMatrixValues[MSCALE_X] * spanDelta,
+                    mMatrixValues[MSCALE_X] * spanDelta,
+                    mScaleBeginDrawablePoint.x,
+                    mScaleBeginDrawablePoint.y,
+                    detector.getFocusX(),
+                    detector.getFocusY(),
+                    true);
         }
         mLastSpan = currentSpan;
         return true;
@@ -695,7 +785,14 @@ public class InteractiveImageView extends AppCompatImageView
 
     @Override // ScaleGestureDetector.OnScaleGestureListener
     public boolean onScaleBegin(ScaleGestureDetector detector) {
-        mLastSpan = detector.getCurrentSpan();
+        synchronized (mLock) {
+            getImageMatrixInternal(mImageMatrix);
+            mSrcPts[0] = detector.getFocusX();
+            mSrcPts[1] = detector.getFocusY();
+            mapViewPointToDrawablePoint(mDstPts, mSrcPts, mImageMatrix);
+            mScaleBeginDrawablePoint.set(mDstPts[0], mDstPts[1]);
+            mLastSpan = detector.getCurrentSpan();
+        }
         return true;
     }
 
@@ -715,6 +812,7 @@ public class InteractiveImageView extends AppCompatImageView
         return (dr == null ? -1 : dr.getIntrinsicWidth());
     }
 
+    /*
     public float getImageCenterX() {
         synchronized (mLock) {
             getImageMatrixInternal(mImageMatrix);
@@ -727,6 +825,27 @@ public class InteractiveImageView extends AppCompatImageView
         synchronized (mLock) {
             getImageMatrixInternal(mImageMatrix);
             matrixToCenter(mDstPts, mImageMatrix);
+            return mDstPts[1];
+        }
+    }
+    */
+
+    public float getImagePivotX() {
+        synchronized (mLock) {
+            getImageMatrixInternal(mImageMatrix);
+            mSrcPts[0] = getPaddingLeft() + getAvailableWidth() * 0.5f;
+            mSrcPts[1] = 0.0f;
+            mapViewPointToDrawablePoint(mDstPts, mSrcPts, mImageMatrix);
+            return mDstPts[0];
+        }
+    }
+
+    public float getImagePivotY() {
+        synchronized (mLock) {
+            getImageMatrixInternal(mImageMatrix);
+            mSrcPts[0] = 0.0f;
+            mSrcPts[1] = getPaddingTop() + getAvailableHeight() * 0.5f;
+            mapViewPointToDrawablePoint(mDstPts, mSrcPts, mImageMatrix);
             return mDstPts[1];
         }
     }
@@ -753,14 +872,16 @@ public class InteractiveImageView extends AppCompatImageView
 
     public float getImageScaleX() {
         synchronized (mLock) {
-            getImageMatrixValues(mMatrixValues);
+            getImageMatrixInternal(mImageMatrix);
+            mImageMatrix.getValues(mMatrixValues);
             return mMatrixValues[MSCALE_X];
         }
     }
 
     public float getImageScaleY() {
         synchronized (mLock) {
-            getImageMatrixValues(mMatrixValues);
+            getImageMatrixInternal(mImageMatrix);
+            mImageMatrix.getValues(mMatrixValues);
             return mMatrixValues[MSCALE_Y];
         }
     }
@@ -777,18 +898,77 @@ public class InteractiveImageView extends AppCompatImageView
         mInteractivity = flags;
     }
 
-    public boolean setScaleAndCenter(float sx, float sy, float cx, float cy) {
-        return setScaleAndCenter(sx, sy, cx, cy, false);
+    public boolean setImageTransform(float sx, float sy, float px, float py) {
+        return setImageTransformRelative(sx, sy, px, py, CENTER, CENTER, false);
     }
 
-    public boolean setScaleAndCenter(float sx, float sy, float cx, float cy, boolean animate) {
+    public boolean setImageTransform(float sx, float sy, float px, float py, boolean animate) {
+        return setImageTransformRelative(sx, sy, px, py, CENTER, CENTER, animate);
+    }
+
+    public boolean setImageTransform(float sx, float sy, float px, float py, float x, float y) {
+        return setImageTransform(sx, sy, px, py, x, y, false);
+    }
+
+    // So the thing is, x and y could be different before/after rotation.
+    public boolean setImageTransform(
+            float sx,
+            float sy,
+            float px,
+            float py,
+            float x,
+            float y,
+            boolean animate) {
         if (!ViewCompat.isLaidOut(this)) {
-            mPendingScaleAndCenter = new Pair<>(new PointF(sx, sy), new PointF(cx, cy));
+            mPendingTransformation = createPendingBundle(
+                    false, sx, sy, px, py, x, y, animate);
+            return false;
+        }
+        return setImageTransformInternal(sx, sy, px, py, x, y, false);
+    }
+
+    public boolean setImageTransformRelative(
+            float sx,
+            float sy,
+            float px,
+            float py,
+            float rx,
+            float ry) {
+        return setImageTransformRelative(sx, sy, px, py, rx, ry, false);
+    }
+
+    public boolean setImageTransformRelative(
+            float sx,
+            float sy,
+            float px,
+            float py,
+            float rx,
+            float ry,
+            boolean animate) {
+        if (!ViewCompat.isLaidOut(this)) {
+            mPendingTransformation = createPendingBundle(
+                    true, sx, sy, px, py, rx, ry, animate);
+            return false;
+        }
+        final float x = getPaddingLeft() + getAvailableWidth() * rx;
+        final float y = getPaddingTop() + getAvailableHeight() * ry;
+        return setImageTransform(sx, sy, px, py, x, y, animate);
+    }
+
+    /*
+    public boolean setImageTransformation(float sx, float sy, float cx, float cy) {
+        return setImageTransformation(sx, sy, cx, cy, false);
+    }
+
+    public boolean setImageTransformation(float sx, float sy, float cx, float cy, boolean animate) {
+        if (!ViewCompat.isLaidOut(this)) {
+            mPendingTransformation = new Pair<>(new PointF(sx, sy), new PointF(cx, cy));
             return false;
         }
 
-        return setScaleAndCenter(sx, sy, cx, cy, animate, false);
+        return setImageTransformation(sx, sy, cx, cy, animate, false);
     }
+    */
 
     public void setZoomPivots(float... pivots) {
         mZoomPivots = pivots;
@@ -891,6 +1071,7 @@ public class InteractiveImageView extends AppCompatImageView
         }
     }
 
+    /*
     protected float getContentCenterX() {
         return getPaddingLeft() + getAvailableWidth() * 0.5f;
     }
@@ -898,6 +1079,7 @@ public class InteractiveImageView extends AppCompatImageView
     protected float getContentCenterY() {
         return getPaddingTop() + getAvailableHeight() * 0.5f;
     }
+    */
 
     protected void getImageMatrixInternal(Matrix outMatrix) {
         if (ScaleType.FIT_XY == super.getScaleType()) {
@@ -1007,6 +1189,13 @@ public class InteractiveImageView extends AppCompatImageView
         }
     }
 
+    protected void mapViewPointToDrawablePoint(float[] dst, float[] src, Matrix imageMatrix) {
+        synchronized (mLock) {
+            imageMatrix.invert(mNewImageMatrix);
+            mNewImageMatrix.mapPoints(dst, src);
+        }
+    }
+
     @SuppressWarnings("unused")
     protected float resolveScaleX(float sx, float min, float max, boolean fromUser) {
         return MathUtils.clamp(sx, min, max);
@@ -1056,6 +1245,83 @@ public class InteractiveImageView extends AppCompatImageView
         mMinScaleY = sy;
     }
 
+    protected boolean setImageTransformInternal(
+            float sx,
+            float sy,
+            float px,
+            float py,
+            float x,
+            float y,
+            boolean fromUser) {
+        synchronized (mLock) {
+            // First, I need to resolve scale and map px and py to a scaled location
+            getImageMatrixInternal(mImageMatrix);
+            mNewImageMatrix.set(mImageMatrix);
+            mNewImageMatrix.getValues(mMatrixValues);
+            mMatrixValues[MSCALE_X] =
+                    resolveScaleX(sx, getImageMinScaleX(), getImageMaxScaleX(), fromUser);
+            mMatrixValues[MSCALE_Y] =
+                    resolveScaleY(sy, getImageMinScaleY(), getImageMaxScaleY(), fromUser);
+            mMatrixValues[MTRANS_X] = 0;
+            mMatrixValues[MTRANS_Y] = 0;
+            mNewImageMatrix.setValues(mMatrixValues);
+            mSrcPts[0] = px;
+            mSrcPts[1] = py;
+            mNewImageMatrix.mapPoints(mDstPts, mSrcPts); // TODO Make a mapDrawablePointToViewPoint method?
+            final float tx = x - getPaddingLeft() - mDstPts[0];
+            final float ty = y - getPaddingTop() - mDstPts[1];
+
+            getDrawableIntrinsicRect(mSrcRect);
+            mNewImageMatrix.mapRect(mDstRect, mSrcRect);
+            final float mappedWidth = mDstRect.width();
+            final float mappedHeight = mDstRect.height();
+            mMatrixValues[MTRANS_X] = resolveTransX(
+                    tx,
+                    getImageMinTransX(mappedWidth),
+                    getImageMaxTransX(mappedWidth),
+                    fromUser);
+            mMatrixValues[MTRANS_Y] = resolveTransY(
+                    ty,
+                    getImageMinTransY(mappedHeight),
+                    getImageMaxTransY(mappedHeight),
+                    fromUser);
+            mNewImageMatrix.setValues(mMatrixValues);
+
+            if (mImageMatrix.equals(mNewImageMatrix)) {
+                return false;
+            }
+            if (super.getScaleType() != ScaleType.MATRIX) {
+                super.setScaleType(ScaleType.MATRIX);
+            }
+            super.setImageMatrix(mNewImageMatrix);
+            return true;
+        }
+    }
+
+    /*
+    protected boolean setImageTransformation(
+            float sx,
+            float sy,
+            float cx,
+            float cy,
+            boolean animate,
+            boolean fromUser) {
+        // Convert this into a matrix. Resolve both scale and translation
+        synchronized (mLock) {
+            getImageMatrixInternal(mNewImageMatrix);
+            mNewImageMatrix.getValues(mMatrixValues);
+            final float rSx = resolveScaleX(sx, getImageMinScaleX(), getImageMaxScaleX(), fromUser);
+            final float rSy = resolveScaleY(sy, getImageMinScaleY(), getImageMaxScaleY(), fromUser);
+            mNewImageMatrix.setValues(mMatrixValues);
+
+            // Convert a cx/cy to actual position?
+            centerToAbsolutePosition(mDstPts, cx, cy);
+            return false;
+        }
+    }
+    */
+
+    /*
     @SuppressWarnings("SameParameterValue")
     protected boolean setScaleAndCenter(
             float sx,
@@ -1065,7 +1331,7 @@ public class InteractiveImageView extends AppCompatImageView
             boolean animate,
             boolean fromUser) {
         synchronized (mLock) {
-            // TODO I will need to check these values so they are resolved at the SAME RATE and not
+            // I will need to check these values so they are resolved at the SAME RATE and not
             // independently? Or do that somehow in onScale?
             getImageMatrixValues(mMatrixValues);
             mMatrixValues[MSCALE_X] =
@@ -1079,8 +1345,10 @@ public class InteractiveImageView extends AppCompatImageView
             return setScaleAndTranslate(mNewImageMatrix, animate, fromUser);
         }
     }
+    */
 
     /* This version has resolved scale in imageMatrix, but unresolved translation */
+    /*
     protected boolean setScaleAndTranslate(
             @NonNull final Matrix imageMatrix,
             boolean animate,
@@ -1109,18 +1377,52 @@ public class InteractiveImageView extends AppCompatImageView
             return setScaleAndTranslate(imageMatrix, animate);
         }
     }
+    */
     //endregion Protected methods
 
     //region Private methods
+    /*
+    private void absolutePositionToCenter(
+            @NonNull final float[] dst,
+            @NonNull final Matrix imageMatrix,
+            float px,
+            float py) {
+        synchronized (mLock) {
+            imageMatrix.invert(mImageMatrix);
+            mSrcPts[0] = px;
+            mSrcPts[1] = py;
+            mImageMatrix.mapPoints(mDstPts, mSrcPts);
+            dst[0] = mDstPts[0] / getDrawableIntrinsicWidth();
+            dst[1] = mDstPts[1] / getDrawableIntrinsicHeight();
+        }
+    }
+    */
+
+    /*
+    private void centerToAbsolutePosition(@NonNull final float[] dst, float cx, float cy) {
+        synchronized (mLock) {
+            getImageMatrixInternal(mImageMatrix);
+            mSrcPts[0] = getDrawableIntrinsicWidth() * cx;
+            mSrcPts[1] = getDrawableIntrinsicHeight() * cy;
+            mImageMatrix.mapPoints(dst, mSrcPts);
+            dst[0] += getPaddingLeft(); // TOD ??
+            dst[1] += getPaddingTop(); // TOD ??
+        }
+    }
+    */
+
+    /*
     private void centerToMatrix(
             @NonNull final Matrix dstMatrix,
             final float cx,
             final float cy) {
         centerToMatrix(dstMatrix, cx, cy, getContentCenterX(), getContentCenterY());
     }
+    */
 
     /* Populates dstMatrix so that the relative position cx, cy in the image appears
      * at px, py (a point in the view */
+    /*
     private void centerToMatrix(
             @NonNull final Matrix dstMatrix,
             final float cx,
@@ -1128,14 +1430,43 @@ public class InteractiveImageView extends AppCompatImageView
             final float px,
             final float py) {
         synchronized (mLock) {
-            mSrcPts[0] = getDrawableIntrinsicWidth() * cx;
-            mSrcPts[1] = getDrawableIntrinsicHeight() * cy;
-            dstMatrix.mapPoints(mDstPts, mSrcPts);
+            centerToAbsolutePosition(mDstPts, cx, cy);
             dstMatrix.postTranslate(
-                    px - getPaddingLeft() - mDstPts[0],
+                    px - getPaddingLeft() - mDstPts[0], // ?Padding?
                     py - getPaddingTop() - mDstPts[1]);
         }
     }
+    */
+
+    private Bundle createPendingBundle(
+            boolean relative,
+            float sx,
+            float sy,
+            float px,
+            float py,
+            float x,
+            float y,
+            boolean animate) {
+        Bundle bundle = new Bundle();
+        bundle.putBoolean(KEY_RELATIVE, relative);
+        bundle.putFloat(KEY_SX, sx);
+        bundle.putFloat(KEY_SY, sy);
+        bundle.putFloat(KEY_PX, px);
+        bundle.putFloat(KEY_PY, py);
+        bundle.putFloat(KEY_X, x);
+        bundle.putFloat(KEY_Y, y);
+        bundle.putBoolean(KEY_ANIMATE, animate);
+        return bundle;
+    }
+
+    /*
+    private void drawablePointToViewPoint(
+            PointF dst,
+            @NonNull final PointF drawablePoint,
+            @NonNull final Matrix imageMatrix) {
+        // TODO Move code from setImageTransformInternal here
+    }
+    */
 
     private void getDrawableIntrinsicRect(@NonNull final RectF outRect) {
         outRect.set(
@@ -1143,15 +1474,6 @@ public class InteractiveImageView extends AppCompatImageView
                 0.0f,
                 getDrawableIntrinsicWidth(),
                 getDrawableIntrinsicHeight());
-    }
-
-    private void getImageMatrixValues(float[] outValues) {
-        synchronized (mLock) {
-            getImageMatrixInternal(mImageMatrix);
-            if (outValues != null) {
-                mImageMatrix.getValues(outValues);
-            }
-        }
     }
 
     private float getImageTransBounds(
@@ -1240,14 +1562,38 @@ public class InteractiveImageView extends AppCompatImageView
         return new Initializer(this);
     }
 
+    /*
+    private void viewPointToDrawablePoint(
+            float[] dst,
+            float[] viewPoint,
+            @NonNull final Matrix imageMatrix) {
+        if (dst != null) {
+            // TODO Calc for real
+
+            imageMatrix.invert(imageMatrix);
+            mImageMatrix.mapPoints(dst, viewPoint);
+            //dst[0] /= mDstPts[0] / getDrawableIntrinsicWidth();
+            //dst[1] = mDstPts[1] / getDrawableIntrinsicHeight();
+
+
+
+            //dst.x = getDrawableIntrinsicWidth() * 0.5f;
+            //dst.y = getDrawableIntrinsicHeight() * 0.5f;
+        }
+    }
+    */
+
+    /*
     private void matrixToCenter(
             @NonNull final float[] dstPts,
             @NonNull final Matrix imageMatrix) {
         matrixToCenter(dstPts, imageMatrix, getContentCenterX(), getContentCenterY());
     }
+    */
 
     /* Fills dstPts with the relative position in the image located at the passed pivot point.
      * px, py is an actual point in the view */
+    /*
     private void matrixToCenter(
             @NonNull final float[] dstPts,
             @NonNull final Matrix imageMatrix,
@@ -1260,48 +1606,44 @@ public class InteractiveImageView extends AppCompatImageView
             dstPts[1] = (py - getPaddingTop() - mDstRect.top) / mDstRect.height();
         }
     }
+    */
 
+    /*
     private void setImageMatrixValues(float[] values) {
         synchronized (mLock) {
             mImageMatrix.setValues(values);
             super.setImageMatrix(mImageMatrix);
         }
     }
+    */
 
-    private boolean setScaleAndTranslate(@NonNull final Matrix imageMatrix, boolean animate) {
+    /*
+    private boolean setImageTransformation(
+            float sx,
+            float sy,
+            float px,
+            float py,
+            float x,
+            float y,
+            boolean animate) {
+        return false;
+    }
+
+    private boolean setImageTransformation(@NonNull final Matrix imageMatrix) {
         synchronized (mLock) {
             getImageMatrixInternal(mImageMatrix);
-            if (imageMatrix.equals(mImageMatrix)) {
-                // There is no change; we can exit
+            if (mImageMatrix.equals(imageMatrix)) {
                 return false;
             }
 
-            if (animate) {
-                mScaleScroller.forceFinished(true);
-                getImageMatrixValues(mMatrixValues);
-                final float startSx = mMatrixValues[MSCALE_X];
-                final float startSy = mMatrixValues[MSCALE_Y];
-                final float startTx = mMatrixValues[MTRANS_X];
-                final float startTy = mMatrixValues[MTRANS_Y];
-                imageMatrix.getValues(mMatrixValues);
-                mScaleScroller.startScaleAndScroll(
-                        startSx,
-                        startSy,
-                        startTx,
-                        startTy,
-                        mMatrixValues[MSCALE_X],
-                        mMatrixValues[MSCALE_Y],
-                        mMatrixValues[MTRANS_X],
-                        mMatrixValues[MTRANS_Y]);
-                ViewCompat.postInvalidateOnAnimation(this);
-            } else {
-                if (ScaleType.MATRIX != super.getScaleType()) {
-                    super.setScaleType(ScaleType.MATRIX);
-                }
-                super.setImageMatrix(imageMatrix);
+            if (super.getScaleType() != ScaleType.MATRIX) {
+                super.setScaleType(ScaleType.MATRIX);
             }
+
+            super.setImageMatrix(imageMatrix);
             return true;
         }
     }
+    */
     //endregion Private methods
 }

@@ -47,3 +47,14 @@ Edge effects
 Make sure I'm checking all flags for scroll, fling, doubletap etc. and doing all synchronized where appropriate
 
 Also I kind of want to clean up how I'm throwing around mImageMatrix, mNewImageMatrix, mMatrixValues, mSrcRect & mDstRect etc.
+
+TODO What do I want to be private vs protected (or public) final?
+TODO What about all this @NonNull final stuff?
+TODO Think about using pools for Matrix, RectF, float[] ?
+
+TODO NEXT Tuesday morning
+onScale
+onFling
+onDoubleTapEvent
+computeScroll
+
