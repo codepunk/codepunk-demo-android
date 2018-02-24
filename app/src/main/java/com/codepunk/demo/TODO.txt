@@ -17,3 +17,10 @@ Also I kind of want to clean up how I'm throwing around mImageMatrix, mNewImageM
 TODO What do I want to be private vs protected (or public) final?
 TODO What about all this @NonNull final stuff?
 TODO Think about using pools for Matrix, RectF, float[] ?
+
+---------
+
+Next in this latest iteration:
+* Figure out why onScroll produces shaky results
+* Figure out why onScale sometimes shifts the image
+* Get onDoubleTapEvent to work (and remove clampTransform) <-- This works!!
