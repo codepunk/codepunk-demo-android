@@ -22,5 +22,5 @@ TODO Think about using pools for Matrix, RectF, float[] ?
 
 Next in this latest iteration:
 x * Figure out why onScroll produces shaky results
-* Figure out why onScale sometimes shifts the image
+x * Figure out why onScale sometimes shifts the image
 x * Get onDoubleTapEvent to work (and remove clampTransform) <-- This works!!

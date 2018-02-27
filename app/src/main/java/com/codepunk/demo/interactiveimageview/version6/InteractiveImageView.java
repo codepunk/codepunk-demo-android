@@ -30,8 +30,6 @@ import android.widget.OverScroller;
 import com.codepunk.demo.R;
 import com.codepunk.demo.support.DisplayCompat;
 
-import java.util.Locale;
-
 import static android.graphics.Matrix.MSCALE_X;
 import static android.graphics.Matrix.MSCALE_Y;
 import static android.graphics.Matrix.MTRANS_X;
@@ -340,12 +338,11 @@ public class InteractiveImageView extends AppCompatImageView
     private float mMinScaleX;
     private float mMinScaleY;
 
-    private float mLastScrollPx;
-    private float mLastScrollPy;
+    private float mLastPx;
+    private float mLastPy;
     private float mLastScrollX;
     private float mLastScrollY;
     private float mLastSpan;
-    private PointF mScaleBeginDrawablePoint = new PointF();
 
     private final float[] mMatrixValues = new float[9];
     private final float[] mSrcPts = new float[2];
@@ -533,8 +530,8 @@ public class InteractiveImageView extends AppCompatImageView
             mSrcPts[0] = mLastScrollX;
             mSrcPts[1] = mLastScrollY;
             mapViewPointToDrawablePoint(mDstPts, mSrcPts, mImageMatrix);
-            mLastScrollPx = mDstPts[0];
-            mLastScrollPy = mDstPts[1];
+            mLastPx = mDstPts[0];
+            mLastPy = mDstPts[1];
         }
         return true;
     }
@@ -563,8 +560,8 @@ public class InteractiveImageView extends AppCompatImageView
             final boolean moved = setImageTransform(
                     sx,
                     sy,
-                    mLastScrollPx,
-                    mLastScrollPy,
+                    mLastPx,
+                    mLastPy,
                     mLastScrollX - distanceX,
                     mLastScrollY - distanceY,
                     false,
@@ -575,12 +572,12 @@ public class InteractiveImageView extends AppCompatImageView
             mLastScrollY = y;
             if (!moved) {
                 // If the image didn't move while we were scrolling, re-calculate new values
-                // for mLastScrollPx/mLastScrollPy
+                // for mLastPx/mLastPy
                 mSrcPts[0] = mLastScrollX;
                 mSrcPts[1] = mLastScrollY;
                 mapViewPointToDrawablePoint(mDstPts, mSrcPts, mImageMatrix);
-                mLastScrollPx = mDstPts[0];
-                mLastScrollPy = mDstPts[1];
+                mLastPx = mDstPts[0];
+                mLastPy = mDstPts[1];
             }
         }
         return true;
@@ -655,17 +652,23 @@ public class InteractiveImageView extends AppCompatImageView
         final float currentSpan = detector.getCurrentSpan();
         synchronized (mLock) {
             final float spanDelta = (currentSpan / mLastSpan);
-            getImageMatrixInternal(mImageMatrix);
-            mImageMatrix.getValues(mMatrixValues);
-            setImageTransform(
-                    mMatrixValues[MSCALE_X] * spanDelta,
-                    mMatrixValues[MSCALE_X] * spanDelta,
-                    mScaleBeginDrawablePoint.x,
-                    mScaleBeginDrawablePoint.y,
-                    detector.getFocusX(),
-                    detector.getFocusY(),
-                    false,
-                    true);
+            final float sx = getImageScaleX() * spanDelta;
+            final float sy = getImageScaleY() * spanDelta;
+            final float x = detector.getFocusX();
+            final float y = detector.getFocusY();
+
+            final boolean transformed =
+                    setImageTransform(sx, sy, mLastPx, mLastPy, x, y, false, true);
+
+            if (!transformed) {
+                // If the image didn't move while we were scrolling, re-calculate new values
+                // for mLastPx/mLastPy
+                mSrcPts[0] = x;
+                mSrcPts[1] = y;
+                mapViewPointToDrawablePoint(mDstPts, mSrcPts, mImageMatrix);
+                mLastPx = mDstPts[0];
+                mLastPy = mDstPts[1];
+            }
         }
         mLastSpan = currentSpan;
         return true;
@@ -678,7 +681,8 @@ public class InteractiveImageView extends AppCompatImageView
             mSrcPts[0] = detector.getFocusX();
             mSrcPts[1] = detector.getFocusY();
             mapViewPointToDrawablePoint(mDstPts, mSrcPts, mImageMatrix);
-            mScaleBeginDrawablePoint.set(mDstPts[0], mDstPts[1]);
+            mLastPx = mDstPts[0];
+            mLastPy = mDstPts[1];
             mLastSpan = detector.getCurrentSpan();
         }
         return true;
