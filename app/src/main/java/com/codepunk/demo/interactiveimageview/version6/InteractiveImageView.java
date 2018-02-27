@@ -555,13 +555,14 @@ public class InteractiveImageView extends AppCompatImageView
     @Override // GestureDetector.OnGestureListener
     public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
         synchronized (mLock) {
-            // TODO NEXT Why is this jumpy?
-            getImageMatrixInternal(mImageMatrix);
-            mImageMatrix.getValues(mMatrixValues);
+            final float sx = getImageScaleX();
+            final float sy = getImageScaleY();
+            final float x = e2.getX();
+            final float y = e2.getY();
 
-            setImageTransform(
-                    mMatrixValues[MSCALE_X],
-                    mMatrixValues[MSCALE_Y],
+            final boolean moved = setImageTransform(
+                    sx,
+                    sy,
                     mLastScrollPx,
                     mLastScrollPy,
                     mLastScrollX - distanceX,
@@ -570,25 +571,17 @@ public class InteractiveImageView extends AppCompatImageView
                     true);
 
             // TODO This code is repeating a bit. Consolidate?
-            mLastScrollX = e2.getX();
-            mLastScrollY = e2.getY();
-            mSrcPts[0] = mLastScrollX;
-            mSrcPts[1] = mLastScrollY;
-            mapViewPointToDrawablePoint(mDstPts, mSrcPts, mImageMatrix);
-            mLastScrollPx = mDstPts[0];
-            mLastScrollPy = mDstPts[1];
-
-            /*
-            Log.d(LOG_TAG, String.format(
-                    Locale.ENGLISH,
-                    "mLastScrollX=%.0f, mLastScrollY=%.0f, distanceX=%.0f, distanceY=%.0f, mLastScrollPx=%.0f, mLastScrollPy=%.0f",
-                    mLastScrollX,
-                    mLastScrollY,
-                    distanceX,
-                    distanceY,
-                    mLastScrollPx,
-                    mLastScrollPy));
-            */
+            mLastScrollX = x;
+            mLastScrollY = y;
+            if (!moved) {
+                // If the image didn't move while we were scrolling, re-calculate new values
+                // for mLastScrollPx/mLastScrollPy
+                mSrcPts[0] = mLastScrollX;
+                mSrcPts[1] = mLastScrollY;
+                mapViewPointToDrawablePoint(mDstPts, mSrcPts, mImageMatrix);
+                mLastScrollPx = mDstPts[0];
+                mLastScrollPy = mDstPts[1];
+            }
         }
         return true;
     }
