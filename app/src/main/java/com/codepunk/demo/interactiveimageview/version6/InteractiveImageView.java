@@ -342,7 +342,6 @@ public class InteractiveImageView extends AppCompatImageView
     private float mLastScrollX;
     private float mLastScrollY;
     private float mLastSpan;
-    private boolean mScaling;
     private boolean mNeedsDown;
 
     private final float[] mMatrixValues = new float[9];
@@ -552,7 +551,7 @@ public class InteractiveImageView extends AppCompatImageView
 
     @Override // GestureDetector.OnGestureListener
     public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
-        if (mScaling) {
+        if (mScaleGestureDetector.isInProgress()) {
             return false;
         }
 
@@ -689,7 +688,6 @@ public class InteractiveImageView extends AppCompatImageView
 
     @Override // ScaleGestureDetector.OnScaleGestureListener
     public boolean onScaleBegin(ScaleGestureDetector detector) {
-        mScaling = true;
         synchronized (mLock) {
             getImageMatrixInternal(mImageMatrix);
             mSrcPts[0] = detector.getFocusX();
@@ -704,7 +702,6 @@ public class InteractiveImageView extends AppCompatImageView
 
     @Override // ScaleGestureDetector.OnScaleGestureListener
     public void onScaleEnd(ScaleGestureDetector detector) {
-        mScaling = false;
         mNeedsDown = true;
     }
     //endregion Interface methods
