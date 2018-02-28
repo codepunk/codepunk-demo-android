@@ -11,6 +11,6 @@
         <item name="customCompatSeekBarStyle">@style/AppCompatSeekBarEx</item>
         <item name="interactiveImageViewStyle">@style/InteractiveImageView</item>
         <item name="absSeekBarLayoutStyle">@style/AbsSeekBarLayout</item>
+        <item name="android:colorEdgeEffect">@android:color/black</item>
     </style>
-
 </resources>

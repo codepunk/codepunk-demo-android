@@ -24,7 +24,8 @@
             <flag name="fling" value="2" />
             <flag name="scale" value="4" />
             <flag name="doubleTap" value="8"/>
-            <flag name="all" value="15" />
+            <flag name="edgeEffects" value="16"/>
+            <flag name="all" value="31" />
         </attr>
         <attr name="range" format="integer" />
     </declare-styleable>

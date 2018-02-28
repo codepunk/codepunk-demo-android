@@ -18,7 +18,6 @@ import android.support.v4.view.ViewCompat;
 import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
-import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
@@ -293,10 +292,12 @@ public class InteractiveImageView extends AppCompatImageView
     public static final int INTERACTIVITY_FLAG_FLING = 0x00000002;
     public static final int INTERACTIVITY_FLAG_SCALE = 0x00000004;
     public static final int INTERACTIVITY_FLAG_DOUBLE_TAP = 0x00000008;
+    public static final int INTERACTIVITY_FLAG_EDGE_EFFECTS = 0x00000010;
     public static final int INTERACTIVITY_FLAG_ALL = INTERACTIVITY_FLAG_SCROLL |
             INTERACTIVITY_FLAG_FLING |
             INTERACTIVITY_FLAG_SCALE |
-            INTERACTIVITY_FLAG_DOUBLE_TAP;
+            INTERACTIVITY_FLAG_DOUBLE_TAP |
+            INTERACTIVITY_FLAG_EDGE_EFFECTS;
 
     private static final int INVALID_FLAG_BASELINE_IMAGE_MATRIX = 0x00000001;
     private static final int INVALID_FLAG_IMAGE_MAX_SCALE = 0x00000002;
@@ -542,7 +543,7 @@ public class InteractiveImageView extends AppCompatImageView
 
     @Override // GestureDetector.OnGestureListener
     public boolean onSingleTapUp(MotionEvent e) {
-        if ((mInteractivity & INTERACTIVITY_FLAG_DOUBLE_TAP) != INTERACTIVITY_FLAG_DOUBLE_TAP) {
+        if ((mInteractivity & INTERACTIVITY_FLAG_DOUBLE_TAP) == 0) {
             // If we haven't enabled double tap, fire the onSingleTapConfirmed for consistency
             this.onSingleTapConfirmed(e);
         }
@@ -561,12 +562,17 @@ public class InteractiveImageView extends AppCompatImageView
         }
 
         synchronized (mLock) {
+            getImageMatrixInternal(mImageMatrix);
+            mImageMatrix.getValues(mMatrixValues);
+            final float beginTx = mMatrixValues[MTRANS_X];
+            final float beginTy = mMatrixValues[MTRANS_Y];
+
             final float sx = getImageScaleX();
             final float sy = getImageScaleY();
             final float x = e2.getX();
             final float y = e2.getY();
 
-            final boolean transformed = setImageTransform(
+            setImageTransform(
                     sx,
                     sy,
                     mLastScrollPx,
@@ -576,10 +582,20 @@ public class InteractiveImageView extends AppCompatImageView
                     false,
                     true);
 
+            getImageMatrixInternal(mImageMatrix); // TODO This is happening a lot
+            mImageMatrix.getValues(mMatrixValues);
+            final float endTx = mMatrixValues[MTRANS_X];
+            final float endTy = mMatrixValues[MTRANS_Y];
+//            Log.d(LOG_TAG, String.format(Locale.ENGLISH, "beginTx=%.2f, endTx=%.2f, beginTy=%.2f, endTy=%.2f",
+//                    beginTx, endTx, beginTy, endTy));
+            final boolean movedX = (beginTx != endTx);
+            final boolean movedY = (beginTy != endTy);
+
             // TODO This code is repeating a bit. Consolidate?
             mLastScrollX = x;
             mLastScrollY = y;
-            if (!transformed) {
+            if (!movedX || !movedY) {
+                // TODO If we didn't move in EITHER direction we need to re-calc that direction
                 // If the image didn't move while we were scrolling, re-calculate new values
                 // for mLastScrollPx/mLastScrollPy
                 getImageMatrixInternal(mImageMatrix);
@@ -633,7 +649,7 @@ public class InteractiveImageView extends AppCompatImageView
 
     @Override // GestureDetector.OnDoubleTapListener
     public boolean onDoubleTapEvent(MotionEvent e) {
-        if ((mInteractivity & INTERACTIVITY_FLAG_DOUBLE_TAP) == INTERACTIVITY_FLAG_DOUBLE_TAP) {
+        if ((mInteractivity & INTERACTIVITY_FLAG_DOUBLE_TAP) != 0) {
             if (e.getAction() == MotionEvent.ACTION_UP) {
                 synchronized (mLock) {
                     final float nextZoomPivot = getNextZoomPivot();
@@ -672,6 +688,7 @@ public class InteractiveImageView extends AppCompatImageView
                     setImageTransform(sx, sy, mLastScrollPx, mLastScrollPy, x, y, false, true);
 
             if (!transformed) {
+                // TODO If we didn't scale in EITHER direction we need to re-calc that direction
                 // If the image didn't move while we were scrolling, re-calculate new values
                 // for mLastScrollPx/mLastScrollPy
                 getImageMatrixInternal(mImageMatrix);
@@ -884,8 +901,6 @@ public class InteractiveImageView extends AppCompatImageView
             mImageMatrix.mapPoints(mDstPts, mSrcPts);
             outViewPt.x = mDstPts[0];
             outViewPt.y = mDstPts[1];
-
-            Log.d(LOG_TAG, "");
         }
     }
 
@@ -1203,30 +1218,9 @@ public class InteractiveImageView extends AppCompatImageView
         super.setImageMatrix(mNewImageMatrix);
         return true;
     }
+    //endregion Protected methods
 
-    private Bundle newPendingTransformation(
-            float sx,
-            float sy,
-            float px,
-            float py,
-            float x,
-            float y,
-            boolean animate) {
-        Bundle bundle = new Bundle();
-        bundle.putFloat(KEY_SX, sx);
-        bundle.putFloat(KEY_SY, sy);
-        bundle.putFloat(KEY_PX, px);
-        bundle.putFloat(KEY_PY, py);
-        if (!Float.isNaN(x)) {
-            bundle.putFloat(KEY_X, x);
-        }
-        if (!Float.isNaN(y)) {
-            bundle.putFloat(KEY_Y, y);
-        }
-        bundle.putBoolean(KEY_ANIMATE, animate);
-        return bundle;
-    }
-
+    //region Private methods
     private float getDefaultTargetX() {
         return getPaddingLeft() + getAvailableWidth() * 0.5f;
     }
@@ -1327,6 +1321,29 @@ public class InteractiveImageView extends AppCompatImageView
         a.recycle();
 
         return new Initializer(this);
+    }
+
+    private static Bundle newPendingTransformation(
+            float sx,
+            float sy,
+            float px,
+            float py,
+            float x,
+            float y,
+            boolean animate) {
+        Bundle bundle = new Bundle();
+        bundle.putFloat(KEY_SX, sx);
+        bundle.putFloat(KEY_SY, sy);
+        bundle.putFloat(KEY_PX, px);
+        bundle.putFloat(KEY_PY, py);
+        if (!Float.isNaN(x)) {
+            bundle.putFloat(KEY_X, x);
+        }
+        if (!Float.isNaN(y)) {
+            bundle.putFloat(KEY_Y, y);
+        }
+        bundle.putBoolean(KEY_ANIMATE, animate);
+        return bundle;
     }
     //endregion Private methods
 }
