@@ -34,6 +34,7 @@ import static android.graphics.Matrix.MSCALE_X;
 import static android.graphics.Matrix.MSCALE_Y;
 import static android.graphics.Matrix.MTRANS_X;
 import static android.graphics.Matrix.MTRANS_Y;
+import static java.lang.Float.NaN;
 
 public class InteractiveImageView extends AppCompatImageView
         implements GestureDetector.OnGestureListener,
@@ -58,7 +59,7 @@ public class InteractiveImageView extends AppCompatImageView
         }
     }
 
-    // TODO VERSION6
+    @SuppressWarnings("WeakerAccess")
     protected static class Transformer {
         /**
          * The interpolator, used for making zooms animate 'naturally.'
@@ -149,7 +150,6 @@ public class InteractiveImageView extends AppCompatImageView
          *
          * @see android.widget.Scroller#abortAnimation()
          */
-        @SuppressWarnings("unused")
         void abortAnimation() {
             mFinished = true;
             mCurrentSx = mEndSx;
@@ -229,7 +229,6 @@ public class InteractiveImageView extends AppCompatImageView
             return true;
         }
 
-
         /**
          * Returns the current scale X.
          *
@@ -286,9 +285,9 @@ public class InteractiveImageView extends AppCompatImageView
     private static final String LOG_TAG = InteractiveImageView.class.getSimpleName();
     private static final float MAX_SCALE_BREADTH_MULTIPLIER = 4.0f;
     private static final float MAX_SCALE_LENGTH_MULTIPLIER = 6.0f;
-    private static final float FLOAT_EPSILON = 0.005f;
     private static final float ZOOM_PIVOT_EPSILON = 0.2f;
 
+    @SuppressWarnings("unused")
     public static final int INTERACTIVITY_FLAG_NONE = 0;
     public static final int INTERACTIVITY_FLAG_SCROLL = 0x00000001;
     public static final int INTERACTIVITY_FLAG_FLING = 0x00000002;
@@ -338,11 +337,13 @@ public class InteractiveImageView extends AppCompatImageView
     private float mMinScaleX;
     private float mMinScaleY;
 
-    private float mLastPx;
-    private float mLastPy;
+    private float mLastScrollPx;
+    private float mLastScrollPy;
     private float mLastScrollX;
     private float mLastScrollY;
     private float mLastSpan;
+    private boolean mScaling;
+    private boolean mNeedsDown;
 
     private final float[] mMatrixValues = new float[9];
     private final float[] mSrcPts = new float[2];
@@ -530,8 +531,8 @@ public class InteractiveImageView extends AppCompatImageView
             mSrcPts[0] = mLastScrollX;
             mSrcPts[1] = mLastScrollY;
             mapViewPointToDrawablePoint(mDstPts, mSrcPts, mImageMatrix);
-            mLastPx = mDstPts[0];
-            mLastPy = mDstPts[1];
+            mLastScrollPx = mDstPts[0];
+            mLastScrollPy = mDstPts[1];
         }
         return true;
     }
@@ -551,17 +552,26 @@ public class InteractiveImageView extends AppCompatImageView
 
     @Override // GestureDetector.OnGestureListener
     public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
+        if (mScaling) {
+            return false;
+        }
+
+        if (mNeedsDown) {
+            mNeedsDown = false;
+            onDown(e2);
+        }
+
         synchronized (mLock) {
             final float sx = getImageScaleX();
             final float sy = getImageScaleY();
             final float x = e2.getX();
             final float y = e2.getY();
 
-            final boolean moved = setImageTransform(
+            final boolean transformed = setImageTransform(
                     sx,
                     sy,
-                    mLastPx,
-                    mLastPy,
+                    mLastScrollPx,
+                    mLastScrollPy,
                     mLastScrollX - distanceX,
                     mLastScrollY - distanceY,
                     false,
@@ -570,17 +580,18 @@ public class InteractiveImageView extends AppCompatImageView
             // TODO This code is repeating a bit. Consolidate?
             mLastScrollX = x;
             mLastScrollY = y;
-            if (!moved) {
+            if (!transformed) {
                 // If the image didn't move while we were scrolling, re-calculate new values
-                // for mLastPx/mLastPy
+                // for mLastScrollPx/mLastScrollPy
+                getImageMatrixInternal(mImageMatrix);
                 mSrcPts[0] = mLastScrollX;
                 mSrcPts[1] = mLastScrollY;
                 mapViewPointToDrawablePoint(mDstPts, mSrcPts, mImageMatrix);
-                mLastPx = mDstPts[0];
-                mLastPy = mDstPts[1];
+                mLastScrollPx = mDstPts[0];
+                mLastScrollPy = mDstPts[1];
             }
         }
-        return true;
+        return false;
     }
 
     @Override // GestureDetector.OnGestureListener
@@ -590,6 +601,7 @@ public class InteractiveImageView extends AppCompatImageView
     @Override // GestureDetector.OnGestureListener
     public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
         synchronized (mLock) {
+            getImageMatrixInternal(mImageMatrix);
             getDrawableIntrinsicRect(mSrcRect);
             mImageMatrix.mapRect(mDstRect, mSrcRect);
             mImageMatrix.getValues(mMatrixValues);
@@ -658,16 +670,17 @@ public class InteractiveImageView extends AppCompatImageView
             final float y = detector.getFocusY();
 
             final boolean transformed =
-                    setImageTransform(sx, sy, mLastPx, mLastPy, x, y, false, true);
+                    setImageTransform(sx, sy, mLastScrollPx, mLastScrollPy, x, y, false, true);
 
             if (!transformed) {
                 // If the image didn't move while we were scrolling, re-calculate new values
-                // for mLastPx/mLastPy
+                // for mLastScrollPx/mLastScrollPy
+                getImageMatrixInternal(mImageMatrix);
                 mSrcPts[0] = x;
                 mSrcPts[1] = y;
                 mapViewPointToDrawablePoint(mDstPts, mSrcPts, mImageMatrix);
-                mLastPx = mDstPts[0];
-                mLastPy = mDstPts[1];
+                mLastScrollPx = mDstPts[0];
+                mLastScrollPy = mDstPts[1];
             }
         }
         mLastSpan = currentSpan;
@@ -676,13 +689,14 @@ public class InteractiveImageView extends AppCompatImageView
 
     @Override // ScaleGestureDetector.OnScaleGestureListener
     public boolean onScaleBegin(ScaleGestureDetector detector) {
+        mScaling = true;
         synchronized (mLock) {
             getImageMatrixInternal(mImageMatrix);
             mSrcPts[0] = detector.getFocusX();
             mSrcPts[1] = detector.getFocusY();
             mapViewPointToDrawablePoint(mDstPts, mSrcPts, mImageMatrix);
-            mLastPx = mDstPts[0];
-            mLastPy = mDstPts[1];
+            mLastScrollPx = mDstPts[0];
+            mLastScrollPy = mDstPts[1];
             mLastSpan = detector.getCurrentSpan();
         }
         return true;
@@ -690,6 +704,8 @@ public class InteractiveImageView extends AppCompatImageView
 
     @Override // ScaleGestureDetector.OnScaleGestureListener
     public void onScaleEnd(ScaleGestureDetector detector) {
+        mScaling = false;
+        mNeedsDown = true;
     }
     //endregion Interface methods
 
@@ -760,6 +776,7 @@ public class InteractiveImageView extends AppCompatImageView
         }
     }
 
+    @SuppressWarnings("unused")
     public int getInteractivity() {
         return mInteractivity;
     }
@@ -772,31 +789,27 @@ public class InteractiveImageView extends AppCompatImageView
         mInteractivity = flags;
     }
 
+    @SuppressWarnings("UnusedReturnValue")
     public boolean setImageTransform(float sx, float sy, float px, float py) {
         return setImageTransform(sx, sy, px, py, false);
     }
 
+    @SuppressWarnings("SameParameterValue")
     public boolean setImageTransform(float sx, float sy, float px, float py, boolean animate) {
         if (!ViewCompat.isLaidOut(this)) {
-            mPendingTransformation = createPendingBundle(sx, sy, px, py, animate);
+            mPendingTransformation = newPendingTransformation(sx, sy, px, py, NaN, NaN, animate);
             return false;
         }
-        return setImageTransform(
-                sx,
-                sy,
-                px,
-                py,
-                getDefaultTargetX(),
-                getDefaultTargetY(),
-                animate);
+        final float x = getDefaultTargetX();
+        final float y = getDefaultTargetY();
+        return setImageTransform(sx, sy, px, py, x, y, animate);
     }
 
+    @SuppressWarnings("unused")
     public boolean setImageTransform(float sx, float sy, float px, float py, float x, float y) {
         return setImageTransform(sx, sy, px, py, x, y, false);
     }
 
-    // So the thing is, x and y could be different before/after rotation.
-    // This is version 4
     public boolean setImageTransform(
             float sx,
             float sy,
@@ -806,75 +819,12 @@ public class InteractiveImageView extends AppCompatImageView
             float y,
             boolean animate) {
         if (!ViewCompat.isLaidOut(this)) {
-            mPendingTransformation = createPendingBundle(sx, sy, px, py, x, y, animate);
+            mPendingTransformation = newPendingTransformation(sx, sy, px, py, x, y, animate);
             return false;
         }
 
         return setImageTransform(sx, sy, px, py, x, y, animate, false);
-
-        /*
-        if (animate) {
-            // TODO NEXT So the thing is, I want the resolving that happens in the NEXT version.
-            // If I want resolving, I need "fromUser". So although it seems weird to have
-            // animate AND fromUser, because I don't think you'd ever set both, that's kind of what
-            // we need. Then createPendingBundle (above) also needs a "fromUser" key added to it.
-            // BUT The whole "relative" thing gets screwed up.
-            // Aha, coming from doubleTap, this is wrong. x/y should be end x/y. Begin x/y will
-            // be if I map px/py points. I think I fixed it.
-            mSrcPts[0] = px;
-            mSrcPts[1] = py;
-            getImageMatrixInternal(mImageMatrix);
-            mImageMatrix.mapPoints(mDstPts, mSrcPts);
-            mTransformer.startTransform(
-                    px,
-                    py,
-                    getImageScaleX(),
-                    getImageScaleY(),
-                    mDstPts[0],
-                    mDstPts[1],
-                    sx,
-                    sy,
-                    x,
-                    y);
-            ViewCompat.postInvalidateOnAnimation(this); // TODO <---- Need this?
-            return true;
-        } else {
-            return setImageTransformInternal(sx, sy, px, py, x, y, false);
-        }
-        */
     }
-
-    /*
-    // This is version r1
-    public boolean setImageTransformRelative(
-            float sx,
-            float sy,
-            float px,
-            float py,
-            float rx,
-            float ry) {
-        return setImageTransformRelative(sx, sy, px, py, rx, ry, false);
-    }
-
-    // This is version r2. Currently calls version 4, want it to go to an "r3".
-    public boolean setImageTransformRelative(
-            float sx,
-            float sy,
-            float px,
-            float py,
-            float rx,
-            float ry,
-            boolean animate) {
-        if (!ViewCompat.isLaidOut(this)) {
-            mPendingTransformation = createPendingBundle(
-                    true, sx, sy, px, py, rx, ry, animate);
-            return false;
-        }
-        final float x = getPaddingLeft() + getAvailableWidth() * rx;
-        final float y = getPaddingTop() + getAvailableHeight() * ry;
-        return setImageTransform(sx, sy, px, py, x, y, animate);
-    }
-    */
 
     public void setZoomPivots(float... pivots) {
         mZoomPivots = pivots;
@@ -882,6 +832,66 @@ public class InteractiveImageView extends AppCompatImageView
     //endregion Methods
 
     //region Protected methods
+    @SuppressWarnings("unused")
+    protected void clampTransform(
+            float sx,
+            float sy,
+            float px,
+            float py,
+            float x,
+            float y,
+            @NonNull final PointF outScale,
+            @NonNull final PointF outViewPt,
+            final boolean fromUser) {
+        synchronized (mLock) {
+            // First, update scale
+            getImageMinScale();
+            getImageMaxScale();
+            outScale.set(MathUtils.clamp(sx, mMinScaleX, mMaxScaleX),
+                    MathUtils.clamp(sy, mMinScaleY, mMaxScaleY));
+
+            // Do we want to lock ratio? Or TODO do that in pinch scale?
+
+            // Get the resulting rect at the scaled size TODO This could be a helper method
+            getImageMatrixInternal(mImageMatrix);
+            mImageMatrix.getValues(mMatrixValues);
+            mMatrixValues[MSCALE_X] = outScale.x;
+            mMatrixValues[MSCALE_Y] = outScale.y;
+            mImageMatrix.setValues(mMatrixValues);
+            getDrawableIntrinsicRect(mSrcRect);
+            mImageMatrix.mapRect(mDstRect, mSrcRect);
+            final float scaledImageWidth = mDstRect.width();
+            final float scaledImageHeight = mDstRect.height();
+
+            mSrcPts[0] = px;
+            mSrcPts[1] = py;
+            mImageMatrix.mapPoints(mDstPts, mSrcPts);
+
+            // What would tx/ty be if we moved drawablePt to viewPt?
+            final float tx = x - (mDstPts[0] - mDstRect.left);
+            final float ty = y - (mDstPts[1] - mDstRect.top);
+            final float clampedTx = MathUtils.clamp(
+                    tx,
+                    getImageMinTransX(scaledImageWidth),
+                    getImageMaxTransX(scaledImageWidth));
+            final float clampedTy = MathUtils.clamp(
+                    ty,
+                    getImageMinTransY(scaledImageHeight),
+                    getImageMaxTransY(scaledImageHeight));
+
+            // With values clampedTx/clampedTy, where does the drawable point wind up?
+            mMatrixValues[MTRANS_X] = clampedTx;
+            mMatrixValues[MTRANS_Y] = clampedTy;
+            mImageMatrix.setValues(mMatrixValues);
+
+            mImageMatrix.mapPoints(mDstPts, mSrcPts);
+            outViewPt.x = mDstPts[0];
+            outViewPt.y = mDstPts[1];
+
+            Log.d(LOG_TAG, "");
+        }
+    }
+
     protected boolean drawableHasIntrinsicSize() {
         return getDrawableIntrinsicWidth() > 0 && getDrawableIntrinsicHeight() > 0;
     }
@@ -1094,28 +1104,6 @@ public class InteractiveImageView extends AppCompatImageView
         }
     }
 
-    /*
-    @SuppressWarnings("unused")
-    protected float resolveScaleX(float sx, float min, float max, boolean fromUser) {
-        return MathUtils.clamp(sx, min, max);
-    }
-
-    @SuppressWarnings("unused")
-    protected float resolveScaleY(float sy, float min, float max, boolean fromUser) {
-        return MathUtils.clamp(sy, min, max);
-    }
-
-    @SuppressWarnings("unused")
-    protected float resolveTransX(float tx, float min, float max, boolean fromUser) {
-        return MathUtils.clamp(tx, min, max);
-    }
-
-    @SuppressWarnings("unused")
-    protected float resolveTransY(float ty, float min, float max, boolean fromUser) {
-        return MathUtils.clamp(ty, min, max);
-    }
-    */
-
     protected static Matrix.ScaleToFit scaleTypeToScaleToFit(ScaleType scaleType) {
         if (scaleType == null) {
             return null;
@@ -1219,82 +1207,7 @@ public class InteractiveImageView extends AppCompatImageView
         return true;
     }
 
-    // TODO Move this
-    protected void clampTransform(
-        float sx,
-        float sy,
-        float px,
-        float py,
-        float x,
-        float y,
-        @NonNull final PointF outScale,
-        @NonNull final PointF outViewPt,
-        final boolean fromUser) {
-        synchronized (mLock) {
-            // First, update scale
-            getImageMinScale();
-            getImageMaxScale();
-            outScale.set(MathUtils.clamp(sx, mMinScaleX, mMaxScaleX),
-                    MathUtils.clamp(sy, mMinScaleY, mMaxScaleY));
-
-            // Do we want to lock ratio? Or TODO do that in pinch scale?
-
-            // Get the resulting rect at the scaled size TODO This could be a helper method
-            getImageMatrixInternal(mImageMatrix);
-            mImageMatrix.getValues(mMatrixValues);
-            mMatrixValues[MSCALE_X] = outScale.x;
-            mMatrixValues[MSCALE_Y] = outScale.y;
-            mImageMatrix.setValues(mMatrixValues);
-            getDrawableIntrinsicRect(mSrcRect);
-            mImageMatrix.mapRect(mDstRect, mSrcRect);
-            final float scaledImageWidth = mDstRect.width();
-            final float scaledImageHeight = mDstRect.height();
-
-            mSrcPts[0] = px;
-            mSrcPts[1] = py;
-            mImageMatrix.mapPoints(mDstPts, mSrcPts);
-
-            // What would tx/ty be if we moved drawablePt to viewPt?
-            final float tx = x - (mDstPts[0] - mDstRect.left);
-            final float ty = y - (mDstPts[1] - mDstRect.top);
-            final float clampedTx = MathUtils.clamp(
-                    tx,
-                    getImageMinTransX(scaledImageWidth),
-                    getImageMaxTransX(scaledImageWidth));
-            final float clampedTy = MathUtils.clamp(
-                    ty,
-                    getImageMinTransY(scaledImageHeight),
-                    getImageMaxTransY(scaledImageHeight));
-
-            // With values clampedTx/clampedTy, where does the drawable point wind up?
-            mMatrixValues[MTRANS_X] = clampedTx;
-            mMatrixValues[MTRANS_Y] = clampedTy;
-            mImageMatrix.setValues(mMatrixValues);
-
-            mImageMatrix.mapPoints(mDstPts, mSrcPts);
-            outViewPt.x = mDstPts[0];
-            outViewPt.y = mDstPts[1];
-
-            Log.d(LOG_TAG, "");
-        }
-    }
-
-    private Bundle createPendingBundle(
-            float sx,
-            float sy,
-            float px,
-            float py,
-            boolean animate) {
-        Bundle bundle = new Bundle();
-        bundle.putFloat(KEY_SX, sx);
-        bundle.putFloat(KEY_SY, sy);
-        bundle.putFloat(KEY_PX, px);
-        bundle.putFloat(KEY_PY, py);
-        bundle.putBoolean(KEY_ANIMATE, animate);
-        return bundle;
-    }
-
-    private Bundle createPendingBundle(
+    private Bundle newPendingTransformation(
             float sx,
             float sy,
             float px,
@@ -1302,9 +1215,18 @@ public class InteractiveImageView extends AppCompatImageView
             float x,
             float y,
             boolean animate) {
-        Bundle bundle = createPendingBundle(sx, sy, px, py, animate);
-        bundle.putFloat(KEY_X, x);
-        bundle.putFloat(KEY_Y, y);
+        Bundle bundle = new Bundle();
+        bundle.putFloat(KEY_SX, sx);
+        bundle.putFloat(KEY_SY, sy);
+        bundle.putFloat(KEY_PX, px);
+        bundle.putFloat(KEY_PY, py);
+        if (!Float.isNaN(x)) {
+            bundle.putFloat(KEY_X, x);
+        }
+        if (!Float.isNaN(y)) {
+            bundle.putFloat(KEY_Y, y);
+        }
+        bundle.putBoolean(KEY_ANIMATE, animate);
         return bundle;
     }
 

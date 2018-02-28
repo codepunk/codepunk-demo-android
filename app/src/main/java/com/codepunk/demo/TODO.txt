@@ -24,3 +24,5 @@ Next in this latest iteration:
 x * Figure out why onScroll produces shaky results
 x * Figure out why onScale sometimes shifts the image
 x * Get onDoubleTapEvent to work (and remove clampTransform) <-- This works!!
+
+x * When scrolling AND scaling, they fight each other. How to fix?
