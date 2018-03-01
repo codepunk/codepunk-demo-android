@@ -105,4 +105,16 @@
         android:label="@string/label_pivot_y"
         android:format="0" />
 
+    <Button
+        android:id="@+id/btn_reset"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/label_reset"/>
+
+    <Button
+        android:id="@+id/btn_scale"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/label_scale_2"/>
+
 </LinearLayout>

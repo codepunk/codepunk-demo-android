@@ -12,6 +12,8 @@
     <string name="label_pivot_y">Pivot Y:</string>
     <string name="label_scale_x">Scale X:</string>
     <string name="label_scale_y">Scale Y:</string>
+    <string name="label_reset">Reset</string>
+    <string name="label_scale_2">Scale x2</string>
 
     <!-- TODO: Remove or change this placeholder text -->
     <string name="hello_blank_fragment">Hello blank fragment</string>

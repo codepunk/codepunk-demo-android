@@ -516,8 +516,8 @@ public class InteractiveImageOldestView extends AppCompatImageView {
         mRectF.set(0, 0, mSize.x, mSize.y);
         final Matrix matrix = getImageMatrix();
         matrix.mapRect(mRectF); // TODO What happens to mRectF when skewed or rotated?
-        final int availableWidth = getAvailableWidth();
-        final int availableHeight = getAvailableHeight();
+        final int availableWidth = getContentHeight();
+        final int availableHeight = getContentWidth();
         matrix.invert(mInverseMatrix);
         mSrcPoints[0] = availableWidth / 2.0f;
         mSrcPoints[1] = availableHeight / 2.0f;
@@ -626,8 +626,8 @@ public class InteractiveImageOldestView extends AppCompatImageView {
             mSrcPoints[0] = intrinsicWidth * centerX;
             mSrcPoints[1] = intrinsicHeight * centerY;
             matrix.mapPoints(mDstPoints, mSrcPoints);
-            final float deltaX = getAvailableWidth() / 2.0f - mDstPoints[0];
-            final float deltaY = getAvailableHeight() / 2.0f - mDstPoints[1];
+            final float deltaX = getContentHeight() / 2.0f - mDstPoints[0];
+            final float deltaY = getContentWidth() / 2.0f - mDstPoints[1];
             matrix.postTranslate(deltaX, deltaY);
             super.setImageMatrix(matrix);
             postInvalidate();
