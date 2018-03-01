@@ -26,3 +26,5 @@ x * Figure out why onScale sometimes shifts the image
 x * Get onDoubleTapEvent to work (and remove clampTransform) <-- This works!!
 
 x * When scrolling AND scaling, they fight each other. How to fix?
+
+TODO !! Read http://i-rant.arnaudbos.com/matrices-for-developers/ (Matrices for Developers)

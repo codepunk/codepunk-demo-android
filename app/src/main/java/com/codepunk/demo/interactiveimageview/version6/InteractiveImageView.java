@@ -586,8 +586,6 @@ public class InteractiveImageView extends AppCompatImageView
             mImageMatrix.getValues(mMatrixValues);
             final float endTx = mMatrixValues[MTRANS_X];
             final float endTy = mMatrixValues[MTRANS_Y];
-//            Log.d(LOG_TAG, String.format(Locale.ENGLISH, "beginTx=%.2f, endTx=%.2f, beginTy=%.2f, endTy=%.2f",
-//                    beginTx, endTx, beginTy, endTy));
             final boolean movedX = (beginTx != endTx);
             final boolean movedY = (beginTy != endTy);
 
