@@ -12,6 +12,7 @@ import android.support.annotation.ArrayRes;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.math.MathUtils;
+import android.support.v4.util.Pools.SimplePool;
 import android.support.v4.view.GestureDetectorCompat;
 import android.support.v4.view.ViewCompat;
 import android.support.v7.widget.AppCompatImageView;
@@ -58,6 +59,163 @@ public class InteractiveImageView extends AppCompatImageView
             transformer = new Transformer(context);
         }
     }
+
+    /*
+    protected static class MatrixPool extends Pools.SimplePool<Matrix> {
+        MatrixPool(int maxPoolSize) {
+            super(maxPoolSize);
+        }
+
+        @Override
+        public Matrix acquire() {
+            final Matrix matrix = super.acquire();
+            return (matrix == null ? new Matrix() : matrix);
+        }
+    }
+    */
+
+    private static class MatrixValuesWrapper {
+        float[] values = new float[9];
+    }
+
+    /*
+    private static class MatrixValuesPool extends Pools.SimplePool<MatrixValuesWrapper> {
+        MatrixValuesPool(int maxPoolSize) {
+            super(maxPoolSize);
+        }
+
+        @Override
+        public MatrixValuesWrapper acquire() {
+            final MatrixValuesWrapper values = super.acquire();
+            return (values == null ? new MatrixValuesWrapper() : values);
+        }
+    }
+    */
+
+    private static class PoolManager {
+        final SimplePool<Matrix> mMatrixPool;
+        final SimplePool<MatrixValuesWrapper> mMatrixValuesWrapperPool;
+        final SimplePool<PtsWrapper> mPtsWrapperPool;
+        final SimplePool<RectF> mRectFPool;
+
+        public PoolManager(int maxPoolSize) {
+            mMatrixPool = new SimplePool<>(maxPoolSize);
+            mMatrixValuesWrapperPool = new SimplePool<>(maxPoolSize);
+            mPtsWrapperPool = new SimplePool<>(maxPoolSize);
+            mRectFPool = new SimplePool<>(maxPoolSize);
+        }
+
+        Matrix acquireMatrix() {
+            final Matrix instance = mMatrixPool.acquire();
+            return (instance == null ? new Matrix() : instance);
+        }
+
+        MatrixValuesWrapper acquireMatrixValuesWrapper() {
+            MatrixValuesWrapper instance = mMatrixValuesWrapperPool.acquire();
+            return (instance == null ? new MatrixValuesWrapper() : instance);
+        }
+
+        MatrixValuesWrapper acquireMatrixValuesWrapper(Matrix matrix) {
+            MatrixValuesWrapper wrapper = acquireMatrixValuesWrapper();
+            matrix.getValues(wrapper.values);
+            return wrapper;
+        }
+
+        PtsWrapper acquirePtsWrapper() {
+            PtsWrapper instance = mPtsWrapperPool.acquire();
+            return (instance == null ? new PtsWrapper() : instance);
+        }
+
+        PtsWrapper acquirePtsWrapper(float x, float y) {
+            final PtsWrapper pts = acquirePtsWrapper();
+            pts.pts[0] = x;
+            pts.pts[1] = y;
+            return pts;
+        }
+
+        RectF acquireRectF() {
+            final RectF instance = mRectFPool.acquire();
+            return (instance == null ? new RectF() : instance);
+        }
+
+        RectF acquireRectF(float left, float top, float right, float bottom) {
+            final RectF rect = acquireRectF();
+            rect.set(left, top, right, bottom);
+            return rect;
+        }
+
+        void releaseMatrix(Matrix instance) {
+            mMatrixPool.release(instance);
+        }
+
+        void releaseMatrixValuesWrapper(MatrixValuesWrapper instance) {
+            mMatrixValuesWrapperPool.release(instance);
+        }
+
+        void releasePtsWrapper(PtsWrapper instance) {
+            mPtsWrapperPool.release(instance);
+        }
+
+        void releaseRectF(RectF rect) {
+            mRectFPool.release(rect);
+        }
+    }
+
+    private static class PtsWrapper {
+        float[] pts = new float[2];
+
+        void set(float x, float y) {
+            pts[0] = x;
+            pts[1] = y;
+        }
+
+        float getX() {
+            return pts[0];
+        }
+
+        float getY() {
+            return pts[1];
+        }
+    }
+
+    /*
+    private static class PtsPool extends Pools.SimplePool<PtsWrapper> {
+        PtsPool(int maxPoolSize) {
+            super(maxPoolSize);
+        }
+
+        @Override
+        public PtsWrapper acquire() {
+            final PtsWrapper pts = super.acquire();
+            return (pts == null ? new PtsWrapper() : pts);
+        }
+
+        PtsWrapper acquire(float x, float y) {
+            final PtsWrapper pts = acquire();
+            pts.pts[0] = x;
+            pts.pts[1] = y;
+            return pts;
+        }
+    }
+
+    private static class RectFPool extends Pools.SimplePool<RectF> {
+        RectFPool(int maxPoolSize) {
+            super(maxPoolSize);
+        }
+
+        @Override
+        public RectF acquire() {
+            final RectF rect = super.acquire();
+            return (rect == null ? new RectF() : rect);
+        }
+
+        RectF acquire(float left, float top, float right, float bottom) {
+            final RectF rect = acquire();
+            rect.set(left, top, right, bottom);
+            return rect;
+        }
+    }
+    */
 
     @SuppressWarnings("WeakerAccess")
     protected static class Transformer {
@@ -348,9 +506,10 @@ public class InteractiveImageView extends AppCompatImageView
             INTERACTIVITY_FLAG_DOUBLE_TAP |
             INTERACTIVITY_FLAG_EDGE_EFFECTS;
 
-    private static final int INVALID_FLAG_BASELINE_IMAGE_MATRIX = 0x00000001;
-    private static final int INVALID_FLAG_IMAGE_MAX_SCALE = 0x00000002;
-    private static final int INVALID_FLAG_IMAGE_MIN_SCALE = 0x00000004;
+    private static final int INVALID_FLAG_CONTENT_RECT = 0x00000001;
+    private static final int INVALID_FLAG_BASELINE_IMAGE_MATRIX = 0x00000002;
+    private static final int INVALID_FLAG_IMAGE_MAX_SCALE = 0x00000004;
+    private static final int INVALID_FLAG_IMAGE_MIN_SCALE = 0x00000008;
     private static final int INVALID_FLAG_DEFAULT = INVALID_FLAG_BASELINE_IMAGE_MATRIX |
             INVALID_FLAG_IMAGE_MAX_SCALE |
             INVALID_FLAG_IMAGE_MIN_SCALE;
@@ -396,8 +555,8 @@ public class InteractiveImageView extends AppCompatImageView
     private boolean mNeedsDown;
     */
 
-    private float mLastDx;
-    private float mLastDy;
+    private float mLastPx;
+    private float mLastPy;
 
     private Matrix mImageMatrixInternal = new Matrix();
     private Matrix mTransformMatrix = new Matrix();
@@ -407,11 +566,21 @@ public class InteractiveImageView extends AppCompatImageView
     private final float[] mMatrixValues = new float[9];
     private final float[] mSrcPts = new float[2];
     private final float[] mDstPts = new float[2];
+    private final RectF mContentRect = new RectF();
     private final Matrix mBaselineImageMatrix = new Matrix();
     private final Matrix mImageMatrix = new Matrix();
     private final Matrix mNewImageMatrix = new Matrix();
     private final RectF mSrcRect = new RectF();
     private final RectF mDstRect = new RectF();
+
+    // Pools
+    private final PoolManager mPoolManager = new PoolManager(8);
+    /*
+    private final MatrixPool mMatrixPool = new MatrixPool(8);
+    private final MatrixValuesPool mMatrixValuesPool = new MatrixValuesPool(8);
+    private final PtsPool mPtsPool = new PtsPool(8);
+    private final RectFPool mRectFPool = new RectFPool(8);
+    */
 
     private final Object mLock = new Object();
 
@@ -523,6 +692,12 @@ public class InteractiveImageView extends AppCompatImageView
         }
     }
 
+    @Override
+    public void onRtlPropertiesChanged(int layoutDirection) {
+        super.onRtlPropertiesChanged(layoutDirection);
+        mInvalidFlags |= INVALID_FLAG_CONTENT_RECT;
+    }
+
     @SuppressLint("ClickableViewAccessibility")
     @Override
     public boolean onTouchEvent(MotionEvent event) {
@@ -540,7 +715,7 @@ public class InteractiveImageView extends AppCompatImageView
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
-        mInvalidFlags |= INVALID_FLAG_DEFAULT;
+        mInvalidFlags |= INVALID_FLAG_CONTENT_RECT | INVALID_FLAG_DEFAULT;
     }
 
     @Override
@@ -563,13 +738,13 @@ public class InteractiveImageView extends AppCompatImageView
     @Override
     public void setPadding(int left, int top, int right, int bottom) {
         super.setPadding(left, top, right, bottom);
-        mInvalidFlags |= INVALID_FLAG_DEFAULT;
+        mInvalidFlags |= INVALID_FLAG_CONTENT_RECT | INVALID_FLAG_DEFAULT;
     }
 
     @Override
     public void setPaddingRelative(int start, int top, int end, int bottom) {
         super.setPaddingRelative(start, top, end, bottom);
-        mInvalidFlags |= INVALID_FLAG_DEFAULT;
+        mInvalidFlags |= INVALID_FLAG_CONTENT_RECT | INVALID_FLAG_DEFAULT;
     }
 
     @Override
@@ -591,22 +766,9 @@ public class InteractiveImageView extends AppCompatImageView
             final Matrix imageMatrix = getImageMatrixInternal();
             imageMatrix.invert(mNewImageMatrix);
             mNewImageMatrix.mapPoints(mDstPts, mSrcPts);
-            mLastDx = mDstPts[0];
-            mLastDy = mDstPts[1];
+            mLastPx = mDstPts[0];
+            mLastPy = mDstPts[1];
         }
-
-        /*
-        synchronized (mLock) {
-            final Matrix imageMatrix = getImageMatrixInternal();
-            mLastScrollX = e.getX();
-            mLastScrollY = e.getY();
-            mSrcPts[0] = mLastScrollX;
-            mSrcPts[1] = mLastScrollY;
-            mapViewPointToDrawablePoint(mDstPts, mSrcPts, imageMatrix);
-            mLastScrollPx = mDstPts[0];
-            mLastScrollPy = mDstPts[1];
-        }
-        */
         return true;
     }
 
@@ -629,80 +791,34 @@ public class InteractiveImageView extends AppCompatImageView
             return false;
         }
 
-        mTransformInfo.set(
-                getImageScaleX(),
-                getImageScaleY(),
-                mLastDx,
-                mLastDy,
-                e2.getX(),
-                e2.getY());
-
-        constrainTransformInfo(mTransformInfo, true);
-
+        // Constrain & transform the image
+        final float x = e2.getX();
+        final float y = e2.getY();
+        mTransformInfo.set(getImageScaleX(), getImageScaleY(), mLastPx, mLastPy, x, y);
+        final boolean constrained = constrainTransformInfo(mTransformInfo, true);
         transformImage(
                 mTransformInfo.sx,
                 mTransformInfo.sy,
-                mLastDx,
-                mLastDy,
+                mLastPx,
+                mLastPy,
                 mTransformInfo.x,
                 mTransformInfo.y);
 
-        mLastDx = mTransformInfo.px;
-        mLastDy = mTransformInfo.py;
+        // If transform info was constrained, we need to re-calculate the current px/py
+        if (constrained) {
+            final Matrix invertedMatrix = mPoolManager.acquireMatrix();
+            getImageMatrixInternal().invert(invertedMatrix);
+            final PtsWrapper viewPts = mPoolManager.acquirePtsWrapper(x, y);
+            final PtsWrapper drawablePts = mPoolManager.acquirePtsWrapper();
+            invertedMatrix.mapPoints(drawablePts.pts, viewPts.pts);
+            mLastPx = drawablePts.getX();
+            mLastPy = drawablePts.getY();
+            mPoolManager.releasePtsWrapper(drawablePts);
+            mPoolManager.releasePtsWrapper(viewPts);
+            mPoolManager.releaseMatrix(invertedMatrix);
+        }
 
         return true;
-
-        /*
-        if (mNeedsDown) {
-            mNeedsDown = false;
-            onDown(e2);
-        }
-
-        synchronized (mLock) {
-            getImageMatrixInternal(mImageMatrix);
-            mImageMatrix.getValues(mMatrixValues);
-            final float beginTx = mMatrixValues[MTRANS_X];
-            final float beginTy = mMatrixValues[MTRANS_Y];
-
-            final float sx = getImageScaleX();
-            final float sy = getImageScaleY();
-            final float x = e2.getX();
-            final float y = e2.getY();
-
-            setImageTransform(
-                    sx,
-                    sy,
-                    mLastScrollPx,
-                    mLastScrollPy,
-                    mLastScrollX - distanceX,
-                    mLastScrollY - distanceY,
-                    false,
-                    true);
-
-            getImageMatrixInternal(mImageMatrix); // TODO This is happening a lot
-            mImageMatrix.getValues(mMatrixValues);
-            final float endTx = mMatrixValues[MTRANS_X];
-            final float endTy = mMatrixValues[MTRANS_Y];
-            final boolean movedX = (beginTx != endTx);
-            final boolean movedY = (beginTy != endTy);
-
-            // TODO This code is repeating a bit. Consolidate?
-            mLastScrollX = x;
-            mLastScrollY = y;
-            if (!movedX || !movedY) {
-                // TODO If we didn't move in EITHER direction we need to re-calc that direction
-                // If the image didn't move while we were scrolling, re-calculate new values
-                // for mLastScrollPx/mLastScrollPy
-                getImageMatrixInternal(mImageMatrix);
-                mSrcPts[0] = mLastScrollX;
-                mSrcPts[1] = mLastScrollY;
-                mapViewPointToDrawablePoint(mDstPts, mSrcPts, mImageMatrix);
-                mLastScrollPx = mDstPts[0];
-                mLastScrollPy = mDstPts[1];
-            }
-        }
-        */
-//        return false;
     }
 
     @Override // GestureDetector.OnGestureListener
@@ -1001,62 +1117,83 @@ public class InteractiveImageView extends AppCompatImageView
         }
     }
 
-    protected void constrainTransformInfo(TransformInfo info, boolean fromUser) {
-        // TODO This works but there has GOT to be an easier way.
+    protected boolean constrainTransformInfo(TransformInfo info, boolean fromUser) {
+        boolean constrained = false;
         if (info != null) {
-            // Constrain scale
-            info.sx = MathUtils.clamp(info.sx, getImageMinScaleX(), getImageMaxScaleX());
-            info.sy = MathUtils.clamp(info.sy, getImageMinScaleY(), getImageMaxScaleY());
+            if (drawableHasIntrinsicSize()) {
+                // Get matrix and values
+                final Matrix matrix = mPoolManager.acquireMatrix();
+                matrix.set(getImageMatrixInternal());
+                final MatrixValuesWrapper matrixValues = mPoolManager.acquireMatrixValuesWrapper();
+                matrix.getValues(matrixValues.values);
 
-            mTransformMatrix.set(getImageMatrixInternal());
-            getDrawableIntrinsicRect(mSrcRect);
-            mTransformMatrix.mapRect(mDstRect, mSrcRect);
-            final float scaledImageWidth = mDstRect.width();
-            final float scaledImageHeight = mDstRect.height();
+                // Clamp scale
+                final float clampedSx =
+                        MathUtils.clamp(info.sx, getImageMinScaleX(), getImageMaxScaleX());
+                final float clampedSy =
+                        MathUtils.clamp(info.sy, getImageMinScaleY(), getImageMaxScaleY());
 
-            // 1. Convert px/py to view x/y
-            mSrcPts[0] = info.px;
-            mSrcPts[1] = info.py;
-            mTransformMatrix.mapPoints(mDstPts, mSrcPts);
-            final float x = mDstPts[0];
-            final float y = mDstPts[1];
+                // Pre-scale the matrix to the clamped scale if needed
+                if (info.sx != clampedSx || info.sy != clampedSy) {
+                    Log.d(LOG_TAG, "constrainTransformInfo: need to postScale");
+                    final float deltaSx = clampedSx / matrixValues.values[MSCALE_X];
+                    final float deltaSy = clampedSy / matrixValues.values[MSCALE_Y];
+                    matrix.preScale(deltaSx, deltaSy);
+                    info.sx = clampedSx;
+                    info.sy = clampedSy;
+                }
 
-            // 2. Calculate dx and dy (distance we want to move)
-            final float dx = info.x - x;
-            final float dy = info.y - y;
+                // Get the mapped rectangle using the updated matrix
+                final Drawable d = getDrawable();
+                final RectF drawableRect = mPoolManager.acquireRectF(
+                        0.0f,
+                        0.0f,
+                        (float) d.getIntrinsicWidth(),
+                        (float) d.getIntrinsicHeight());
+                final RectF mappedRect = mPoolManager.acquireRectF();
+                matrix.mapRect(mappedRect, drawableRect);
 
-            // 3. postTranslate
-            mTransformMatrix.postTranslate(dx, dy);
-            mTransformMatrix.getValues(mMatrixValues);
+                // Determine the amount we can scroll
+                final RectF contentRect = getContentRect();
+                final float scrollableX =
+                        Math.max(mappedRect.width() - contentRect.width(), 0.0f);
+                final float scrollableY =
+                        Math.max(mappedRect.height() - contentRect.height(), 0.0f);
 
-            // 4. Clamp the resulting dx/dy
-            mMatrixValues[MTRANS_X] = MathUtils.clamp(
-                    mMatrixValues[MTRANS_X],
-                    getImageMinTransX(scaledImageWidth),
-                    getImageMaxTransX(scaledImageWidth));
-            mMatrixValues[MTRANS_Y] = MathUtils.clamp(
-                    mMatrixValues[MTRANS_Y],
-                    getImageMinTransY(scaledImageHeight),
-                    getImageMaxTransY(scaledImageHeight));
-            mTransformMatrix.setValues(mMatrixValues);
-            mTransformMatrix.mapPoints(mDstPts, mSrcPts);
+                // Map px, py to view coordinates
+                final PtsWrapper drawablePts = mPoolManager.acquirePtsWrapper(info.px, info.py);
+                final PtsWrapper viewPts = mPoolManager.acquirePtsWrapper();
+                matrix.mapPoints(viewPts.pts, drawablePts.pts);
+                final float mappedPx = viewPts.getX() - matrixValues.values[MTRANS_X];
+                final float mappedPy = viewPts.getY() - matrixValues.values[MTRANS_Y];
 
-            final float clampedX = mDstPts[0];
-            final float clampedY = mDstPts[1];
+                // Find desired translate x/y
+                final float dx = mappedPx - info.x;
+                final float dy = mappedPy - info.y;
+                final float clampedDx = MathUtils.clamp(dx, 0, scrollableX);
+                final float clampedDy = MathUtils.clamp(dy, 0, scrollableY);
+                final float clampedX = mappedPx - clampedDx;
+                final float clampedY = mappedPy - clampedDy;
 
-            if (info.x != clampedX || info.y != clampedY) {
-                // TODO Need to update info.px/info.py if clamped???
-                mTransformMatrix.invert(mTransformMatrix);
-                mSrcPts[0] = info.x;
-                mSrcPts[1] = info.y;
-                mTransformMatrix.mapPoints(mDstPts, mSrcPts);
-                info.px = mDstPts[0];
-                info.py = mDstPts[1];
+                if (info.x != clampedX || info.y != clampedY) {
+                    info.x = clampedX;
+                    info.y = clampedY;
+                    constrained = true;
+                }
+
+                mPoolManager.releasePtsWrapper(viewPts);
+                mPoolManager.releasePtsWrapper(drawablePts);
+                mPoolManager.releaseRectF(mappedRect);
+                mPoolManager.releaseRectF(drawableRect);
+                mPoolManager.releaseMatrixValuesWrapper(matrixValues);
+                mPoolManager.releaseMatrix(matrix);
+            } else {
+                // TODO Not really necessary
+                info.sx = info.sy = 1.0f;
+                info.x = info.y = 0.0f;
             }
-
-            info.x = clampedX;
-            info.y = clampedY;
         }
+        return constrained;
     }
 
     /*
@@ -1214,6 +1351,23 @@ public class InteractiveImageView extends AppCompatImageView
     }
 
     /**
+     * Returns the view's content rectangle; that is, the rectangle defined by the view
+     * minus any padding. Do not change this rectangle in place but make a copy.
+     * @return
+     */
+    protected RectF getContentRect() {
+        if ((mInvalidFlags & INVALID_FLAG_CONTENT_RECT) != 0) {
+            mInvalidFlags &= ~INVALID_FLAG_CONTENT_RECT;
+            mContentRect.set(
+                    getPaddingLeft(),
+                    getPaddingTop(),
+                    getWidth() - getPaddingRight(),
+                    getHeight() - getPaddingBottom());
+        }
+        return mContentRect;
+    }
+
+    /**
      * Returns the view's optional matrix, amended to return a valid matrix when the scale type is
      * set to FIT_XY. This is applied to the view's drawable when it is drawn. If there is no
      * matrix, this method will return an identity matrix. Do not change this matrix in place but
@@ -1232,6 +1386,7 @@ public class InteractiveImageView extends AppCompatImageView
 
     // TODO JavaDoc needs to state that method must call setImageMaxScale if overridden
     protected void getImageMaxScale() {
+        // TODO I might need to take into account Skew & Perspective!
         synchronized (mLock) {
             if ((mInvalidFlags & INVALID_FLAG_IMAGE_MAX_SCALE) != 0) {
                 mInvalidFlags &= ~INVALID_FLAG_IMAGE_MAX_SCALE;
@@ -1323,6 +1478,7 @@ public class InteractiveImageView extends AppCompatImageView
     // TODO JavaDoc needs to state that method must call setImageMinScale if overridden
     protected void getImageMinScale() {
         synchronized (mLock) {
+            // TODO I might need to take into account Skew & Perspective!
             if ((mInvalidFlags & INVALID_FLAG_IMAGE_MIN_SCALE) != 0) {
                 mInvalidFlags &= ~INVALID_FLAG_IMAGE_MIN_SCALE;
                 getBaselineImageMatrix(null);
