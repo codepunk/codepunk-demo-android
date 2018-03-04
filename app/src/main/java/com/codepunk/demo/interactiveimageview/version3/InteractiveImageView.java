@@ -233,7 +233,7 @@ public class InteractiveImageView extends AppCompatImageView {
             final float postTransY = mMatrixValues[Matrix.MTRANS_Y] - distanceY;
             final float clampedTransX = mImageView.clampTrans(
                     postTransX,
-                    mImageView.getContentHeight(),
+                    mImageView.getContentWidth(),
                     mImageView.mScaleType,
                     mImageView.isRtl());
             final PanningStrategy panningStrategy = mImageView.getPanningStrategy();

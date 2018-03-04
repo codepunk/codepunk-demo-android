@@ -48,7 +48,6 @@
 
     <array name="zoom_pivots">
         <item>0.0</item>
-        <item>0.33</item>
         <item>1.0</item>
     </array>
 </resources>

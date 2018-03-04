@@ -16,7 +16,7 @@ Also I kind of want to clean up how I'm throwing around mImageMatrix, mNewImageM
 
 TODO What do I want to be private vs protected (or public) final?
 TODO What about all this @NonNull final stuff?
-TODO Think about using pools for Matrix, RectF, float[] ?
+x TODO Think about using pools for Matrix, RectF, float[] ?
 
 ---------
 
@@ -28,3 +28,15 @@ x * Get onDoubleTapEvent to work (and remove clampTransform) <-- This works!!
 x * When scrolling AND scaling, they fight each other. How to fix?
 
 TODO !! Read http://i-rant.arnaudbos.com/matrices-for-developers/ (Matrices for Developers)
+
+------------
+
+New TODO:
+
+Bug: When zooming out and scale type is Fit Center or Fit End, goes down to 0, 0 instead
+Bug: Saving transform info over orientation change no longer works
+Add TransformInfo to mPoolManager?
+Only fling when fling enabled
+Only scroll when scroll enabled
+Only scale when pinch-to-zoom enabled
+Test to see if image is at "baseline" before saving/restoring on config change
