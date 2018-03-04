@@ -31,7 +31,6 @@ import android.widget.OverScroller;
 import com.codepunk.demo.R;
 import com.codepunk.demo.support.DisplayCompat;
 
-import java.util.Arrays;
 import java.util.Locale;
 
 import static android.graphics.Matrix.MSCALE_X;
@@ -62,19 +61,15 @@ public class InteractiveImageView extends AppCompatImageView
         }
     }
 
-    private static class MatrixValuesWrapper {
-        float[] values = new float[9];
-    }
-
     private static class PoolManager {
         final SimplePool<Matrix> mMatrixPool;
-        final SimplePool<MatrixValuesWrapper> mMatrixValuesWrapperPool;
+        final SimplePool<ValuesWrapper> mValuesWrapperPool;
         final SimplePool<PtsWrapper> mPtsWrapperPool;
         final SimplePool<RectF> mRectFPool;
 
         public PoolManager(int maxPoolSize) {
             mMatrixPool = new SimplePool<>(maxPoolSize);
-            mMatrixValuesWrapperPool = new SimplePool<>(maxPoolSize);
+            mValuesWrapperPool = new SimplePool<>(maxPoolSize);
             mPtsWrapperPool = new SimplePool<>(maxPoolSize);
             mRectFPool = new SimplePool<>(maxPoolSize);
         }
@@ -90,13 +85,13 @@ public class InteractiveImageView extends AppCompatImageView
             return instance;
         }
 
-        MatrixValuesWrapper acquireMatrixValuesWrapper() {
-            MatrixValuesWrapper instance = mMatrixValuesWrapperPool.acquire();
-            return (instance == null ? new MatrixValuesWrapper() : instance);
+        ValuesWrapper acquireValuesWrapper() {
+            ValuesWrapper instance = mValuesWrapperPool.acquire();
+            return (instance == null ? new ValuesWrapper() : instance);
         }
 
-        MatrixValuesWrapper acquireMatrixValuesWrapper(Matrix matrix) {
-            MatrixValuesWrapper wrapper = acquireMatrixValuesWrapper();
+        ValuesWrapper acquireValuesWrapper(Matrix matrix) {
+            ValuesWrapper wrapper = acquireValuesWrapper();
             matrix.getValues(wrapper.values);
             return wrapper;
         }
@@ -138,8 +133,8 @@ public class InteractiveImageView extends AppCompatImageView
             mMatrixPool.release(instance);
         }
 
-        void releaseMatrixValuesWrapper(MatrixValuesWrapper instance) {
-            mMatrixValuesWrapperPool.release(instance);
+        void releaseValuesWrapper(ValuesWrapper instance) {
+            mValuesWrapperPool.release(instance);
         }
 
         void releasePtsWrapper(PtsWrapper instance) {
@@ -436,6 +431,10 @@ public class InteractiveImageView extends AppCompatImageView
             }
         }
     }
+
+    private static class ValuesWrapper {
+        float[] values = new float[9];
+    }
     //endregion Nested classes
 
     //region Constants
@@ -574,6 +573,38 @@ public class InteractiveImageView extends AppCompatImageView
     @Override
     public void computeScroll() {
         super.computeScroll();
+
+        boolean needsInvalidate = false;
+
+        if (mOverScroller.computeScrollOffset()) {
+
+            final int x = mOverScroller.getCurrX();
+            final int y = mOverScroller.getCurrY();
+
+            Log.d(LOG_TAG, String.format(Locale.ENGLISH, "computeScroll: x=%d, y=%d", x, y));
+
+            transformImage(
+                    getImageScaleX(),
+                    getImageScaleY(),
+                    mPivotPoint.x,
+                    mPivotPoint.y,
+                    x,
+                    y);
+
+            // TODO constrain before or during computeScroll?
+            // TODO needsInvalidate only if changed?
+            needsInvalidate = true;
+
+        //} else if (mTransformer.computeTransform()) {
+
+        }
+
+        if (needsInvalidate) {
+            ViewCompat.postInvalidateOnAnimation(this);
+        } else {
+            mOverScroller.abortAnimation();
+            mTransformer.abortAnimation();
+        }
 
         /*
         synchronized (mLock) {
@@ -760,29 +791,37 @@ public class InteractiveImageView extends AppCompatImageView
 
     @Override // GestureDetector.OnGestureListener
     public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
-        /*
-        synchronized (mLock) {
-            getImageMatrixInternal(mImageMatrix);
-            getDrawableIntrinsicRect(mSrcRect);
-            mImageMatrix.mapRect(mDstRect, mSrcRect);
-            mImageMatrix.getValues(mMatrixValues);
-            final float mappedWidth = mDstRect.width();
-            final float mappedHeight = mDstRect.height();
-            mOverScroller.fling(
-                    (int) mMatrixValues[MTRANS_X],
-                    (int) mMatrixValues[MTRANS_Y],
-                    (int) velocityX,
-                    (int) velocityY,
-                    (int) getImageMinTransX(mappedWidth),
-                    (int) getImageMaxTransX(mappedWidth),
-                    (int) getImageMinTransY(mappedHeight),
-                    (int) getImageMaxTransY(mappedHeight),
-                    0,
-                    0);
-        }
+        final Matrix matrix = mPoolManager.acquireMatrix(getImageMatrixInternal());
+        final ValuesWrapper matrixValues = mPoolManager.acquireValuesWrapper(matrix);
+        final RectF drawableRect = mPoolManager.acquireRectF(getDrawable());
+        final RectF mappedRect = mPoolManager.acquireRectF();
+
+        // Map drawable to matrix and calculate scrollable/scrolled amounts
+        matrix.mapRect(mappedRect, drawableRect);
+        final RectF contentRect = getContentRect();
+        final float scrollableX = Math.max(mappedRect.width() - contentRect.width(), 0);
+        final float scrollableY = Math.max(mappedRect.height() - contentRect.height(), 0);
+        final float scrolledX = -Math.min(matrixValues.values[MTRANS_X], 0);
+        final float scrolledY = -Math.min(matrixValues.values[MTRANS_Y], 0);
+
+        mPoolManager.releaseRectF(mappedRect);
+        mPoolManager.releaseRectF(drawableRect);
+        mPoolManager.releaseValuesWrapper(matrixValues);
+        mPoolManager.releaseMatrix(matrix);
+
+        final float startX = e2.getX();
+        final float startY = e2.getY();
+        mOverScroller.fling(
+                (int) startX,
+                (int) startY,
+                (int) velocityX,
+                (int) velocityY,
+                (int) (startX - scrollableX + scrolledX),
+                (int) (startX + scrolledX),
+                (int) (startY - scrollableY + scrolledY),
+                (int) (startY + scrolledY));
+
         return true;
-        */
-        return false;
     }
 
     @Override // GestureDetector.OnDoubleTapListener
@@ -1069,8 +1108,8 @@ public class InteractiveImageView extends AppCompatImageView
             if (drawableHasIntrinsicSize()) {
                 // Get matrix and values
                 final Matrix matrix = mPoolManager.acquireMatrix(getImageMatrixInternal());
-                final MatrixValuesWrapper matrixValues =
-                        mPoolManager.acquireMatrixValuesWrapper(matrix);
+                final ValuesWrapper matrixValues =
+                        mPoolManager.acquireValuesWrapper(matrix);
 
                 // Clamp scale
                 final float clampedSx =
@@ -1123,7 +1162,7 @@ public class InteractiveImageView extends AppCompatImageView
                 mPoolManager.releasePtsWrapper(drawablePts);
                 mPoolManager.releaseRectF(mappedRect);
                 mPoolManager.releaseRectF(drawableRect);
-                mPoolManager.releaseMatrixValuesWrapper(matrixValues);
+                mPoolManager.releaseValuesWrapper(matrixValues);
                 mPoolManager.releaseMatrix(matrix);
             } else {
                 // TODO Not really necessary
@@ -1695,11 +1734,10 @@ public class InteractiveImageView extends AppCompatImageView
             float y,
             Matrix outMatrix) {
         if (outMatrix != null) {
-            final Matrix imageMatrix = getImageMatrixInternal();
-            outMatrix.set(getImageMatrixInternal());
-
-            final MatrixValuesWrapper matrixValues =
-                    mPoolManager.acquireMatrixValuesWrapper(outMatrix);
+            final Matrix originalMatrix = getImageMatrixInternal();
+            outMatrix.set(originalMatrix);
+            final ValuesWrapper matrixValues =
+                    mPoolManager.acquireValuesWrapper(outMatrix);
 //            outMatrix.getValues(mMatrixValues);
             final float deltaSx = sx / matrixValues.values[MSCALE_X];
             final float deltaSy = sy / matrixValues.values[MSCALE_Y];
@@ -1711,16 +1749,19 @@ public class InteractiveImageView extends AppCompatImageView
             final PtsWrapper viewPts = mPoolManager.acquirePtsWrapper();
             outMatrix.mapPoints(viewPts.pts, drawablePts.pts);
 
+            /*
             Log.d(LOG_TAG, String.format(
                     Locale.ENGLISH,
                     "transformToMatrix: sx=%.4f, sy=%.4f, px=%.4f, py=%.4f, x=%.4f, y=%.4f, viewPts=%s",
                     sx, sy, px, py, x, y, Arrays.toString(viewPts.pts)));
+            */
 
             final float deltaTx = x - viewPts.getX();
             final float deltaTy = y - viewPts.getY();
             outMatrix.postTranslate(deltaTx, deltaTy);
 
             // TODO TEMP
+            /*
             outMatrix.getValues(matrixValues.values);
             if (matrixValues.values[MTRANS_X] > 0.5f || matrixValues.values[MTRANS_Y] > 0.5f) {
                 Log.d(LOG_TAG, String.format(
@@ -1728,15 +1769,16 @@ public class InteractiveImageView extends AppCompatImageView
                         "*** transformToMatrix: MTRANS_X=%.4f, MTRANSY=%.4f",
                         matrixValues.values[MTRANS_X], matrixValues.values[MTRANS_Y]));
             }
+            */
 
-            mPoolManager.releaseMatrixValuesWrapper(matrixValues);
+            mPoolManager.releaseValuesWrapper(matrixValues);
             mPoolManager.releasePtsWrapper(viewPts);
             mPoolManager.releasePtsWrapper(drawablePts);
 
             // TODO TEMP
 
 
-            return !outMatrix.equals(imageMatrix);
+            return !outMatrix.equals(originalMatrix);
         }
         return false;
     }
