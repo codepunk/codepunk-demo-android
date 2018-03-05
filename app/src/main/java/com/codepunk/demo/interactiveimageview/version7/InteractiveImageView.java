@@ -1111,7 +1111,7 @@ public class InteractiveImageView extends AppCompatImageView
                 info.sx = matrixValues.values[MSCALE_X];
                 info.sy = matrixValues.values[MSCALE_Y];
 
-                // Get the mapped rectangle using the updated matrix
+                /*
                 final RectF drawableRect = mPoolManager.acquireRectF(getDrawable());
                 final RectF mappedRect = mPoolManager.acquireRectF();
                 matrix.mapRect(mappedRect, drawableRect);
@@ -1120,6 +1120,7 @@ public class InteractiveImageView extends AppCompatImageView
                         Math.max(mappedRect.width() - contentRect.width(), 0.0f);
                 final float scrollableY =
                         Math.max(mappedRect.height() - contentRect.height(), 0.0f);
+                */
 
                 // Map px, py to view coordinates
                 final PtsWrapper drawablePts = mPoolManager.acquirePtsWrapper(info.px, info.py);
@@ -1129,10 +1130,10 @@ public class InteractiveImageView extends AppCompatImageView
                 final float mappedPy = viewPts.getY() - matrixValues.values[MTRANS_Y];
 
                 // Find desired x/y
-                final float clampedDx =
-                        MathUtils.clamp(info.x - mappedPx, -scrollableX, 0.0f);
-                final float clampedDy =
-                        MathUtils.clamp(info.y - mappedPy, -scrollableY, 0.0f);
+                final float minX = -Math.max(getScrollableX(), 0.0f);
+                final float minY = -Math.max(getScrollableY(), 0.0f);
+                final float clampedDx = MathUtils.clamp(info.x - mappedPx, minX, 0.0f);
+                final float clampedDy = MathUtils.clamp(info.y - mappedPy, minY, 0.0f);
                 final float clampedX = mappedPx + clampedDx;
                 final float clampedY = mappedPy + clampedDy;
 
@@ -1144,8 +1145,10 @@ public class InteractiveImageView extends AppCompatImageView
 
                 mPoolManager.releasePtsWrapper(viewPts);
                 mPoolManager.releasePtsWrapper(drawablePts);
+                /*
                 mPoolManager.releaseRectF(mappedRect);
                 mPoolManager.releaseRectF(drawableRect);
+                */
                 mPoolManager.releaseValuesWrapper(matrixValues);
                 mPoolManager.releaseMatrix(matrix);
             } else {
@@ -1457,7 +1460,7 @@ public class InteractiveImageView extends AppCompatImageView
         final RectF drawableRect = mPoolManager.acquireRectF(getDrawable());
         final RectF mappedRect = mPoolManager.acquireRectF();
         matrix.mapRect(mappedRect, drawableRect);
-        final float scrollableX = Math.max(mappedRect.width() - getContentRect().width(), 0.0f);
+        final float scrollableX = mappedRect.width() - getContentRect().width();
         mPoolManager.releaseRectF(mappedRect);
         mPoolManager.releaseRectF(drawableRect);
         return scrollableX;
@@ -1471,7 +1474,7 @@ public class InteractiveImageView extends AppCompatImageView
         final RectF drawableRect = mPoolManager.acquireRectF(getDrawable());
         final RectF mappedRect = mPoolManager.acquireRectF();
         matrix.mapRect(mappedRect, drawableRect);
-        final float scrollableY = Math.max(mappedRect.height() - getContentRect().height(), 0.0f);
+        final float scrollableY = mappedRect.height() - getContentRect().height();
         mPoolManager.releaseRectF(mappedRect);
         mPoolManager.releaseRectF(drawableRect);
         return scrollableY;
@@ -1641,15 +1644,14 @@ public class InteractiveImageView extends AppCompatImageView
         }
     }
 
-    private float adjustTrans(int contentSize, float imageSize, boolean isRtl) {
-        float diff = contentSize - imageSize;
+    private float adjustTrans(float scrollableAmount, boolean isRtl) {
         switch (mScaleType) {
             case FIT_START:
-                return (isRtl ? diff : 0.0f);
+                return (isRtl ? scrollableAmount : 0.0f);
             case FIT_END:
-                return (isRtl ? 0.0f : diff);
+                return (isRtl ? 0.0f : scrollableAmount);
             default:
-                return diff * 0.5f;
+                return scrollableAmount * 0.5f;
         }
     }
 
@@ -1782,32 +1784,17 @@ public class InteractiveImageView extends AppCompatImageView
             outMatrix.getValues(matrixValues.values);
 
             if (adjustIfNeeded) {
-                final Rect contentRect = getContentRect();
-                final RectF drawableRect = mPoolManager.acquireRectF(getDrawable());
-                final RectF mappedRect = mPoolManager.acquireRectF();
-                outMatrix.mapRect(mappedRect, drawableRect);
-                boolean adjusted = false;
-                final int contentWidth = contentRect.width();
-                final float imageWidth = mappedRect.width();
-                if (imageWidth < contentWidth) {
-                    // The image is narrower than the content, need to position
-                    matrixValues.values[MTRANS_X] =
-                            adjustTrans(contentWidth, imageWidth, isRtl());
-                    adjusted = true;
+                float scrollableX = getScrollableX(outMatrix);
+                if (scrollableX < 0.0f) {
+                    matrixValues.values[MTRANS_X] = adjustTrans(-scrollableX, isRtl());
                 }
-                final int contentHeight = contentRect.height();
-                final float imageHeight = mappedRect.height();
-                if (imageHeight < contentHeight) {
-                    // The image is shorter than the content, need to position
-                    matrixValues.values[MTRANS_Y] =
-                            adjustTrans(contentHeight, imageHeight, false);
-                    adjusted = true;
+                float scrollableY = getScrollableY(outMatrix);
+                if (scrollableY < 0.0f) {
+                    matrixValues.values[MTRANS_Y] = adjustTrans(-scrollableY, false);
                 }
-                if (adjusted) {
+                if (scrollableX < 0.0f || scrollableY < 0.0f) {
                     outMatrix.setValues(matrixValues.values);
                 }
-                mPoolManager.releaseRectF(mappedRect);
-                mPoolManager.releaseRectF(drawableRect);
             }
 
             mPoolManager.releasePtsWrapper(viewPts);
