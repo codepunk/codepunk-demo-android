@@ -20,6 +20,7 @@ import android.support.v4.view.ViewCompat;
 import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
@@ -30,6 +31,9 @@ import android.widget.OverScroller;
 
 import com.codepunk.demo.R;
 import com.codepunk.demo.support.DisplayCompat;
+
+import java.util.Arrays;
+import java.util.Locale;
 
 import static android.graphics.Matrix.MSCALE_X;
 import static android.graphics.Matrix.MSCALE_Y;
@@ -243,8 +247,8 @@ public class InteractiveImageView extends AppCompatImageView
 
         public Transformer(Context context) {
             mInterpolator = new DecelerateInterpolator();
-            mAnimationDurationMillis =
-                    context.getResources().getInteger(android.R.integer.config_shortAnimTime);
+            mAnimationDurationMillis = 3000;
+//                    context.getResources().getInteger(android.R.integer.config_shortAnimTime);
         }
 
         /**
@@ -598,7 +602,8 @@ public class InteractiveImageView extends AppCompatImageView
                     mTransformer.getPx(),
                     mTransformer.getPy(),
                     mTransformer.getCurrX(),
-                    mTransformer.getCurrY());
+                    mTransformer.getCurrY(),
+                    false);
 
             // TODO needsInvalidate only if changed?
             needsInvalidate = true;
@@ -1049,13 +1054,18 @@ public class InteractiveImageView extends AppCompatImageView
 
     /* Currently, this is a way of transforming without any sort of check */
     public boolean transformImage(float sx, float sy, float px, float py, float x, float y) {
+        return transformImage(sx, sy, px, py, x, y, true);
+    }
+
+    // TODO Make this protected
+    public boolean transformImage(float sx, float sy, float px, float py, float x, float y, boolean adjustIfNeeded) {
         final Matrix matrix = mPoolManager.acquireMatrix();
         // TODO When do I check if image has intrinsic size? Or does it matter?
 //        synchronized (mLock) {
             if (super.getScaleType() != ScaleType.MATRIX) {
                 super.setScaleType(ScaleType.MATRIX);
             }
-            final boolean transformed = transformToMatrix(sx, sy, px, py, x, y, matrix);
+            final boolean transformed = transformToMatrix(sx, sy, px, py, x, y, matrix, adjustIfNeeded);
 
 
 
@@ -1065,6 +1075,8 @@ public class InteractiveImageView extends AppCompatImageView
             return transformed;
 //        }
     }
+
+
     //endregion Methods
 
     //region Protected methods
@@ -1134,11 +1146,11 @@ public class InteractiveImageView extends AppCompatImageView
                 final float mappedPx = viewPts.getX() - matrixValues.values[MTRANS_X];
                 final float mappedPy = viewPts.getY() - matrixValues.values[MTRANS_Y];
 
-                // Find desired translate x/y
-                final float dx = info.x - mappedPx;
-                final float dy = info.y - mappedPy;
-                final float clampedDx = MathUtils.clamp(dx, -scrollableX, 0.0f);
-                final float clampedDy = MathUtils.clamp(dy, -scrollableY, 0.0f);
+                // Find desired x/y
+                final float clampedDx =
+                        MathUtils.clamp(info.x - mappedPx, -scrollableX, 0.0f);
+                final float clampedDy =
+                        MathUtils.clamp(info.y - mappedPy, -scrollableY, 0.0f);
                 final float clampedX = mappedPx + clampedDx;
                 final float clampedY = mappedPy + clampedDy;
 
@@ -1620,6 +1632,18 @@ public class InteractiveImageView extends AppCompatImageView
         }
     }
 
+    private float adjustTrans(int contentSize, float imageSize, boolean isRtl) {
+        float diff = contentSize - imageSize;
+        switch (mScaleType) {
+            case FIT_START:
+                return (isRtl ? diff : 0.0f);
+            case FIT_END:
+                return (isRtl ? 0.0f : diff);
+            default:
+                return diff * 0.5f;
+        }
+    }
+
     private float getNextZoomPivot() {
         float nextZoomPivot = 0.0f;
         if (mZoomPivots != null) {
@@ -1686,6 +1710,10 @@ public class InteractiveImageView extends AppCompatImageView
         return new Initializer(this);
     }
 
+    private boolean isRtl() {
+        return (ViewCompat.getLayoutDirection(this) == ViewCompat.LAYOUT_DIRECTION_RTL);
+    }
+
     private static Bundle newPendingTransformation(
             float sx,
             float sy,
@@ -1723,51 +1751,59 @@ public class InteractiveImageView extends AppCompatImageView
             float py,
             float x,
             float y,
-            Matrix outMatrix) {
+            Matrix outMatrix,
+            boolean adjustIfNeeded) {
         if (outMatrix != null) {
             final Matrix originalMatrix = getImageMatrixInternal();
             outMatrix.set(originalMatrix);
             final ValuesWrapper matrixValues =
                     mPoolManager.acquireValuesWrapper(outMatrix);
-//            outMatrix.getValues(mMatrixValues);
             final float deltaSx = sx / matrixValues.values[MSCALE_X];
             final float deltaSy = sy / matrixValues.values[MSCALE_Y];
             outMatrix.preScale(deltaSx, deltaSy, px, py);
 
-            // TODO Is it because we're scaling here but using viewPts from before scale?
-            // Get current location of px/py in the view
+            // Get location of px/py in the view
             final PtsWrapper drawablePts = mPoolManager.acquirePtsWrapper(px, py);
             final PtsWrapper viewPts = mPoolManager.acquirePtsWrapper();
             outMatrix.mapPoints(viewPts.pts, drawablePts.pts);
 
-            /*
-            Log.d(LOG_TAG, String.format(
-                    Locale.ENGLISH,
-                    "transformToMatrix: sx=%.4f, sy=%.4f, px=%.4f, py=%.4f, x=%.4f, y=%.4f, viewPts=%s",
-                    sx, sy, px, py, x, y, Arrays.toString(viewPts.pts)));
-            */
-
             final float deltaTx = x - viewPts.getX();
             final float deltaTy = y - viewPts.getY();
             outMatrix.postTranslate(deltaTx, deltaTy);
-
-            // TODO TEMP
-            /*
             outMatrix.getValues(matrixValues.values);
-            if (matrixValues.values[MTRANS_X] > 0.5f || matrixValues.values[MTRANS_Y] > 0.5f) {
-                Log.d(LOG_TAG, String.format(
-                        Locale.ENGLISH,
-                        "*** transformToMatrix: MTRANS_X=%.4f, MTRANSY=%.4f",
-                        matrixValues.values[MTRANS_X], matrixValues.values[MTRANS_Y]));
-            }
-            */
 
-            mPoolManager.releaseValuesWrapper(matrixValues);
+            if (adjustIfNeeded) {
+                final Rect contentRect = getContentRect();
+                final RectF drawableRect = mPoolManager.acquireRectF(getDrawable());
+                final RectF mappedRect = mPoolManager.acquireRectF();
+                outMatrix.mapRect(mappedRect, drawableRect);
+                boolean adjusted = false;
+                final int contentWidth = contentRect.width();
+                final float imageWidth = mappedRect.width();
+                if (imageWidth < contentWidth) {
+                    // The image is narrower than the content, need to position
+                    matrixValues.values[MTRANS_X] =
+                            adjustTrans(contentWidth, imageWidth, isRtl());
+                    adjusted = true;
+                }
+                final int contentHeight = contentRect.height();
+                final float imageHeight = mappedRect.height();
+                if (imageHeight < contentHeight) {
+                    // The image is shorter than the content, need to position
+                    matrixValues.values[MTRANS_Y] =
+                            adjustTrans(contentHeight, imageHeight, false);
+                    adjusted = true;
+                }
+                if (adjusted) {
+                    outMatrix.setValues(matrixValues.values);
+                }
+                mPoolManager.releaseRectF(mappedRect);
+                mPoolManager.releaseRectF(drawableRect);
+            }
+
             mPoolManager.releasePtsWrapper(viewPts);
             mPoolManager.releasePtsWrapper(drawablePts);
-
-            // TODO TEMP
-
+            mPoolManager.releaseValuesWrapper(matrixValues);
 
             return !outMatrix.equals(originalMatrix);
         }
