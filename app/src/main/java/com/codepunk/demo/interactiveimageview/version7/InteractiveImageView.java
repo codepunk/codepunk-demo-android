@@ -1081,29 +1081,11 @@ public class InteractiveImageView extends AppCompatImageView
 
     //region Protected methods
     protected boolean canScrollX() {
-        if (drawableHasIntrinsicSize()) {
-            synchronized (mLock) {
-                final Matrix imageMatrix = getImageMatrixInternal();
-                getDrawableIntrinsicRect(mSrcRect);
-                imageMatrix.mapRect(mDstRect, mSrcRect);
-                return (mDstRect.width() > getContentRect().width());
-            }
-        } else {
-            return false;
-        }
+        return (getScrollableX() > 0.0f);
     }
 
     protected boolean canScrollY() {
-        if (drawableHasIntrinsicSize()) {
-            synchronized (mLock) {
-                final Matrix imageMatrix = getImageMatrixInternal();
-                getDrawableIntrinsicRect(mSrcRect);
-                imageMatrix.mapRect(mDstRect, mSrcRect);
-                return (mDstRect.height() > getContentRect().height());
-            }
-        } else {
-            return false;
-        }
+        return (getScrollableY() > 0.0f);
     }
 
     protected boolean constrainTransformInfo(TransformInfo info, boolean fromUser) {
@@ -1367,7 +1349,6 @@ public class InteractiveImageView extends AppCompatImageView
 
     // TODO JavaDoc needs to state that method must call setImageMaxScale if overridden
     protected void getImageMaxScale() {
-        // TODO I might need to take into account Skew & Perspective!
         synchronized (mLock) {
             if ((mInvalidFlags & INVALID_FLAG_IMAGE_MAX_SCALE) != 0) {
                 mInvalidFlags &= ~INVALID_FLAG_IMAGE_MAX_SCALE;
@@ -1458,7 +1439,6 @@ public class InteractiveImageView extends AppCompatImageView
     // TODO JavaDoc needs to state that method must call setImageMinScale if overridden
     protected void getImageMinScale() {
         synchronized (mLock) {
-            // TODO I might need to take into account Skew & Perspective!
             if ((mInvalidFlags & INVALID_FLAG_IMAGE_MIN_SCALE) != 0) {
                 mInvalidFlags &= ~INVALID_FLAG_IMAGE_MIN_SCALE;
                 getBaselineImageMatrix(null);
@@ -1466,6 +1446,35 @@ public class InteractiveImageView extends AppCompatImageView
                 setImageMinScale(mMatrixValues[MSCALE_X], mMatrixValues[MSCALE_Y]);
             }
         }
+    }
+
+    protected float getScrollableX() {
+        return getScrollableX(getImageMatrixInternal());
+    }
+
+    protected float getScrollableX(Matrix matrix) {
+        // TODO Drawable has intrinsic size?
+        final RectF drawableRect = mPoolManager.acquireRectF(getDrawable());
+        final RectF mappedRect = mPoolManager.acquireRectF();
+        matrix.mapRect(mappedRect, drawableRect);
+        final float scrollableX = Math.max(mappedRect.width() - getContentRect().width(), 0.0f);
+        mPoolManager.releaseRectF(mappedRect);
+        mPoolManager.releaseRectF(drawableRect);
+        return scrollableX;
+    }
+
+    protected float getScrollableY() {
+        return getScrollableY(getImageMatrixInternal());
+    }
+
+    protected float getScrollableY(Matrix matrix) {
+        final RectF drawableRect = mPoolManager.acquireRectF(getDrawable());
+        final RectF mappedRect = mPoolManager.acquireRectF();
+        matrix.mapRect(mappedRect, drawableRect);
+        final float scrollableY = Math.max(mappedRect.height() - getContentRect().height(), 0.0f);
+        mPoolManager.releaseRectF(mappedRect);
+        mPoolManager.releaseRectF(drawableRect);
+        return scrollableY;
     }
 
     // TODO REMOVE?
