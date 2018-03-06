@@ -260,8 +260,8 @@ public class InteractiveImageView extends AppCompatImageView
 
         public Transformer(Context context) {
             mInterpolator = new DecelerateInterpolator();
-            mAnimationDurationMillis = 3000;
-//                    context.getResources().getInteger(android.R.integer.config_shortAnimTime);
+            mAnimationDurationMillis =
+                    context.getResources().getInteger(android.R.integer.config_shortAnimTime);
         }
 
         /**
@@ -615,8 +615,7 @@ public class InteractiveImageView extends AppCompatImageView
                     mTransformer.getPx(),
                     mTransformer.getPy(),
                     mTransformer.getCurrX(),
-                    mTransformer.getCurrY(),
-                    false);
+                    mTransformer.getCurrY());
 
             // TODO needsInvalidate only if changed?
             needsInvalidate = true;
@@ -1067,25 +1066,20 @@ public class InteractiveImageView extends AppCompatImageView
 
     /* Currently, this is a way of transforming without any sort of check */
     public boolean transformImage(float sx, float sy, float px, float py, float x, float y) {
-        return transformImage(sx, sy, px, py, x, y, true);
-    }
-
-    // TODO Make this protected
-    public boolean transformImage(float sx, float sy, float px, float py, float x, float y, boolean adjustIfNeeded) {
         final Matrix matrix = mPoolManager.acquireMatrix();
         // TODO When do I check if image has intrinsic size? Or does it matter?
 //        synchronized (mLock) {
-            if (super.getScaleType() != ScaleType.MATRIX) {
-                super.setScaleType(ScaleType.MATRIX);
-            }
-            final boolean transformed = transformToMatrix(sx, sy, px, py, x, y, matrix, adjustIfNeeded);
+        if (super.getScaleType() != ScaleType.MATRIX) {
+            super.setScaleType(ScaleType.MATRIX);
+        }
+        final boolean transformed = transformToMatrix(sx, sy, px, py, x, y, matrix);
 
 
 
-            super.setImageMatrix(matrix);
+        super.setImageMatrix(matrix);
 
-            mPoolManager.releaseMatrix(matrix);
-            return transformed;
+        mPoolManager.releaseMatrix(matrix);
+        return transformed;
 //        }
     }
 
@@ -1100,7 +1094,7 @@ public class InteractiveImageView extends AppCompatImageView
     @SuppressWarnings("SpellCheckingInspection")
     protected boolean canScrollX(Matrix matrix) {
         final PointF tCoef = mPoolManager.acquirePointF();
-        getTranslateCoefficient(matrix, tCoef);
+        getTranslationCoefficient(matrix, tCoef);
         final boolean canScrollX = (tCoef.x < 0.0f);
         mPoolManager.releasePointF(tCoef);
         return canScrollX;
@@ -1113,7 +1107,7 @@ public class InteractiveImageView extends AppCompatImageView
     @SuppressWarnings("SpellCheckingInspection")
     protected boolean canScrollY(Matrix matrix) {
         final PointF tCoef = mPoolManager.acquirePointF();
-        getTranslateCoefficient(matrix, tCoef);
+        getTranslationCoefficient(matrix, tCoef);
         final boolean canScrollY = (tCoef.y < 0.0f);
         mPoolManager.releasePointF(tCoef);
         return canScrollY;
@@ -1154,22 +1148,32 @@ public class InteractiveImageView extends AppCompatImageView
                         Math.max(mappedRect.height() - contentRect.height(), 0.0f);
                 */
 
-                // Map px, py to view coordinates
+                // FIRST, for each direction, determine if we're locked into position because
+                // the image is smaller than the content area
+                final float clampedX;
+                final float clampedY;
                 final PtsWrapper drawablePts = mPoolManager.acquirePtsWrapper(info.px, info.py);
                 final PtsWrapper viewPts = mPoolManager.acquirePtsWrapper();
                 matrix.mapPoints(viewPts.pts, drawablePts.pts);
                 final float mappedPx = viewPts.getX() - matrixValues.values[MTRANS_X];
                 final float mappedPy = viewPts.getY() - matrixValues.values[MTRANS_Y];
 
-                // Find desired x/y
                 final PointF tCoef = mPoolManager.acquirePointF();
-                getTranslateCoefficient(matrix, tCoef);
-                final float minX = Math.min(tCoef.x, 0.0f);
-                final float minY = Math.min(tCoef.y, 0.0f);
-                final float clampedDx = MathUtils.clamp(info.x - mappedPx, minX, 0.0f);
-                final float clampedDy = MathUtils.clamp(info.y - mappedPy, minY, 0.0f);
-                final float clampedX = mappedPx + clampedDx;
-                final float clampedY = mappedPy + clampedDy;
+                getTranslationCoefficient(matrix, tCoef);
+                if (tCoef.x >= 0) {
+                    clampedX = getPaddingLeft() + tCoef.x + mappedPx;
+                } else {
+                    final float minX = Math.min(tCoef.x, 0.0f);
+                    final float clampedDx = MathUtils.clamp(info.x - mappedPx, minX, 0.0f);
+                    clampedX = mappedPx + clampedDx;
+                }
+                if (tCoef.y >= 0) {
+                    clampedY = getPaddingTop() + tCoef.y + mappedPy;
+                } else {
+                    final float minY = Math.min(tCoef.y, 0.0f);
+                    final float clampedDy = MathUtils.clamp(info.y - mappedPy, minY, 0.0f);
+                    clampedY = mappedPy + clampedDy;
+                }
 
                 if (info.x != clampedX || info.y != clampedY) {
                     info.x = clampedX;
@@ -1732,7 +1736,7 @@ public class InteractiveImageView extends AppCompatImageView
      * TODO Mention how if x or y < 0, it's the minimum translation allowed.
      * If > 0, then it's a set translation and is not scrollable.
      */
-    private boolean getTranslateCoefficient(Matrix matrix, PointF outPoint) {
+    private boolean getTranslationCoefficient(Matrix matrix, PointF outPoint) {
         // TODO Drawable has intrinsic size?
         boolean adjusted = false;
         final Rect contentRect = getContentRect();
@@ -1854,8 +1858,7 @@ public class InteractiveImageView extends AppCompatImageView
             float py,
             float x,
             float y,
-            Matrix outMatrix,
-            boolean adjustIfNeeded) {
+            Matrix outMatrix) {
         if (outMatrix != null) {
             final Matrix originalMatrix = getImageMatrixInternal();
             outMatrix.set(originalMatrix);
@@ -1875,9 +1878,10 @@ public class InteractiveImageView extends AppCompatImageView
             outMatrix.postTranslate(deltaTx, deltaTy);
             outMatrix.getValues(matrixValues.values);
 
+            /*
             if (adjustIfNeeded) {
                 final PointF coefficient = mPoolManager.acquirePointF();
-                boolean adjusted = getTranslateCoefficient(outMatrix, coefficient);
+                boolean adjusted = getTranslationCoefficient(outMatrix, coefficient);
                 if (coefficient.x > 0.0f) {
                     matrixValues.values[MTRANS_X] = coefficient.x;
                 }
@@ -1888,6 +1892,7 @@ public class InteractiveImageView extends AppCompatImageView
                     outMatrix.setValues(matrixValues.values);
                 }
             }
+            */
 
             mPoolManager.releasePtsWrapper(viewPts);
             mPoolManager.releasePtsWrapper(drawablePts);
