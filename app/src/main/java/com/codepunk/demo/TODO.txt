@@ -42,11 +42,12 @@ xxx Bug: When double-clicking and it zooms down, ignores scaleType positioning
 
 
 TODO NEXT:
-
 Create a version of transformImage with animate argument
 Call THAT from onDoubleTap, instead of  mTransformer.startTransform.
 Add animate argument to transformInfo? Or make pending version?
 
+Remove synchronized, buckets etc. in favor of pools
+Determine which methods to add/remove/etc.
 Bug: onScroll still sometimes clashes with onScale when pinching down far
 Bug: Saving transform info over orientation change no longer works
 Add TransformInfo to mPoolManager?
