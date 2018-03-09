@@ -402,35 +402,31 @@ public class InteractiveImageView extends AppCompatImageView
     }
 
     protected static class TransformInfo {
-        public float sx;
-        public float sy;
-        public float px;
-        public float py;
-        public float x;
-        public float y;
-        private boolean animate; // Only used when pending
+        public float sx = 1.0f;
+        public float sy = 1.0f;
+        public float px = 0.0f;
+        public float py = 0.0f;
+        public float x = 0.0f;
+        public float y = 0.0f;
+        public boolean animate = false;
 
         public TransformInfo() {
-            reset();
         }
 
         public TransformInfo(float sx, float sy, float px, float py, float x, float y) {
             this(sx, sy, px, py, x, y, false);
         }
 
-        public TransformInfo(float sx, float sy, float px, float py, float x, float y, boolean animate) {
+        public TransformInfo(
+                float sx,
+                float sy,
+                float px,
+                float py,
+                float x,
+                float y,
+                boolean animate) {
             set(sx, sy, px, py, x, y);
             this.animate = animate;
-        }
-
-        public void reset() {
-            sx = 1.0f;
-            sy = 1.0f;
-            px = 0.0f;
-            py = 0.0f;
-            x = 0.0f;
-            y = 0.0f;
-            animate = false;
         }
 
         public void set(float sx, float sy, float px, float py, float x, float y) {
@@ -442,18 +438,9 @@ public class InteractiveImageView extends AppCompatImageView
             this.y = y;
         }
 
-        public void set(TransformInfo src) {
-            if (src == null) {
-                reset();
-            } else {
-                sx = src.sx;
-                sy = src.sy;
-                px = src.px;
-                py = src.py;
-                x = src.x;
-                y = src.y;
-                animate = src.animate;
-            }
+        public void set(float sx, float sy, float px, float py, float x, float y, boolean animate) {
+            set(sx, sy, px, py, x, y);
+            this.animate = animate;
         }
     }
 
@@ -628,14 +615,7 @@ public class InteractiveImageView extends AppCompatImageView
         super.layout(l, t, r, b);
         if (mPendingTransformInfo != null) {
             // TODO We can also defer this to when we have a layout AND a drawable?
-            transformImage(
-                    mPendingTransformInfo.sx,
-                    mPendingTransformInfo.sy,
-                    mPendingTransformInfo.px,
-                    mPendingTransformInfo.py,
-                    mPendingTransformInfo.x,
-                    mPendingTransformInfo.y,
-                    mPendingTransformInfo.animate);
+            transformImage(mPendingTransformInfo);
             mPendingTransformInfo = null;
         }
     }
@@ -729,28 +709,13 @@ public class InteractiveImageView extends AppCompatImageView
         if (mScaleGestureDetector.isInProgress()) {
             return false;
         }
-
+        final float sx = getImageScaleX();
+        final float sy = getImageScaleY();
         final float x = e2.getX();
         final float y = e2.getY();
-
-        // TODO *COULD* combine set / constrain / transform into a single method,
-        // use it here as well as in onScale
-        mTransformInfo.set(
-                getImageScaleX(),
-                getImageScaleY(),
-                mPivotPoint.x,
-                mPivotPoint.y,
-                x,
-                y);
+        mTransformInfo.set(sx, sy, mPivotPoint.x, mPivotPoint.y, x, y, false);
         final boolean constrained = constrainTransformInfo(mTransformInfo, true);
-        transformImage(
-                mTransformInfo.sx,
-                mTransformInfo.sy,
-                mPivotPoint.x,
-                mPivotPoint.y,
-                mTransformInfo.x,
-                mTransformInfo.y);
-
+        transformImage(mTransformInfo);
         if (constrained) {
             resetPivot(x, y);
         }
@@ -767,22 +732,14 @@ public class InteractiveImageView extends AppCompatImageView
         final ValuesWrapper matrixValues = mPoolManager.acquireValuesWrapper(matrix);
         final RectF drawableRect = mPoolManager.acquireRectF(getDrawable());
         final RectF mappedRect = mPoolManager.acquireRectF();
-
-        // Map drawable to matrix and calculate scrollable/scrolled amounts
         matrix.mapRect(mappedRect, drawableRect);
         final Rect contentRect = getContentRect();
+        final float startX = e2.getX();
+        final float startY = e2.getY();
         final float scrollableX = Math.max(mappedRect.width() - contentRect.width(), 0);
         final float scrollableY = Math.max(mappedRect.height() - contentRect.height(), 0);
         final float scrolledX = -Math.min(matrixValues.values[MTRANS_X], 0);
         final float scrolledY = -Math.min(matrixValues.values[MTRANS_Y], 0);
-
-        mPoolManager.releaseRectF(mappedRect);
-        mPoolManager.releaseRectF(drawableRect);
-        mPoolManager.releaseValuesWrapper(matrixValues);
-        mPoolManager.releaseMatrix(matrix);
-
-        final float startX = e2.getX();
-        final float startY = e2.getY();
         mOverScroller.fling(
                 (int) startX,
                 (int) startY,
@@ -792,7 +749,10 @@ public class InteractiveImageView extends AppCompatImageView
                 (int) (startX + scrolledX),
                 (int) (startY - scrollableY + scrolledY),
                 (int) (startY + scrolledY));
-
+        mPoolManager.releaseRectF(mappedRect);
+        mPoolManager.releaseRectF(drawableRect);
+        mPoolManager.releaseValuesWrapper(matrixValues);
+        mPoolManager.releaseMatrix(matrix);
         return true;
     }
 
@@ -810,16 +770,9 @@ public class InteractiveImageView extends AppCompatImageView
             final float sy = getImageMaxScaleY() * next + getImageMinScaleY() * (1 - next);
             final float x = getPaddingLeft() + getContentRect().width() * 0.5f;
             final float y = getPaddingTop() + getContentRect().height() * 0.5f;
-            mTransformInfo.set(sx, sy, mPivotPoint.x, mPivotPoint.y, x, y);
+            mTransformInfo.set(sx, sy, mPivotPoint.x, mPivotPoint.y, x, y, true);
             constrainTransformInfo(mTransformInfo, false);
-            transformImage(
-                    mTransformInfo.sx,
-                    mTransformInfo.sy,
-                    mPivotPoint.x,
-                    mPivotPoint.y,
-                    mTransformInfo.x,
-                    mTransformInfo.y,
-                    true);
+            transformImage(mTransformInfo);
             return true;
         }
         return false;
@@ -834,32 +787,19 @@ public class InteractiveImageView extends AppCompatImageView
     public boolean onScale(ScaleGestureDetector detector) {
         final float currentSpan = detector.getCurrentSpan();
         final float spanDelta = (currentSpan / mLastSpan);
+        final float sx = getImageScaleX() * spanDelta;
+        final float sy = getImageScaleY() * spanDelta;
         final float x = detector.getFocusX();
         final float y = detector.getFocusY();
-
-        // TODO *COULD* combine set / constrain / transform into a single method,
-        // use it here as well as in onScroll
-        mTransformInfo.set(
-                getImageScaleX() * spanDelta,
-                getImageScaleY() * spanDelta,
-                mPivotPoint.x,
-                mPivotPoint.y,
-                x,
-                y);
+        mTransformInfo.set(sx, sy, mPivotPoint.x, mPivotPoint.y, x, y, false);
         final boolean constrained = constrainTransformInfo(mTransformInfo, true);
-        transformImage(
-                mTransformInfo.sx,
-                mTransformInfo.sy,
-                mPivotPoint.x,
-                mPivotPoint.y,
-                mTransformInfo.x,
-                mTransformInfo.y);
-
-        mLastSpan = currentSpan;
+        transformImage(mTransformInfo);
         if (constrained) {
             resetPivot(x, y);
         }
+        mLastSpan = currentSpan;
         return true;
+
     }
 
     @Override // ScaleGestureDetector.OnScaleGestureListener
@@ -1359,6 +1299,11 @@ public class InteractiveImageView extends AppCompatImageView
         mMinScaleX = sx;
         mMinScaleY = sy;
     }
+
+    protected boolean transformImage(TransformInfo info) {
+        return transformImage(info.sx, info.sy, info.px, info.py, info.x, info.y, info.animate);
+    }
+    //endregion Protected methods
 
     //region Private methods
     private float getDefaultTargetX() {
