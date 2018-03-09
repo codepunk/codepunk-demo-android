@@ -510,9 +510,6 @@ public class InteractiveImageView extends AppCompatImageView
     // TODO Maybe replace buckets with pools
     private final TransformInfo mTransformInfo = new TransformInfo();
     private final float[] mMatrixValues = new float[9];
-    private final float[] mSrcPts = new float[2];
-    private final float[] mDstPts = new float[2];
-    private final Matrix mNewImageMatrix = new Matrix();
     private final RectF mSrcRect = new RectF();
     private final RectF mDstRect = new RectF();
 
@@ -687,7 +684,7 @@ public class InteractiveImageView extends AppCompatImageView
     @Override // GestureDetector.OnGestureListener
     public boolean onDown(MotionEvent e) {
         mOverScroller.forceFinished(true);
-        resetPivot(e.getX(), e.getY());
+        getPivotPoint(e.getX(), e.getY(), getImageMatrixInternal(), mPivotPoint);
         return true;
     }
 
@@ -717,7 +714,7 @@ public class InteractiveImageView extends AppCompatImageView
         final boolean constrained = constrainTransformInfo(mTransformInfo, true);
         transformImage(mTransformInfo);
         if (constrained) {
-            resetPivot(x, y);
+            getPivotPoint(x, y, getImageMatrixInternal(), mPivotPoint);
         }
         return true;
     }
@@ -795,7 +792,7 @@ public class InteractiveImageView extends AppCompatImageView
         final boolean constrained = constrainTransformInfo(mTransformInfo, true);
         transformImage(mTransformInfo);
         if (constrained) {
-            resetPivot(x, y);
+            getPivotPoint(x, y, getImageMatrixInternal(), mPivotPoint);
         }
         mLastSpan = currentSpan;
         return true;
@@ -805,13 +802,21 @@ public class InteractiveImageView extends AppCompatImageView
     @Override // ScaleGestureDetector.OnScaleGestureListener
     public boolean onScaleBegin(ScaleGestureDetector detector) {
         mLastSpan = detector.getCurrentSpan();
-        resetPivot(detector.getFocusX(), detector.getFocusY());
+        getPivotPoint(
+                detector.getFocusX(),
+                detector.getFocusY(),
+                getImageMatrixInternal(),
+                mPivotPoint);
         return true;
     }
 
     @Override // ScaleGestureDetector.OnScaleGestureListener
     public void onScaleEnd(ScaleGestureDetector detector) {
-        resetPivot(detector.getFocusX(), detector.getFocusY());
+        getPivotPoint(
+                detector.getFocusX(),
+                detector.getFocusY(),
+                getImageMatrixInternal(),
+                mPivotPoint);
     }
     //endregion Interface methods
 
@@ -827,23 +832,19 @@ public class InteractiveImageView extends AppCompatImageView
     }
 
     public float getImagePivotX() {
-        synchronized (mLock) {
-            final Matrix imageMatrix = getImageMatrixInternal();
-            mSrcPts[0] = getDefaultTargetX();
-            mSrcPts[1] = 0.0f;
-            mapViewPointToDrawablePoint(mDstPts, mSrcPts, imageMatrix);
-            return mDstPts[0];
-        }
+        final PointF pivotPoint = mPoolManager.acquirePointF();
+        getPivotPoint(getDefaultTargetX(), 0.0f, getImageMatrixInternal(), pivotPoint);
+        final float pivotX = pivotPoint.x;
+        mPoolManager.releasePointF(pivotPoint);
+        return pivotX;
     }
 
     public float getImagePivotY() {
-        synchronized (mLock) {
-            final Matrix imageMatrix = getImageMatrixInternal();
-            mSrcPts[0] = 0.0f;
-            mSrcPts[1] = getDefaultTargetY();
-            mapViewPointToDrawablePoint(mDstPts, mSrcPts, imageMatrix);
-            return mDstPts[1];
-        }
+        final PointF pivotPoint = mPoolManager.acquirePointF();
+        getPivotPoint(0.0f, getDefaultTargetY(), getImageMatrixInternal(), pivotPoint);
+        final float pivotY = pivotPoint.y;
+        mPoolManager.releasePointF(pivotPoint);
+        return pivotY;
     }
 
     public float getImageMaxScaleX() {
@@ -1187,58 +1188,63 @@ public class InteractiveImageView extends AppCompatImageView
 
     // TODO JavaDoc needs to state that method must call setImageMaxScale if overridden
     protected void getImageMaxScale() {
-        synchronized (mLock) {
-            if ((mInvalidFlags & INVALID_FLAG_IMAGE_MAX_SCALE) != 0) {
-                mInvalidFlags &= ~INVALID_FLAG_IMAGE_MAX_SCALE;
-                final float maxScaleX;
-                final float maxScaleY;
-                if (drawableHasIntrinsicSize()) {
-                    getDrawableIntrinsicRect(mSrcRect);
-                    getBaselineImageMatrix(mScaleType, null);
-                    final float[] values = new float[9];
-                    mBaselineImageMatrix.getValues(values);
-                    mBaselineImageMatrix.mapRect(mDstRect, mSrcRect);
-                    final float baselineWidth = mDstRect.width();
-                    final float baselineHeight = mDstRect.height();
-                    final float baselineBreadth = Math.min(baselineWidth, baselineHeight);
-                    final float baselineLength = Math.max(baselineWidth, baselineHeight);
+        if ((mInvalidFlags & INVALID_FLAG_IMAGE_MAX_SCALE) != 0) {
+            mInvalidFlags &= ~INVALID_FLAG_IMAGE_MAX_SCALE;
+            final float maxScaleX;
+            final float maxScaleY;
+            if (drawableHasIntrinsicSize()) {
+                final Matrix baselineMatrix = getBaselineImageMatrix();
+                final ValuesWrapper matrixValues =
+                        mPoolManager.acquireValuesWrapper(baselineMatrix);
+                final RectF srcRect = mPoolManager.acquireRectF(getDrawable());
+                final RectF dstRect = mPoolManager.acquireRectF();
 
-                    final Context context = getContext();
-                    final DisplayMetrics dm;
-                    final WindowManager windowManager =
-                            ((WindowManager) context.getSystemService(Context.WINDOW_SERVICE));
-                    if (windowManager == null) {
-                        dm = context.getResources().getDisplayMetrics();
-                    } else {
-                        dm = new DisplayMetrics();
-                        DisplayCompat.getRealMetrics(windowManager.getDefaultDisplay(), dm);
-                    }
+                baselineMatrix.mapRect(dstRect, srcRect);
+                final float baselineWidth = dstRect.width();
+                final float baselineHeight = dstRect.height();
+                final float baselineBreadth = Math.min(baselineWidth, baselineHeight);
+                final float baselineLength = Math.max(baselineWidth, baselineHeight);
 
-                    final int min = Math.min(dm.widthPixels, dm.heightPixels);
-                    final int max = Math.max(dm.widthPixels, dm.heightPixels);
-                    final float maxBreadth = MAX_SCALE_BREADTH_MULTIPLIER * min;
-                    final float maxLength = MAX_SCALE_LENGTH_MULTIPLIER * max;
-                    final float screenBasedScale = Math.min(
-                            maxBreadth / baselineBreadth,
-                            maxLength / baselineLength);
-                    final Rect contentRect = getContentRect();
-                    final int availableSize;
-                    if (baselineWidth < baselineHeight) {
-                        availableSize = contentRect.width();
-                    } else if (baselineWidth > baselineHeight) {
-                        availableSize = contentRect.height();
-                    } else {
-                        availableSize = Math.min(contentRect.width(), contentRect.height());
-                    }
-                    final float viewBasedScale = availableSize / baselineBreadth;
-                    final float scale = Math.max(screenBasedScale, viewBasedScale);
-                    maxScaleX = scale * values[MSCALE_X];
-                    maxScaleY = scale * values[MSCALE_Y];
+                final Context context = getContext();
+                final DisplayMetrics dm;
+                final WindowManager windowManager =
+                        ((WindowManager) context.getSystemService(Context.WINDOW_SERVICE));
+                if (windowManager == null) {
+                    dm = context.getResources().getDisplayMetrics();
                 } else {
-                    maxScaleX = maxScaleY = 1.0f;
+                    dm = new DisplayMetrics();
+                    DisplayCompat.getRealMetrics(windowManager.getDefaultDisplay(), dm);
                 }
-                setImageMaxScale(maxScaleX, maxScaleY);
+
+                final int min = Math.min(dm.widthPixels, dm.heightPixels);
+                final int max = Math.max(dm.widthPixels, dm.heightPixels);
+                final float maxBreadth = MAX_SCALE_BREADTH_MULTIPLIER * min;
+                final float maxLength = MAX_SCALE_LENGTH_MULTIPLIER * max;
+                final float screenBasedScale = Math.min(
+                        maxBreadth / baselineBreadth,
+                        maxLength / baselineLength);
+                final Rect contentRect = getContentRect();
+                final int availableSize;
+                if (baselineWidth < baselineHeight) {
+                    availableSize = contentRect.width();
+                } else if (baselineWidth > baselineHeight) {
+                    availableSize = contentRect.height();
+                } else {
+                    availableSize = Math.min(contentRect.width(), contentRect.height());
+                }
+                final float viewBasedScale = availableSize / baselineBreadth;
+                final float scale = Math.max(screenBasedScale, viewBasedScale);
+
+                maxScaleX = scale * matrixValues.values[MSCALE_X];
+                maxScaleY = scale * matrixValues.values[MSCALE_Y];
+
+                mPoolManager.releaseRectF(dstRect);
+                mPoolManager.releaseRectF(srcRect);
+                mPoolManager.releaseValuesWrapper(matrixValues);
+            } else {
+                maxScaleX = maxScaleY = 1.0f;
             }
+            setImageMaxScale(maxScaleX, maxScaleY);
         }
     }
 
@@ -1253,14 +1259,21 @@ public class InteractiveImageView extends AppCompatImageView
         }
     }
 
-    // TODO REMOVE?
-    protected void mapViewPointToDrawablePoint(float[] dst, float[] src, Matrix imageMatrix) {
-        synchronized (mLock) {
-            imageMatrix.invert(mNewImageMatrix);
-            mNewImageMatrix.mapPoints(dst, src);
+    protected void getPivotPoint(float x, float y, Matrix matrix, PointF outPoint) {
+        if (matrix != null && outPoint != null) {
+            final Matrix invertedMatrix = mPoolManager.acquireMatrix();
+            final PtsWrapper srcPts = mPoolManager.acquirePtsWrapper(x,  y);
+            final PtsWrapper dstPts = mPoolManager.acquirePtsWrapper();
+            matrix.invert(invertedMatrix);
+            invertedMatrix.mapPoints(dstPts.pts, srcPts.pts);
+            outPoint.set(dstPts.getX(), dstPts.getY());
+            mPoolManager.releasePtsWrapper(dstPts);
+            mPoolManager.releasePtsWrapper(srcPts);
+            mPoolManager.releaseMatrix(invertedMatrix);
         }
     }
 
+    /*
     protected void mapViewPointToDrawablePoint(
             float x,
             float y,
@@ -1273,6 +1286,7 @@ public class InteractiveImageView extends AppCompatImageView
          mPoolManager.releasePtsWrapper(viewPt);
          mPoolManager.releaseMatrix(invertedMatrix);
     }
+    */
 
     protected static Matrix.ScaleToFit scaleTypeToScaleToFit(ScaleType scaleType) {
         if (scaleType == null) {
@@ -1434,13 +1448,6 @@ public class InteractiveImageView extends AppCompatImageView
 
     private boolean isRtl() {
         return (ViewCompat.getLayoutDirection(this) == ViewCompat.LAYOUT_DIRECTION_RTL);
-    }
-
-    private void resetPivot(float x, float y) {
-        final PtsWrapper drawablePt = mPoolManager.acquirePtsWrapper();
-        mapViewPointToDrawablePoint(x, y, getImageMatrixInternal(), drawablePt.pts);
-        mPivotPoint.set(drawablePt.getX(), drawablePt.getY());
-        mPoolManager.releasePtsWrapper(drawablePt);
     }
 
     private boolean transformToMatrix(
