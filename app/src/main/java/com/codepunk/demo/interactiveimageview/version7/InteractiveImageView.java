@@ -1064,16 +1064,24 @@ public class InteractiveImageView extends AppCompatImageView
         return getDrawableIntrinsicWidth() > 0 && getDrawableIntrinsicHeight() > 0;
     }
 
-    @SuppressWarnings("SameParameterValue")
-    protected void getBaselineImageMatrix(Matrix outMatrix) {
-        getBaselineImageMatrix(mScaleType, outMatrix);
+    /**
+     * Returns the baseline image matrix; that is, the matrix that describes the image
+     * at the current scale type
+     * minus any padding. Do not change this rectangle in place but make a copy.
+     * @return
+     */
+    protected Matrix getBaselineImageMatrix() {
+        if ((mInvalidFlags & INVALID_FLAG_BASELINE_IMAGE_MATRIX) != 0) {
+            mInvalidFlags &= ~INVALID_FLAG_BASELINE_IMAGE_MATRIX;
+            getBaselineImageMatrix(mScaleType, mBaselineImageMatrix);
+        }
+        return mBaselineImageMatrix;
     }
 
     @SuppressWarnings("SpellCheckingInspection")
     protected void getBaselineImageMatrix(ScaleType scaleType, Matrix outMatrix) {
         synchronized (mLock) {
-            if ((mInvalidFlags & INVALID_FLAG_BASELINE_IMAGE_MATRIX) != 0) {
-                mInvalidFlags &= ~INVALID_FLAG_BASELINE_IMAGE_MATRIX;
+            if (outMatrix != null) {
                 if (drawableHasIntrinsicSize()) {
                     // We need to do the scaling ourselves.
                     final int dwidth = getDrawableIntrinsicWidth();
@@ -1087,13 +1095,13 @@ public class InteractiveImageView extends AppCompatImageView
 
                     if (ScaleType.MATRIX == scaleType) {
                         // Use the specified matrix as-is.
-                        mBaselineImageMatrix.set(getImageMatrix());
+                        outMatrix.set(getImageMatrix());
                     } else if (fits) {
                         // The bitmap fits exactly, no transform needed.
-                        mBaselineImageMatrix.reset();
+                        outMatrix.reset();
                     } else if (ScaleType.CENTER == scaleType) {
                         // Center bitmap in view, no scaling.
-                        mBaselineImageMatrix.setTranslate(
+                        outMatrix.setTranslate(
                                 Math.round((vwidth - dwidth) * 0.5f),
                                 Math.round((vheight - dheight) * 0.5f));
                     } else if (ScaleType.CENTER_CROP == scaleType) {
@@ -1108,8 +1116,8 @@ public class InteractiveImageView extends AppCompatImageView
                             dy = (vheight - dheight * scale) * 0.5f;
                         }
 
-                        mBaselineImageMatrix.setScale(scale, scale);
-                        mBaselineImageMatrix.postTranslate(Math.round(dx), Math.round(dy));
+                        outMatrix.setScale(scale, scale);
+                        outMatrix.postTranslate(Math.round(dx), Math.round(dy));
                     } else if (ScaleType.CENTER_INSIDE == scaleType) {
                         float scale;
                         float dx;
@@ -1125,24 +1133,20 @@ public class InteractiveImageView extends AppCompatImageView
                         dx = Math.round((vwidth - dwidth * scale) * 0.5f);
                         dy = Math.round((vheight - dheight * scale) * 0.5f);
 
-                        mBaselineImageMatrix.setScale(scale, scale);
-                        mBaselineImageMatrix.postTranslate(dx, dy);
+                        outMatrix.setScale(scale, scale);
+                        outMatrix.postTranslate(dx, dy);
                     } else {
                         // Generate the required transform.
                         mSrcRect.set(0.0f, 0.0f, dwidth, dheight);
                         mDstRect.set(0.0f, 0.0f, vwidth, vheight);
-                        mBaselineImageMatrix.setRectToRect(
+                        outMatrix.setRectToRect(
                                 mSrcRect,
                                 mDstRect,
                                 scaleTypeToScaleToFit(scaleType));
                     }
                 } else {
-                    mBaselineImageMatrix.reset();
+                    outMatrix.reset();
                 }
-            }
-
-            if (outMatrix != null && outMatrix != mBaselineImageMatrix) {
-                outMatrix.set(mBaselineImageMatrix);
             }
         }
     }
@@ -1190,7 +1194,7 @@ public class InteractiveImageView extends AppCompatImageView
                 final float maxScaleY;
                 if (drawableHasIntrinsicSize()) {
                     getDrawableIntrinsicRect(mSrcRect);
-                    getBaselineImageMatrix(null);
+                    getBaselineImageMatrix(mScaleType, null);
                     final float[] values = new float[9];
                     mBaselineImageMatrix.getValues(values);
                     mBaselineImageMatrix.mapRect(mDstRect, mSrcRect);
@@ -1240,13 +1244,12 @@ public class InteractiveImageView extends AppCompatImageView
 
     // TODO JavaDoc needs to state that method must call setImageMinScale if overridden
     protected void getImageMinScale() {
-        synchronized (mLock) {
-            if ((mInvalidFlags & INVALID_FLAG_IMAGE_MIN_SCALE) != 0) {
-                mInvalidFlags &= ~INVALID_FLAG_IMAGE_MIN_SCALE;
-                getBaselineImageMatrix(null);
-                mBaselineImageMatrix.getValues(mMatrixValues);
-                setImageMinScale(mMatrixValues[MSCALE_X], mMatrixValues[MSCALE_Y]);
-            }
+        if ((mInvalidFlags & INVALID_FLAG_IMAGE_MIN_SCALE) != 0) {
+            mInvalidFlags &= ~INVALID_FLAG_IMAGE_MIN_SCALE;
+            final ValuesWrapper matrixValues =
+                    mPoolManager.acquireValuesWrapper(getBaselineImageMatrix());
+            setImageMinScale(matrixValues.values[MSCALE_X], matrixValues.values[MSCALE_Y]);
+            mPoolManager.releaseValuesWrapper(matrixValues);
         }
     }
 
