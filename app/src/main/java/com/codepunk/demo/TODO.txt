@@ -1,60 +1,10 @@
 TODO NEXT:
-On doubletap, first calculate what the "real" center will be so the animation is always smooth
-
-Address all TODO synchronized
-Only fling when fling enabled
-Only scroll when scroll enabled
-Only scale when pinch-to-zoom enabled
-Test to see if image is at "baseline" before saving/restoring on config change
-
-TODO VERSION6 :
-TODO NEXT So close!
-Edge effects
-Make sure I'm checking all flags for scroll, fling, doubletap etc. and doing all synchronized where appropriate
-
-Also I kind of want to clean up how I'm throwing around mImageMatrix, mNewImageMatrix, mMatrixValues, mSrcRect & mDstRect etc.
-
-TODO What do I want to be private vs protected (or public) final?
-TODO What about all this @NonNull final stuff?
-x TODO Think about using pools for Matrix, RectF, float[] ?
-
----------
-
-Next in this latest iteration:
-x * Figure out why onScroll produces shaky results
-x * Figure out why onScale sometimes shifts the image
-x * Get onDoubleTapEvent to work (and remove clampTransform) <-- This works!!
-
-x * When scrolling AND scaling, they fight each other. How to fix?
-
-TODO !! Read http://i-rant.arnaudbos.com/matrices-for-developers/ (Matrices for Developers)
-
-------------
-
-xxx I need to include an "adjustTrans" block in constrainTransformInfo. :-(
-xxx The reason is, for example, when double-tapping, before starting the animation, we need to
-xxx factor that into the constraining. Sigh.
-
-xxx Bug: When zooming out and scale type is Fit Center or Fit End, goes down to 0, 0 instead
-xxx Bug: When double-clicking and trying to set without adjusting, there is a jump during animation
-xxx Bug: When double-clicking and it zooms down, ignores scaleType positioning
-
-
-
-TODO NEXT:
-xxx Create a version of transformImage with animate argument
-xxx Call THAT from onDoubleTap, instead of  mTransformer.startTransform.
-Add animate argument to transformInfo? Or make pending version?
-
-Remove synchronized, buckets etc. in favor of pools
-Determine which methods to add/remove/etc.
-Bug: onScroll still sometimes clashes with onScale when pinching down far -- jerkiness etc.
-Bug: Saving transform info over orientation change no longer works
-Add TransformInfo to mPoolManager?
 Only fling when fling enabled
 Only scroll when scroll enabled
 Only scale when pinch-to-zoom enabled
 Test to see if image is at "baseline" before saving/restoring on config change
 Think about when to test for drawable has intrinsic size
 
+Bug: Saving transform info over orientation change no longer works
+Bug: onScroll still sometimes clashes with onScale when pinching down far -- jerkiness etc.
 Bug: When switching from one image to another, need to reset matrix?
