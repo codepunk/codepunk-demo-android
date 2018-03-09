@@ -495,26 +495,17 @@ public class InteractiveImageView extends AppCompatImageView
 
     private ScaleType mScaleType = super.getScaleType();
 
-    private float mMaxScaleX;
-    private float mMaxScaleY;
-    private float mMinScaleX;
-    private float mMinScaleY;
-
-    private final PointF mPivotPoint = new PointF();
     private float mLastSpan;
 
     private final Matrix mImageMatrixInternal = new Matrix();
-    private final Rect mContentRect = new Rect();
     private final Matrix mBaselineImageMatrix = new Matrix();
+    private final PointF mMaxScale = new PointF();
+    private final PointF mMinScale = new PointF();
+    private final PointF mPivotPoint = new PointF();
+    private final Rect mContentRect = new Rect();
 
-    // TODO Maybe replace buckets with pools
-    private final TransformInfo mTransformInfo = new TransformInfo();
-    private final float[] mMatrixValues = new float[9];
-    private final RectF mSrcRect = new RectF();
-    private final RectF mDstRect = new RectF();
-
-    // Pools
     private final PoolManager mPoolManager = new PoolManager(8);
+    private final TransformInfo mGestureTransformInfo = new TransformInfo();
 
     private final Object mLock = new Object();
 
@@ -710,9 +701,9 @@ public class InteractiveImageView extends AppCompatImageView
         final float sy = getImageScaleY();
         final float x = e2.getX();
         final float y = e2.getY();
-        mTransformInfo.set(sx, sy, mPivotPoint.x, mPivotPoint.y, x, y, false);
-        final boolean constrained = constrainTransformInfo(mTransformInfo, true);
-        transformImage(mTransformInfo);
+        mGestureTransformInfo.set(sx, sy, mPivotPoint.x, mPivotPoint.y, x, y, false);
+        final boolean constrained = constrainTransformInfo(mGestureTransformInfo, true);
+        transformImage(mGestureTransformInfo);
         if (constrained) {
             getPivotPoint(x, y, getImageMatrixInternal(), mPivotPoint);
         }
@@ -767,9 +758,9 @@ public class InteractiveImageView extends AppCompatImageView
             final float sy = getImageMaxScaleY() * next + getImageMinScaleY() * (1 - next);
             final float x = getPaddingLeft() + getContentRect().width() * 0.5f;
             final float y = getPaddingTop() + getContentRect().height() * 0.5f;
-            mTransformInfo.set(sx, sy, mPivotPoint.x, mPivotPoint.y, x, y, true);
-            constrainTransformInfo(mTransformInfo, false);
-            transformImage(mTransformInfo);
+            mGestureTransformInfo.set(sx, sy, mPivotPoint.x, mPivotPoint.y, x, y, true);
+            constrainTransformInfo(mGestureTransformInfo, false);
+            transformImage(mGestureTransformInfo);
             return true;
         }
         return false;
@@ -788,9 +779,9 @@ public class InteractiveImageView extends AppCompatImageView
         final float sy = getImageScaleY() * spanDelta;
         final float x = detector.getFocusX();
         final float y = detector.getFocusY();
-        mTransformInfo.set(sx, sy, mPivotPoint.x, mPivotPoint.y, x, y, false);
-        final boolean constrained = constrainTransformInfo(mTransformInfo, true);
-        transformImage(mTransformInfo);
+        mGestureTransformInfo.set(sx, sy, mPivotPoint.x, mPivotPoint.y, x, y, false);
+        final boolean constrained = constrainTransformInfo(mGestureTransformInfo, true);
+        transformImage(mGestureTransformInfo);
         if (constrained) {
             getPivotPoint(x, y, getImageMatrixInternal(), mPivotPoint);
         }
@@ -849,38 +840,38 @@ public class InteractiveImageView extends AppCompatImageView
 
     public float getImageMaxScaleX() {
         getImageMaxScale();
-        return mMaxScaleX;
+        return mMaxScale.x;
     }
 
     public float getImageMaxScaleY() {
         getImageMaxScale();
-        return mMaxScaleY;
+        return mMaxScale.y;
     }
 
     public float getImageMinScaleX() {
         getImageMinScale();
-        return mMinScaleX;
+        return mMinScale.x;
     }
 
     public float getImageMinScaleY() {
         getImageMinScale();
-        return mMinScaleY;
+        return mMinScale.y;
     }
 
     public float getImageScaleX() {
-        synchronized (mLock) {
-            final Matrix imageMatrix = getImageMatrixInternal();
-            imageMatrix.getValues(mMatrixValues);
-            return mMatrixValues[MSCALE_X];
-        }
+        final ValuesWrapper matrixValues =
+                mPoolManager.acquireValuesWrapper(getImageMatrixInternal());
+        final float scaleX = matrixValues.values[MSCALE_X];
+        mPoolManager.releaseValuesWrapper(matrixValues);
+        return scaleX;
     }
 
     public float getImageScaleY() {
-        synchronized (mLock) {
-            final Matrix imageMatrix = getImageMatrixInternal();
-            imageMatrix.getValues(mMatrixValues);
-            return mMatrixValues[MSCALE_Y];
-        }
+        final ValuesWrapper matrixValues =
+                mPoolManager.acquireValuesWrapper(getImageMatrixInternal());
+        final float scaleY = matrixValues.values[MSCALE_Y];
+        mPoolManager.releaseValuesWrapper(matrixValues);
+        return scaleY;
     }
 
     @SuppressWarnings("unused")
@@ -1081,73 +1072,75 @@ public class InteractiveImageView extends AppCompatImageView
 
     @SuppressWarnings("SpellCheckingInspection")
     protected void getBaselineImageMatrix(ScaleType scaleType, Matrix outMatrix) {
-        synchronized (mLock) {
-            if (outMatrix != null) {
-                if (drawableHasIntrinsicSize()) {
-                    // We need to do the scaling ourselves.
-                    final int dwidth = getDrawableIntrinsicWidth();
-                    final int dheight = getDrawableIntrinsicHeight();
+        if (outMatrix != null) {
+            if (drawableHasIntrinsicSize()) {
+                // We need to do the scaling ourselves.
+                final int dwidth = getDrawableIntrinsicWidth();
+                final int dheight = getDrawableIntrinsicHeight();
 
-                    final int vwidth = getContentRect().width();
-                    final int vheight = getContentRect().height();
+                final int vwidth = getContentRect().width();
+                final int vheight = getContentRect().height();
 
-                    final boolean fits = (dwidth < 0 || vwidth == dwidth)
-                            && (dheight < 0 || vheight == dheight);
+                final boolean fits = (dwidth < 0 || vwidth == dwidth)
+                        && (dheight < 0 || vheight == dheight);
 
-                    if (ScaleType.MATRIX == scaleType) {
-                        // Use the specified matrix as-is.
-                        outMatrix.set(getImageMatrix());
-                    } else if (fits) {
-                        // The bitmap fits exactly, no transform needed.
-                        outMatrix.reset();
-                    } else if (ScaleType.CENTER == scaleType) {
-                        // Center bitmap in view, no scaling.
-                        outMatrix.setTranslate(
-                                Math.round((vwidth - dwidth) * 0.5f),
-                                Math.round((vheight - dheight) * 0.5f));
-                    } else if (ScaleType.CENTER_CROP == scaleType) {
-                        float scale;
-                        float dx = 0, dy = 0;
-
-                        if (dwidth * vheight > vwidth * dheight) {
-                            scale = (float) vheight / (float) dheight;
-                            dx = (vwidth - dwidth * scale) * 0.5f;
-                        } else {
-                            scale = (float) vwidth / (float) dwidth;
-                            dy = (vheight - dheight * scale) * 0.5f;
-                        }
-
-                        outMatrix.setScale(scale, scale);
-                        outMatrix.postTranslate(Math.round(dx), Math.round(dy));
-                    } else if (ScaleType.CENTER_INSIDE == scaleType) {
-                        float scale;
-                        float dx;
-                        float dy;
-
-                        if (dwidth <= vwidth && dheight <= vheight) {
-                            scale = 1.0f;
-                        } else {
-                            scale = Math.min((float) vwidth / (float) dwidth,
-                                    (float) vheight / (float) dheight);
-                        }
-
-                        dx = Math.round((vwidth - dwidth * scale) * 0.5f);
-                        dy = Math.round((vheight - dheight * scale) * 0.5f);
-
-                        outMatrix.setScale(scale, scale);
-                        outMatrix.postTranslate(dx, dy);
-                    } else {
-                        // Generate the required transform.
-                        mSrcRect.set(0.0f, 0.0f, dwidth, dheight);
-                        mDstRect.set(0.0f, 0.0f, vwidth, vheight);
-                        outMatrix.setRectToRect(
-                                mSrcRect,
-                                mDstRect,
-                                scaleTypeToScaleToFit(scaleType));
-                    }
-                } else {
+                if (ScaleType.MATRIX == scaleType) {
+                    // Use the specified matrix as-is.
+                    outMatrix.set(getImageMatrix());
+                } else if (fits) {
+                    // The bitmap fits exactly, no transform needed.
                     outMatrix.reset();
+                } else if (ScaleType.CENTER == scaleType) {
+                    // Center bitmap in view, no scaling.
+                    outMatrix.setTranslate(
+                            Math.round((vwidth - dwidth) * 0.5f),
+                            Math.round((vheight - dheight) * 0.5f));
+                } else if (ScaleType.CENTER_CROP == scaleType) {
+                    float scale;
+                    float dx = 0, dy = 0;
+
+                    if (dwidth * vheight > vwidth * dheight) {
+                        scale = (float) vheight / (float) dheight;
+                        dx = (vwidth - dwidth * scale) * 0.5f;
+                    } else {
+                        scale = (float) vwidth / (float) dwidth;
+                        dy = (vheight - dheight * scale) * 0.5f;
+                    }
+
+                    outMatrix.setScale(scale, scale);
+                    outMatrix.postTranslate(Math.round(dx), Math.round(dy));
+                } else if (ScaleType.CENTER_INSIDE == scaleType) {
+                    float scale;
+                    float dx;
+                    float dy;
+
+                    if (dwidth <= vwidth && dheight <= vheight) {
+                        scale = 1.0f;
+                    } else {
+                        scale = Math.min((float) vwidth / (float) dwidth,
+                                (float) vheight / (float) dheight);
+                    }
+
+                    dx = Math.round((vwidth - dwidth * scale) * 0.5f);
+                    dy = Math.round((vheight - dheight * scale) * 0.5f);
+
+                    outMatrix.setScale(scale, scale);
+                    outMatrix.postTranslate(dx, dy);
+                } else {
+                    // Generate the required transform.
+                    RectF srcRect =
+                            mPoolManager.acquireRectF(0.0f, 0.0f, dwidth, dheight);
+                    RectF dstRect =
+                            mPoolManager.acquireRectF(0.0f, 0.0f, vwidth, vheight);
+                    outMatrix.setRectToRect(
+                            srcRect,
+                            dstRect,
+                            scaleTypeToScaleToFit(scaleType));
+                    mPoolManager.releaseRectF(dstRect);
+                    mPoolManager.releaseRectF(srcRect);
                 }
+            } else {
+                outMatrix.reset();
             }
         }
     }
@@ -1307,14 +1300,12 @@ public class InteractiveImageView extends AppCompatImageView
 
     protected void setImageMaxScale(float sx, float sy) {
         mInvalidFlags &= ~INVALID_FLAG_IMAGE_MAX_SCALE;
-        mMaxScaleX = sx;
-        mMaxScaleY = sy;
+        mMaxScale.set(sx, sy);
     }
 
     protected void setImageMinScale(float sx, float sy) {
         mInvalidFlags &= ~INVALID_FLAG_IMAGE_MIN_SCALE;
-        mMinScaleX = sx;
-        mMinScaleY = sy;
+        mMinScale.set(sx, sy);
     }
 
     protected boolean transformImage(TransformInfo info) {
