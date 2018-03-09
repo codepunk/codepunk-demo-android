@@ -507,8 +507,6 @@ public class InteractiveImageView extends AppCompatImageView
     private final PoolManager mPoolManager = new PoolManager(8);
     private final TransformInfo mGestureTransformInfo = new TransformInfo();
 
-    private final Object mLock = new Object();
-
     private TransformInfo mPendingTransformInfo = null;
     private int mInvalidFlags;
     //endregion Fields
@@ -1266,21 +1264,6 @@ public class InteractiveImageView extends AppCompatImageView
         }
     }
 
-    /*
-    protected void mapViewPointToDrawablePoint(
-            float x,
-            float y,
-            Matrix matrix,
-            float[] drawablePt) {
-         final Matrix invertedMatrix = mPoolManager.acquireMatrix();
-         matrix.invert(invertedMatrix);
-         final PtsWrapper viewPt = mPoolManager.acquirePtsWrapper(x, y);
-         invertedMatrix.mapPoints(drawablePt, viewPt.pts);
-         mPoolManager.releasePtsWrapper(viewPt);
-         mPoolManager.releaseMatrix(invertedMatrix);
-    }
-    */
-
     protected static Matrix.ScaleToFit scaleTypeToScaleToFit(ScaleType scaleType) {
         if (scaleType == null) {
             return null;
@@ -1379,12 +1362,14 @@ public class InteractiveImageView extends AppCompatImageView
             // The mapped image is narrower than the content area
             switch (mScaleType) {
                 case FIT_START:
-                    if (!isRtl()) {
+                    if (ViewCompat.getLayoutDirection(this) !=
+                            ViewCompat.LAYOUT_DIRECTION_RTL) {
                         outPoint.x = 0.0f;
                     }
                     break;
                 case FIT_END:
-                    if (isRtl()) {
+                    if (ViewCompat.getLayoutDirection(this) ==
+                            ViewCompat.LAYOUT_DIRECTION_RTL) {
                         outPoint.x = 0.0f;
                     }
                     break;
@@ -1435,10 +1420,6 @@ public class InteractiveImageView extends AppCompatImageView
         }
         a.recycle();
         return new Initializer(this);
-    }
-
-    private boolean isRtl() {
-        return (ViewCompat.getLayoutDirection(this) == ViewCompat.LAYOUT_DIRECTION_RTL);
     }
 
     private boolean transformToMatrix(
