@@ -44,6 +44,7 @@ public class InteractiveImageView extends AppCompatImageView
         ScaleGestureDetector.OnScaleGestureListener {
 
     //region Nested classes
+
     private static class Initializer {
         final GestureDetectorCompat gestureDetector;
         final ScaleGestureDetector scaleGestureDetector;
@@ -447,9 +448,11 @@ public class InteractiveImageView extends AppCompatImageView
     private static class ValuesWrapper {
         float[] values = new float[9];
     }
+
     //endregion Nested classes
 
     //region Constants
+
     private static final String LOG_TAG = InteractiveImageView.class.getSimpleName();
     private static final float MAX_SCALE_BREADTH_MULTIPLIER = 4.0f;
     private static final float MAX_SCALE_LENGTH_MULTIPLIER = 6.0f;
@@ -475,9 +478,11 @@ public class InteractiveImageView extends AppCompatImageView
     private static final int INVALID_FLAG_DEFAULT = INVALID_FLAG_BASELINE_IMAGE_MATRIX |
             INVALID_FLAG_IMAGE_MAX_SCALE |
             INVALID_FLAG_IMAGE_MIN_SCALE;
+
     //endregion Constants
 
     //region Fields
+
     @NonNull
     private final GestureDetectorCompat mGestureDetector;
 
@@ -509,9 +514,11 @@ public class InteractiveImageView extends AppCompatImageView
 
     private TransformInfo mPendingTransformInfo = null;
     private int mInvalidFlags;
+
     //endregion Fields
 
     //region Constructors
+
     public InteractiveImageView(Context context) {
         super(context);
         final Initializer initializer = initializeInteractiveImageView(
@@ -547,9 +554,11 @@ public class InteractiveImageView extends AppCompatImageView
         mOverScroller = initializer.overScroller;
         mTransformer = initializer.transformer;
     }
+
     //endregion Constructors
 
     //region Inherited methods
+
     @Override
     public void computeScroll() {
         super.computeScroll();
@@ -667,9 +676,11 @@ public class InteractiveImageView extends AppCompatImageView
         super.setScaleType(mScaleType);
         mInvalidFlags |= INVALID_FLAG_DEFAULT;
     }
+
     //endregion Inherited methods
 
     //region Interface methods
+
     @Override // GestureDetector.OnGestureListener
     public boolean onDown(MotionEvent e) {
         mOverScroller.forceFinished(true);
@@ -807,9 +818,11 @@ public class InteractiveImageView extends AppCompatImageView
                 getImageMatrixInternal(),
                 mPivotPoint);
     }
+
     //endregion Interface methods
 
     //region Methods
+
     protected int getDrawableIntrinsicHeight() {
         final Drawable dr = getDrawable();
         return (dr == null ? -1 : dr.getIntrinsicHeight());
@@ -822,7 +835,11 @@ public class InteractiveImageView extends AppCompatImageView
 
     public float getImagePivotX() {
         final PointF pivotPoint = mPoolManager.acquirePointF();
-        getPivotPoint(getDefaultTargetX(), 0.0f, getImageMatrixInternal(), pivotPoint);
+        getPivotPoint(
+                getContentRect().exactCenterX(),
+                0.0f,
+                getImageMatrixInternal(),
+                pivotPoint);
         final float pivotX = pivotPoint.x;
         mPoolManager.releasePointF(pivotPoint);
         return pivotX;
@@ -830,7 +847,11 @@ public class InteractiveImageView extends AppCompatImageView
 
     public float getImagePivotY() {
         final PointF pivotPoint = mPoolManager.acquirePointF();
-        getPivotPoint(0.0f, getDefaultTargetY(), getImageMatrixInternal(), pivotPoint);
+        getPivotPoint(
+                0.0f,
+                getContentRect().exactCenterY(),
+                getImageMatrixInternal(),
+                pivotPoint);
         final float pivotY = pivotPoint.y;
         mPoolManager.releasePointF(pivotPoint);
         return pivotY;
@@ -895,7 +916,14 @@ public class InteractiveImageView extends AppCompatImageView
     }
 
     public boolean transformImage(float sx, float sy, float px, float py, boolean animate) {
-        return transformImage(sx, sy, px, py, getDefaultTargetX(), getDefaultTargetY(), animate);
+        return transformImage(
+                sx,
+                sy,
+                px,
+                py,
+                getContentRect().exactCenterX(),
+                getContentRect().exactCenterY(),
+                animate);
     }
 
     public boolean transformImage(
@@ -955,9 +983,11 @@ public class InteractiveImageView extends AppCompatImageView
         mPoolManager.releaseMatrix(matrix);
         return transformed;
     }
+
     //endregion Methods
 
     //region Protected methods
+
     protected boolean canScrollX() {
         return canScrollX(getImageMatrixInternal());
     }
@@ -1294,24 +1324,10 @@ public class InteractiveImageView extends AppCompatImageView
     protected boolean transformImage(TransformInfo info) {
         return transformImage(info.sx, info.sy, info.px, info.py, info.x, info.y, info.animate);
     }
+
     //endregion Protected methods
 
     //region Private methods
-    private float getDefaultTargetX() {
-        return getPaddingLeft() + getContentRect().width() * 0.5f;
-    }
-
-    private float getDefaultTargetY() {
-        return getPaddingTop() + getContentRect().height() * 0.5f;
-    }
-
-    private void getDrawableIntrinsicRect(@NonNull final RectF outRect) {
-        outRect.set(
-                0.0f,
-                0.0f,
-                getDrawableIntrinsicWidth(),
-                getDrawableIntrinsicHeight());
-    }
 
     private float getNextZoomPivot() {
         float nextZoomPivot = 0.0f;
@@ -1457,5 +1473,6 @@ public class InteractiveImageView extends AppCompatImageView
         }
         return false;
     }
+
     //endregion Private methods
 }
