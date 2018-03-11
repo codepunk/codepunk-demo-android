@@ -13,4 +13,5 @@
         <item name="absSeekBarLayoutStyle">@style/AbsSeekBarLayout</item>
         <item name="android:colorEdgeEffect">@android:color/black</item>
     </style>
+
 </resources>

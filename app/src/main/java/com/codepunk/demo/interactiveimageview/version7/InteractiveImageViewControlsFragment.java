@@ -35,6 +35,7 @@ public class InteractiveImageViewControlsFragment extends Fragment
                 View.OnClickListener,
                 View.OnTouchListener {
     //region Constants
+
     private static final String LOG_TAG =
             InteractiveImageViewControlsFragment.class.getSimpleName();
     private static final @DrawableRes int DEFAULT_DRAWABLE_RES_ID = R.drawable.wilderness_lodge;
@@ -45,6 +46,7 @@ public class InteractiveImageViewControlsFragment extends Fragment
     private static final String KEY_SY = CLASS_NAME + ".sy";
     private static final String KEY_PX = CLASS_NAME + ".px";
     private static final String KEY_PY = CLASS_NAME + ".py";
+
     //endregion Constants
 
     //region Fields
@@ -71,14 +73,18 @@ public class InteractiveImageViewControlsFragment extends Fragment
     private float mSy;
     private float mPx;
     private float mPy;
+
     //endregion Fields
 
     //region Constructors
+
     public InteractiveImageViewControlsFragment() {
     }
+
     //endregion Constructors
 
     //region Lifecycle methods
+
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -171,9 +177,11 @@ public class InteractiveImageViewControlsFragment extends Fragment
         outState.putFloat(KEY_PX, mPx);
         outState.putFloat(KEY_PY, mPy);
     }
+
     //endregion Lifecycle methods
 
     //region Implemented methods
+
     @Override // AbsSeekBarLayout.OnSeekBarChangeListener
     public void onProgressChanged(
             AbsSeekBarLayout<Float> seekBarLayout,
@@ -339,16 +347,20 @@ public class InteractiveImageViewControlsFragment extends Fragment
         view.getParent().requestDisallowInterceptTouchEvent(true);
         return false;
     }
+
     //endregion Implemented methods
 
     //region Methods
+
     public void setImageView(DemoInteractiveImageView imageView) {
         mImageView = imageView;
         mImageView.setDemoInteractiveImageViewListener(this);
     }
+
     //endregion Methods
 
     //region Private methods
+
     private void resetClamps() {
         final float minScaleX = mImageView.getImageMinScaleX();
         final float maxScaleX = mImageView.getImageMaxScaleX();
@@ -412,5 +424,6 @@ public class InteractiveImageViewControlsFragment extends Fragment
         }
         return false;
     }
+
     //endregion Methods
 }

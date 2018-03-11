@@ -3,7 +3,6 @@ package com.codepunk.demo.interactiveimageview.version7;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.res.TypedArray;
-import android.graphics.Canvas;
 import android.graphics.Matrix;
 import android.graphics.PointF;
 import android.graphics.Rect;
@@ -17,35 +16,29 @@ import android.support.v4.math.MathUtils;
 import android.support.v4.util.Pools.SimplePool;
 import android.support.v4.view.GestureDetectorCompat;
 import android.support.v4.view.ViewCompat;
-import android.support.v4.widget.EdgeEffectCompat;
 import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
-import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.WindowManager;
 import android.view.animation.DecelerateInterpolator;
 import android.view.animation.Interpolator;
-import android.widget.EdgeEffect;
 import android.widget.OverScroller;
 
-import com.codepunk.demo.OverScrollerCompat;
 import com.codepunk.demo.R;
 import com.codepunk.demo.support.DisplayCompat;
-
-import java.util.Locale;
 
 import static android.graphics.Matrix.MSCALE_X;
 import static android.graphics.Matrix.MSCALE_Y;
 import static android.graphics.Matrix.MTRANS_X;
 import static android.graphics.Matrix.MTRANS_Y;
-import static com.codepunk.demo.R.styleable.InteractiveImageView;
 import static com.codepunk.demo.R.styleable.InteractiveImageView_interactivity;
 import static com.codepunk.demo.R.styleable.InteractiveImageView_zoomPivots;
+import static com.codepunk.demo.R.styleable.InteractiveImageView;
 
-public class InteractiveImageView extends AppCompatImageView
+public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
         implements GestureDetector.OnGestureListener,
         GestureDetector.OnDoubleTapListener,
         ScaleGestureDetector.OnScaleGestureListener {
@@ -58,7 +51,7 @@ public class InteractiveImageView extends AppCompatImageView
         final OverScroller overScroller;
         final Transformer transformer;
 
-        Initializer(InteractiveImageView view) {
+        Initializer(InteractiveImageView_BeforeEdgeEffects view) {
             final Context context = view.getContext();
             gestureDetector = new GestureDetectorCompat(context, view);
             gestureDetector.setIsLongpressEnabled(false);
@@ -431,10 +424,6 @@ public class InteractiveImageView extends AppCompatImageView
             this.animate = animate;
         }
 
-        public TransformInfo(TransformInfo src) {
-            set(src.sx, src.sy, src.px, src.py, src.x, src.y, src.animate);
-        }
-
         public void set(float sx, float sy, float px, float py, float x, float y) {
             this.sx = sx;
             this.sy = sy;
@@ -458,7 +447,7 @@ public class InteractiveImageView extends AppCompatImageView
 
     //region Constants
 
-    private static final String LOG_TAG = InteractiveImageView.class.getSimpleName();
+    private static final String LOG_TAG = InteractiveImageView_BeforeEdgeEffects.class.getSimpleName();
     private static final float MAX_SCALE_BREADTH_MULTIPLIER = 4.0f;
     private static final float MAX_SCALE_LENGTH_MULTIPLIER = 6.0f;
     private static final float ZOOM_PIVOT_EPSILON = 0.2f;
@@ -520,22 +509,11 @@ public class InteractiveImageView extends AppCompatImageView
     private TransformInfo mPendingTransformInfo = null;
     private int mInvalidFlags;
 
-    // Edge effect / overscroll tracking objects.
-    private EdgeEffect mEdgeEffectTop;
-    private EdgeEffect mEdgeEffectBottom;
-    private EdgeEffect mEdgeEffectLeft;
-    private EdgeEffect mEdgeEffectRight;
-
-    private boolean mEdgeEffectTopActive;
-    private boolean mEdgeEffectBottomActive;
-    private boolean mEdgeEffectLeftActive;
-    private boolean mEdgeEffectRightActive;
-
     //endregion Fields
 
     //region Constructors
 
-    public InteractiveImageView(Context context) {
+    public InteractiveImageView_BeforeEdgeEffects(Context context) {
         super(context);
         final Initializer initializer = initializeInteractiveImageView(
                 context,
@@ -548,7 +526,7 @@ public class InteractiveImageView extends AppCompatImageView
         mTransformer = initializer.transformer;
     }
 
-    public InteractiveImageView(Context context, AttributeSet attrs) {
+    public InteractiveImageView_BeforeEdgeEffects(Context context, AttributeSet attrs) {
         super(context, attrs);
         final Initializer initializer = initializeInteractiveImageView(
                 context,
@@ -561,7 +539,7 @@ public class InteractiveImageView extends AppCompatImageView
         mTransformer = initializer.transformer;
     }
 
-    public InteractiveImageView(Context context, AttributeSet attrs, int defStyleAttr) {
+    public InteractiveImageView_BeforeEdgeEffects(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
         final Initializer initializer =
                 initializeInteractiveImageView(context, attrs, defStyleAttr, 0);
@@ -582,61 +560,24 @@ public class InteractiveImageView extends AppCompatImageView
         boolean needsInvalidate = false;
 
         if (mOverScroller.computeScrollOffset()) {
-            final int currX = mOverScroller.getCurrX();
-            final int currY = mOverScroller.getCurrY();
-            mGestureTransformInfo.set(
+
+            final int x = mOverScroller.getCurrX();
+            final int y = mOverScroller.getCurrY();
+
+            transformImage(
                     getImageScaleX(),
                     getImageScaleY(),
                     mPivotPoint.x,
                     mPivotPoint.y,
-                    currX,
-                    currY);
-            constrainTransformInfo(mGestureTransformInfo, true);
+                    x,
+                    y);
 
-            if (canScrollX() && mOverScroller.isOverScrolled()) {
-                if (currX > mGestureTransformInfo.x &&
-                        mEdgeEffectLeft.isFinished() &&
-                        !mEdgeEffectLeftActive) {
-                    mEdgeEffectLeft.onAbsorb(
-                            (int) OverScrollerCompat.getCurrVelocity(mOverScroller));
-                    mEdgeEffectLeftActive = true;
-                    needsInvalidate = true;
-                } else if (currX < mGestureTransformInfo.x &&
-                        mEdgeEffectRight.isFinished() &&
-                        !mEdgeEffectRightActive) {
-                    mEdgeEffectRight.onAbsorb
-                            ((int) OverScrollerCompat.getCurrVelocity(mOverScroller));
-                    mEdgeEffectRightActive = true;
-                    needsInvalidate = true;
-                }
-            }
-
-            if (canScrollY() && mOverScroller.isOverScrolled()) {
-                if (currY > mGestureTransformInfo.y &&
-                        mEdgeEffectTop.isFinished() &&
-                        !mEdgeEffectTopActive) {
-                    mEdgeEffectTop.onAbsorb(
-                            (int) OverScrollerCompat.getCurrVelocity(mOverScroller));
-                    mEdgeEffectTopActive = true;
-                    needsInvalidate = true;
-                } else if (currY < mGestureTransformInfo.y &&
-                        mEdgeEffectBottom.isFinished() &&
-                        !mEdgeEffectBottomActive) {
-                    mEdgeEffectBottom.onAbsorb
-                            ((int) OverScrollerCompat.getCurrVelocity(mOverScroller));
-                    mEdgeEffectBottomActive = true;
-                    needsInvalidate = true;
-                }
-            }
-
-            needsInvalidate = transformImage(mGestureTransformInfo) || needsInvalidate;
-
-            // needsInvalidate only if changed?
-            //needsInvalidate = true;
+            // TODO needsInvalidate only if changed?
+            needsInvalidate = true;
 
         } else if (mTransformer.computeTransform()) {
 
-            needsInvalidate = transformImage(
+            transformImage(
                     mTransformer.getCurrScaleX(),
                     mTransformer.getCurrScaleY(),
                     mTransformer.getPx(),
@@ -644,8 +585,8 @@ public class InteractiveImageView extends AppCompatImageView
                     mTransformer.getCurrX(),
                     mTransformer.getCurrY());
 
-            // needsInvalidate only if changed?
-            //needsInvalidate = true;
+            // TODO needsInvalidate only if changed?
+            needsInvalidate = true;
         }
 
         if (needsInvalidate) {
@@ -666,12 +607,6 @@ public class InteractiveImageView extends AppCompatImageView
             transformImage(mPendingTransformInfo);
             mPendingTransformInfo = null;
         }
-    }
-
-    @Override
-    protected void onDraw(Canvas canvas) {
-        super.onDraw(canvas);
-        drawEdgeEffectsUnclipped(canvas);
     }
 
     @Override
@@ -742,7 +677,6 @@ public class InteractiveImageView extends AppCompatImageView
 
     @Override // GestureDetector.OnGestureListener
     public boolean onDown(MotionEvent e) {
-        releaseEdgeEffects();
         mOverScroller.forceFinished(true);
         getPivotPoint(e.getX(), e.getY(), getImageMatrixInternal(), mPivotPoint);
         return true;
@@ -766,60 +700,15 @@ public class InteractiveImageView extends AppCompatImageView
         if (mScaleGestureDetector.isInProgress()) {
             return false;
         }
+        final float sx = getImageScaleX();
+        final float sy = getImageScaleY();
         final float x = e2.getX();
         final float y = e2.getY();
-        mGestureTransformInfo.set(
-                getImageScaleX(),
-                getImageScaleY(),
-                mPivotPoint.x,
-                mPivotPoint.y,
-                x,
-                y,
-                false);
+        mGestureTransformInfo.set(sx, sy, mPivotPoint.x, mPivotPoint.y, x, y, false);
         final boolean constrained = constrainTransformInfo(mGestureTransformInfo, true);
-        boolean needsInvalidate = transformImage(mGestureTransformInfo);
+        transformImage(mGestureTransformInfo);
         if (constrained) {
             getPivotPoint(x, y, getImageMatrixInternal(), mPivotPoint);
-        }
-        final Rect contentRect = getContentRect();
-        if (canScrollX()) {
-            final float constrainedDiff = mGestureTransformInfo.x - x;
-            if (constrainedDiff < 0.0f) {
-                mEdgeEffectLeftActive = true;
-                EdgeEffectCompat.onPull(
-                        mEdgeEffectLeft,
-                        constrainedDiff / getContentRect().width(),
-                        y / getHeight());
-                needsInvalidate = true;
-            } else if (constrainedDiff > 0.0f) {
-                mEdgeEffectRightActive = true;
-                EdgeEffectCompat.onPull(
-                        mEdgeEffectRight,
-                        constrainedDiff / getContentRect().width(),
-                        1.0f - y / getHeight());
-                needsInvalidate = true;
-            }
-        }
-        if (canScrollY()) {
-            final float constrainedDiff = mGestureTransformInfo.y - y;
-            if (constrainedDiff < 0.0f) {
-                EdgeEffectCompat.onPull(
-                        mEdgeEffectTop,
-                        constrainedDiff / contentRect.height(),
-                        x / getWidth());
-                mEdgeEffectTopActive = true;
-                needsInvalidate = true;
-            } else if (constrainedDiff > 0.0f) {
-                EdgeEffectCompat.onPull(
-                        mEdgeEffectBottom,
-                        constrainedDiff / contentRect.height(),
-                        1.0f - x / getWidth());
-                mEdgeEffectBottomActive = true;
-                needsInvalidate = true;
-            }
-        }
-        if (needsInvalidate) {
-            ViewCompat.postInvalidateOnAnimation(this);
         }
         return true;
     }
@@ -830,7 +719,6 @@ public class InteractiveImageView extends AppCompatImageView
 
     @Override // GestureDetector.OnGestureListener
     public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
-        releaseEdgeEffects();
         final Matrix matrix = mPoolManager.acquireMatrix(getImageMatrixInternal());
         final ValuesWrapper matrixValues = mPoolManager.acquireValuesWrapper(matrix);
         final RectF drawableRect = mPoolManager.acquireRectF(getDrawable());
@@ -851,9 +739,7 @@ public class InteractiveImageView extends AppCompatImageView
                 (int) (startX - scrollableX + scrolledX),
                 (int) (startX + scrolledX),
                 (int) (startY - scrollableY + scrolledY),
-                (int) (startY + scrolledY),
-                contentRect.width() / 2,
-                contentRect.height() / 2);
+                (int) (startY + scrolledY));
         mPoolManager.releaseRectF(mappedRect);
         mPoolManager.releaseRectF(drawableRect);
         mPoolManager.releaseValuesWrapper(matrixValues);
@@ -1078,18 +964,6 @@ public class InteractiveImageView extends AppCompatImageView
 
     public void setInteractivity(int flags) {
         mInteractivity = flags;
-        if ((mInteractivity & INTERACTIVITY_FLAG_EDGE_EFFECTS) == 0) {
-            mEdgeEffectLeft = null;
-            mEdgeEffectTop = null;
-            mEdgeEffectRight = null;
-            mEdgeEffectBottom = null;
-        } else {
-            final Context context = getContext();
-            mEdgeEffectLeft = new EdgeEffect(context);
-            mEdgeEffectTop = new EdgeEffect(context);
-            mEdgeEffectRight = new EdgeEffect(context);
-            mEdgeEffectBottom = new EdgeEffect(context);
-        }
     }
 
     public void setZoomPivots(float... pivots) {
@@ -1212,7 +1086,6 @@ public class InteractiveImageView extends AppCompatImageView
      * Returns the baseline image matrix; that is, the matrix that describes the image
      * at the current scale type
      * minus any padding. Do not change this rectangle in place but make a copy.
-     *
      * @return
      */
     protected Matrix getBaselineImageMatrix() {
@@ -1301,7 +1174,6 @@ public class InteractiveImageView extends AppCompatImageView
     /**
      * Returns the view's content rectangle; that is, the rectangle defined by the view
      * minus any padding. Do not change this rectangle in place but make a copy.
-     *
      * @return
      */
     protected Rect getContentRect() {
@@ -1322,7 +1194,6 @@ public class InteractiveImageView extends AppCompatImageView
      * matrix, this method will return an identity matrix. Do not change this matrix in place but
      * make a copy. If you want a different matrix applied to the drawable, be sure to call
      * setImageMatrix().
-     *
      * @return The view's optional matrix
      */
     protected Matrix getImageMatrixInternal() {
@@ -1410,7 +1281,7 @@ public class InteractiveImageView extends AppCompatImageView
     protected void getPivotPoint(float x, float y, Matrix matrix, PointF outPoint) {
         if (matrix != null && outPoint != null) {
             final Matrix invertedMatrix = mPoolManager.acquireMatrix();
-            final PtsWrapper srcPts = mPoolManager.acquirePtsWrapper(x, y);
+            final PtsWrapper srcPts = mPoolManager.acquirePtsWrapper(x,  y);
             final PtsWrapper dstPts = mPoolManager.acquirePtsWrapper();
             matrix.invert(invertedMatrix);
             invertedMatrix.mapPoints(dstPts.pts, srcPts.pts);
@@ -1451,68 +1322,6 @@ public class InteractiveImageView extends AppCompatImageView
     //endregion Protected methods
 
     //region Private methods
-
-    /**
-     * Draws the overscroll "glow" at the four edges of the chart region, if necessary. The edges
-     * of the chart region are stored in {@link #mContentRect}.
-     *
-     * @see EdgeEffect
-     */
-    private void drawEdgeEffectsUnclipped(Canvas canvas) {
-        // The methods below rotate and translate the canvas as needed before drawing the glow,
-        // since EdgeEffectCompat always draws a top-glow at 0,0.
-        boolean needsInvalidate = false;
-        final Rect contentRect = getContentRect();
-        final int contentWidth = contentRect.width();
-        final int contentHeight = contentRect.height();
-        
-        if (!mEdgeEffectTop.isFinished()) {
-            final int restoreCount = canvas.save();
-            canvas.translate(contentRect.left, contentRect.top);
-            mEdgeEffectTop.setSize(contentWidth, contentHeight);
-            if (mEdgeEffectTop.draw(canvas)) {
-                needsInvalidate = true;
-            }
-            canvas.restoreToCount(restoreCount);
-        }
-
-        if (!mEdgeEffectBottom.isFinished()) {
-            final int restoreCount = canvas.save();
-            canvas.translate(2 * contentRect.left - contentRect.right, contentRect.bottom);
-            canvas.rotate(180, contentWidth, 0);
-            mEdgeEffectBottom.setSize(contentWidth, contentHeight);
-            if (mEdgeEffectBottom.draw(canvas)) {
-                needsInvalidate = true;
-            }
-            canvas.restoreToCount(restoreCount);
-        }
-
-        if (!mEdgeEffectLeft.isFinished()) {
-            final int restoreCount = canvas.save();
-            canvas.translate(contentRect.left, contentRect.bottom);
-            canvas.rotate(-90, 0, 0);
-            mEdgeEffectLeft.setSize(contentHeight, contentWidth);
-            if (mEdgeEffectLeft.draw(canvas)) {
-                needsInvalidate = true;
-            }
-            canvas.restoreToCount(restoreCount);
-        }
-
-        if (!mEdgeEffectRight.isFinished()) {
-            final int restoreCount = canvas.save();
-            canvas.translate(contentRect.right, contentRect.top);
-            canvas.rotate(90, 0, 0);
-            mEdgeEffectRight.setSize(contentHeight, contentWidth);
-            if (mEdgeEffectRight.draw(canvas)) {
-                needsInvalidate = true;
-            }
-            canvas.restoreToCount(restoreCount);
-        }
-
-        if (needsInvalidate) {
-            ViewCompat.postInvalidateOnAnimation(this);
-        }
-    }
 
     private float getNextZoomPivot() {
         float nextZoomPivot = 0.0f;
@@ -1621,18 +1430,6 @@ public class InteractiveImageView extends AppCompatImageView
         }
         a.recycle();
         return new Initializer(this);
-    }
-
-    private void releaseEdgeEffects() {
-        mEdgeEffectLeftActive
-                = mEdgeEffectTopActive
-                = mEdgeEffectRightActive
-                = mEdgeEffectBottomActive
-                = false;
-        mEdgeEffectLeft.onRelease();
-        mEdgeEffectTop.onRelease();
-        mEdgeEffectRight.onRelease();
-        mEdgeEffectBottom.onRelease();
     }
 
     private boolean transformToMatrix(

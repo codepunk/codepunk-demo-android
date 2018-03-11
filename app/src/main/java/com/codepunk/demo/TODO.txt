@@ -1,4 +1,5 @@
 TODO NEXT:
+DEFINITELY Need to check if edge effects != null
 Only fling when fling enabled
 Only scroll when scroll enabled
 Only scale when pinch-to-zoom enabled
