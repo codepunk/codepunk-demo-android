@@ -21,7 +21,6 @@ import android.support.v4.widget.EdgeEffectCompat;
 import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
-import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
@@ -34,8 +33,6 @@ import android.widget.OverScroller;
 import com.codepunk.demo.OverScrollerCompat;
 import com.codepunk.demo.R;
 import com.codepunk.demo.support.DisplayCompat;
-
-import java.util.Locale;
 
 import static android.graphics.Matrix.MSCALE_X;
 import static android.graphics.Matrix.MSCALE_Y;
@@ -592,14 +589,15 @@ public class InteractiveImageView extends AppCompatImageView
             constrainTransformInfo(mGestureTransformInfo, true);
 
             if (canScrollX() && mOverScroller.isOverScrolled()) {
-                if (currX > mGestureTransformInfo.x &&
+                final int diff = (currX - Math.round(mGestureTransformInfo.x));
+                if (diff > 0 &&
                         mEdgeEffectLeft.isFinished() &&
                         !mEdgeEffectLeftActive) {
                     mEdgeEffectLeft.onAbsorb(
                             (int) OverScrollerCompat.getCurrVelocity(mOverScroller));
                     mEdgeEffectLeftActive = true;
                     needsInvalidate = true;
-                } else if (currX < mGestureTransformInfo.x &&
+                } else if (diff < 0 &&
                         mEdgeEffectRight.isFinished() &&
                         !mEdgeEffectRightActive) {
                     mEdgeEffectRight.onAbsorb
@@ -610,14 +608,15 @@ public class InteractiveImageView extends AppCompatImageView
             }
 
             if (canScrollY() && mOverScroller.isOverScrolled()) {
-                if (currY > mGestureTransformInfo.y &&
+                final int diff = (currY - Math.round(mGestureTransformInfo.y));
+                if (diff > 0 &&
                         mEdgeEffectTop.isFinished() &&
                         !mEdgeEffectTopActive) {
                     mEdgeEffectTop.onAbsorb(
                             (int) OverScrollerCompat.getCurrVelocity(mOverScroller));
                     mEdgeEffectTopActive = true;
                     needsInvalidate = true;
-                } else if (currY < mGestureTransformInfo.y &&
+                } else if (diff < 0 &&
                         mEdgeEffectBottom.isFinished() &&
                         !mEdgeEffectBottomActive) {
                     mEdgeEffectBottom.onAbsorb
@@ -779,14 +778,14 @@ public class InteractiveImageView extends AppCompatImageView
                 EdgeEffectCompat.onPull(
                         mEdgeEffectLeft,
                         constrainedDiff / getContentRect().width(),
-                        y / getHeight());
+                        1.0f - y / getHeight());
                 needsInvalidate = true;
             } else if (constrainedDiff > 0.0f) {
                 mEdgeEffectRightActive = true;
                 EdgeEffectCompat.onPull(
                         mEdgeEffectRight,
                         constrainedDiff / getContentRect().width(),
-                        1.0f - y / getHeight());
+                        y / getHeight());
                 needsInvalidate = true;
             }
         }
