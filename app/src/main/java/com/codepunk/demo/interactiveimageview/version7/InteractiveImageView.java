@@ -333,22 +333,20 @@ public class InteractiveImageView extends AppCompatImageView
             }
 
             long tRTC = SystemClock.elapsedRealtime() - mStartRTC;
-
             if (tRTC >= mAnimationDurationMillis) {
-                mFinished = true;
                 mCurrentSx = mEndSx;
                 mCurrentSy = mEndSy;
                 mCurrentX = mEndX;
                 mCurrentY = mEndY;
-                return false;
+                mFinished = true;
+            } else {
+                float t = tRTC * 1f / mAnimationDurationMillis;
+                float interpolation = mInterpolator.getInterpolation(t);
+                mCurrentSx = mStartSx + (mEndSx - mStartSx) * interpolation;
+                mCurrentSy = mStartSy + (mEndSy - mStartSy) * interpolation;
+                mCurrentX = mStartX + (mEndX - mStartX) * interpolation;
+                mCurrentY = mStartY + (mEndY - mStartY) * interpolation;
             }
-
-            float t = tRTC * 1f / mAnimationDurationMillis;
-            float interpolation = mInterpolator.getInterpolation(t);
-            mCurrentSx = mStartSx + (mEndSx - mStartSx) * interpolation;
-            mCurrentSy = mStartSy + (mEndSy - mStartSy) * interpolation;
-            mCurrentX = mStartX + (mEndX - mStartX) * interpolation;
-            mCurrentY = mStartY + (mEndY - mStartY) * interpolation;
             return true;
         }
 
@@ -630,12 +628,7 @@ public class InteractiveImageView extends AppCompatImageView
             }
 
             needsInvalidate = transformImage(mGestureTransformInfo) || needsInvalidate;
-
-            // needsInvalidate only if changed?
-            //needsInvalidate = true;
-
         } else if (mTransformer.computeTransform()) {
-
             needsInvalidate = transformImage(
                     mTransformer.getCurrScaleX(),
                     mTransformer.getCurrScaleY(),
@@ -643,9 +636,6 @@ public class InteractiveImageView extends AppCompatImageView
                     mTransformer.getPy(),
                     mTransformer.getCurrX(),
                     mTransformer.getCurrY());
-
-            // needsInvalidate only if changed?
-            //needsInvalidate = true;
         }
 
         if (needsInvalidate) {
@@ -871,8 +861,13 @@ public class InteractiveImageView extends AppCompatImageView
         if ((mInteractivity & INTERACTIVITY_FLAG_DOUBLE_TAP) != 0) {
             mTransformer.forceFinished(true);
             final float next = getNextZoomPivot();
-            final float sx = getImageMaxScaleX() * next + getImageMinScaleX() * (1 - next);
-            final float sy = getImageMaxScaleY() * next + getImageMinScaleY() * (1 - next);
+//            final float sx = getImageMaxScaleX() * next + getImageMinScaleX() * (1 - next);
+//            final float sy = getImageMaxScaleY() * next + getImageMinScaleY() * (1 - next);
+
+            getImageMinScale();
+            final float sx = mMinScale.x + (getImageMaxScaleX() - mMinScale.x) * next;
+            final float sy = mMinScale.y + (getImageMaxScaleY() - mMinScale.y) * next;
+
             final float x = getPaddingLeft() + getContentRect().width() * 0.5f;
             final float y = getPaddingTop() + getContentRect().height() * 0.5f;
             mGestureTransformInfo.set(sx, sy, mPivotPoint.x, mPivotPoint.y, x, y, true);
@@ -1184,10 +1179,11 @@ public class InteractiveImageView extends AppCompatImageView
 
     @SuppressWarnings("SpellCheckingInspection")
     protected boolean canScrollX(Matrix matrix) {
-        final PointF tCoef = mPoolManager.acquirePointF();
-        getTranslationCoefficient(matrix, tCoef);
-        final boolean canScrollX = (tCoef.x < 0.0f);
-        mPoolManager.releasePointF(tCoef);
+        final PointF tc = mPoolManager.acquirePointF();
+        getTranslationCoefficient(matrix, tc);
+        final boolean canScrollX = (Math.round(tc.x) < 0
+        );
+        mPoolManager.releasePointF(tc);
         return canScrollX;
     }
 
@@ -1195,12 +1191,11 @@ public class InteractiveImageView extends AppCompatImageView
         return canScrollY(getImageMatrixInternal());
     }
 
-    @SuppressWarnings("SpellCheckingInspection")
     protected boolean canScrollY(Matrix matrix) {
-        final PointF tCoef = mPoolManager.acquirePointF();
-        getTranslationCoefficient(matrix, tCoef);
-        final boolean canScrollY = (tCoef.y < 0.0f);
-        mPoolManager.releasePointF(tCoef);
+        final PointF tc = mPoolManager.acquirePointF();
+        getTranslationCoefficient(matrix, tc);
+        final boolean canScrollY = (Math.round(tc.y) < 0);
+        mPoolManager.releasePointF(tc);
         return canScrollY;
     }
 
