@@ -6,6 +6,7 @@ Only scale when pinch-to-zoom enabled
 Test to see if image is at "baseline" before saving/restoring on config change
 Think about when to test for drawable has intrinsic size
 
+Bug: When Y can't scroll and you fling X, sometimes you still see Y edge effects
 Bug: Saving transform info over orientation change no longer works
 Bug: onScroll still sometimes clashes with onScale when pinching down far -- jerkiness etc.
 Bug: When switching from one image to another, need to reset matrix?
