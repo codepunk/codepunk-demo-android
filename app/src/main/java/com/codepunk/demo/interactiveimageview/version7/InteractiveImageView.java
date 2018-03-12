@@ -37,8 +37,6 @@ import com.codepunk.demo.R;
 import com.codepunk.demo.support.DisplayCompat;
 import com.codepunk.demo.support.ImageViewCompat;
 
-import java.util.Objects;
-
 import static android.graphics.Matrix.MSCALE_X;
 import static android.graphics.Matrix.MSCALE_Y;
 import static android.graphics.Matrix.MTRANS_X;
