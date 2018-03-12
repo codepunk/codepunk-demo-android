@@ -16,7 +16,10 @@
             android:id="@+id/image"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:scaleType="centerCrop" />
+            android:scaleType="centerCrop"
+            android:padding="0dp"
+            android:cropToPadding="false"
+            android:background="@android:color/darker_gray" />
 
     </FrameLayout>
 

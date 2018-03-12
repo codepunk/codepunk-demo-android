@@ -6,6 +6,7 @@ import android.os.Build;
 public class IntegerCompat {
 
     //region Nested classes
+
     private interface IntegerCompatImpl {
         int compare(int x, int y);
     }
@@ -24,9 +25,11 @@ public class IntegerCompat {
             return Integer.compare(x, y);
         }
     }
+
     //endregion Nested classes
 
     //region Constants
+
     private static final IntegerCompatImpl IMPL;
     static {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
@@ -35,11 +38,20 @@ public class IntegerCompat {
             IMPL = new BaseIntegerCompatImpl();
         }
     }
+
     //endregion Constants
 
+    //region Constructors
+
+    private IntegerCompat() {}
+
+    //endregion Constructors
+
     //region Public methods
+
     public static int compare(int x, int y) {
         return IMPL.compare(x, y);
     }
+
     //endregion Public methods
 }

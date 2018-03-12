@@ -4,6 +4,7 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.PointF;
 import android.graphics.Rect;
@@ -33,6 +34,7 @@ import android.widget.OverScroller;
 import com.codepunk.demo.OverScrollerCompat;
 import com.codepunk.demo.R;
 import com.codepunk.demo.support.DisplayCompat;
+import com.codepunk.demo.support.ImageViewCompat;
 
 import static android.graphics.Matrix.MSCALE_X;
 import static android.graphics.Matrix.MSCALE_Y;
@@ -479,6 +481,8 @@ public class InteractiveImageView extends AppCompatImageView
             INVALID_FLAG_IMAGE_MAX_SCALE |
             INVALID_FLAG_IMAGE_MIN_SCALE;
 
+    private static final float EDGE_EFFECT_SIZE_FACTOR = 1.25f;
+
     //endregion Constants
 
     //region Fields
@@ -660,7 +664,7 @@ public class InteractiveImageView extends AppCompatImageView
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-        drawEdgeEffectsUnclipped(canvas);
+        drawEdgeEffects(canvas);
     }
 
     @Override
@@ -820,16 +824,15 @@ public class InteractiveImageView extends AppCompatImageView
     @Override // GestureDetector.OnGestureListener
     public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
         releaseEdgeEffects();
-        final Matrix matrix = mPoolManager.acquireMatrix(getImageMatrixInternal());
+        final Matrix matrix = getImageMatrixInternal();
         final ValuesWrapper matrixValues = mPoolManager.acquireValuesWrapper(matrix);
-        final RectF drawableRect = mPoolManager.acquireRectF(getDrawable());
-        final RectF mappedRect = mPoolManager.acquireRectF();
-        matrix.mapRect(mappedRect, drawableRect);
+        final RectF mappedImageRect = mPoolManager.acquireRectF();
+        getMappedImageRect(matrix, mappedImageRect);
         final Rect contentRect = getContentRect();
         final float startX = e2.getX();
         final float startY = e2.getY();
-        final float scrollableX = Math.max(mappedRect.width() - contentRect.width(), 0);
-        final float scrollableY = Math.max(mappedRect.height() - contentRect.height(), 0);
+        final float scrollableX = Math.max(mappedImageRect.width() - contentRect.width(), 0);
+        final float scrollableY = Math.max(mappedImageRect.height() - contentRect.height(), 0);
         final float scrolledX = -Math.min(matrixValues.values[MTRANS_X], 0);
         final float scrolledY = -Math.min(matrixValues.values[MTRANS_Y], 0);
         mOverScroller.fling(
@@ -843,10 +846,8 @@ public class InteractiveImageView extends AppCompatImageView
                 (int) (startY + scrolledY),
                 contentRect.width() / 2,
                 contentRect.height() / 2);
-        mPoolManager.releaseRectF(mappedRect);
-        mPoolManager.releaseRectF(drawableRect);
+        mPoolManager.releaseRectF(mappedImageRect);
         mPoolManager.releaseValuesWrapper(matrixValues);
-        mPoolManager.releaseMatrix(matrix);
         return true;
     }
 
@@ -926,7 +927,7 @@ public class InteractiveImageView extends AppCompatImageView
     //region Methods
 
     @SuppressWarnings("SpellCheckingInspection")
-    public boolean constrainTransformInfo(TransformInfo info, boolean fromUser) {
+    public boolean constrainTransformInfo(TransformInfo info, boolean isTouchEvent) {
         boolean constrained = false;
         if (info != null) {
             if (drawableHasIntrinsicSize()) {
@@ -1338,12 +1339,11 @@ public class InteractiveImageView extends AppCompatImageView
                 final Matrix baselineMatrix = getBaselineImageMatrix();
                 final ValuesWrapper matrixValues =
                         mPoolManager.acquireValuesWrapper(baselineMatrix);
-                final RectF srcRect = mPoolManager.acquireRectF(getDrawable());
-                final RectF dstRect = mPoolManager.acquireRectF();
+                final RectF mappedImageRect = mPoolManager.acquireRectF();
+                getMappedImageRect(baselineMatrix, mappedImageRect);
 
-                baselineMatrix.mapRect(dstRect, srcRect);
-                final float baselineWidth = dstRect.width();
-                final float baselineHeight = dstRect.height();
+                final float baselineWidth = mappedImageRect.width();
+                final float baselineHeight = mappedImageRect.height();
                 final float baselineBreadth = Math.min(baselineWidth, baselineHeight);
                 final float baselineLength = Math.max(baselineWidth, baselineHeight);
 
@@ -1380,8 +1380,7 @@ public class InteractiveImageView extends AppCompatImageView
                 maxScaleX = scale * matrixValues.values[MSCALE_X];
                 maxScaleY = scale * matrixValues.values[MSCALE_Y];
 
-                mPoolManager.releaseRectF(dstRect);
-                mPoolManager.releaseRectF(srcRect);
+                mPoolManager.releaseRectF(mappedImageRect);
                 mPoolManager.releaseValuesWrapper(matrixValues);
             } else {
                 maxScaleX = maxScaleY = 1.0f;
@@ -1452,18 +1451,30 @@ public class InteractiveImageView extends AppCompatImageView
      *
      * @see EdgeEffect
      */
-    private void drawEdgeEffectsUnclipped(Canvas canvas) {
+    @SuppressWarnings("SuspiciousNameCombination")
+    private void drawEdgeEffects(Canvas canvas) {
+        // TODO Maybe make these the size of the scaled image???
         // The methods below rotate and translate the canvas as needed before drawing the glow,
         // since EdgeEffectCompat always draws a top-glow at 0,0.
         boolean needsInvalidate = false;
-        final Rect contentRect = getContentRect();
-        final int contentWidth = contentRect.width();
-        final int contentHeight = contentRect.height();
-        
+        final RectF glowRect = mPoolManager.acquireRectF();
+        if (ImageViewCompat.getCropToPadding(this)) {
+            glowRect.set(getContentRect());
+        } else {
+            glowRect.set(0.0f, 0.0f, getWidth(), getHeight());
+        }
+        final float rectWidth = glowRect.width();
+        final float rectHeight = glowRect.height();
+        final int glowAreaWidth = (int) (rectWidth * EDGE_EFFECT_SIZE_FACTOR);
+        final int glowAreaHeight = (int) (rectHeight * EDGE_EFFECT_SIZE_FACTOR);
+
         if (!mEdgeEffectTop.isFinished()) {
             final int restoreCount = canvas.save();
-            canvas.translate(contentRect.left, contentRect.top);
-            mEdgeEffectTop.setSize(contentWidth, contentHeight);
+            canvas.clipRect(glowRect);
+            final float dx = glowRect.left - (glowAreaWidth - rectWidth) * 0.5f;
+            final float dy = glowRect.top;
+            canvas.translate(dx, dy);
+            mEdgeEffectTop.setSize(glowAreaWidth, glowAreaHeight);
             if (mEdgeEffectTop.draw(canvas)) {
                 needsInvalidate = true;
             }
@@ -1472,9 +1483,12 @@ public class InteractiveImageView extends AppCompatImageView
 
         if (!mEdgeEffectBottom.isFinished()) {
             final int restoreCount = canvas.save();
-            canvas.translate(2 * contentRect.left - contentRect.right, contentRect.bottom);
-            canvas.rotate(180, contentWidth, 0);
-            mEdgeEffectBottom.setSize(contentWidth, contentHeight);
+            canvas.clipRect(glowRect);
+            final float dx = glowRect.left - (glowAreaWidth - rectWidth) * 0.5f;
+            final float dy = glowRect.bottom;
+            canvas.translate(-glowAreaWidth + dx, dy);
+            canvas.rotate(180.0f, glowAreaWidth, 0.0f);
+            mEdgeEffectBottom.setSize(glowAreaWidth, glowAreaHeight);
             if (mEdgeEffectBottom.draw(canvas)) {
                 needsInvalidate = true;
             }
@@ -1483,9 +1497,12 @@ public class InteractiveImageView extends AppCompatImageView
 
         if (!mEdgeEffectLeft.isFinished()) {
             final int restoreCount = canvas.save();
-            canvas.translate(contentRect.left, contentRect.bottom);
-            canvas.rotate(-90, 0, 0);
-            mEdgeEffectLeft.setSize(contentHeight, contentWidth);
+            canvas.clipRect(glowRect);
+            final float dx = glowRect.left;
+            final float dy = glowRect.bottom + (glowAreaHeight - rectHeight) * 0.5f;
+            canvas.translate(dx, dy);
+            canvas.rotate(-90.0f, 0.0f, 0.0f);
+            mEdgeEffectLeft.setSize(glowAreaHeight, glowAreaWidth);
             if (mEdgeEffectLeft.draw(canvas)) {
                 needsInvalidate = true;
             }
@@ -1494,9 +1511,12 @@ public class InteractiveImageView extends AppCompatImageView
 
         if (!mEdgeEffectRight.isFinished()) {
             final int restoreCount = canvas.save();
-            canvas.translate(contentRect.right, contentRect.top);
-            canvas.rotate(90, 0, 0);
-            mEdgeEffectRight.setSize(contentHeight, contentWidth);
+            canvas.clipRect(glowRect);
+            final float dx = glowRect.right;
+            final float dy = glowRect.top - (glowAreaHeight - rectHeight) * 0.5f;
+            canvas.translate(dx, dy);
+            canvas.rotate(90.0f, 0.0f, 0.0f);
+            mEdgeEffectRight.setSize(glowAreaHeight, glowAreaWidth);
             if (mEdgeEffectRight.draw(canvas)) {
                 needsInvalidate = true;
             }
@@ -1506,6 +1526,12 @@ public class InteractiveImageView extends AppCompatImageView
         if (needsInvalidate) {
             ViewCompat.postInvalidateOnAnimation(this);
         }
+    }
+
+    private void getMappedImageRect(@NonNull Matrix matrix, @NonNull RectF outRect) {
+        final RectF drawableRect = mPoolManager.acquireRectF(getDrawable());
+        matrix.mapRect(outRect, drawableRect);
+        mPoolManager.releaseRectF(drawableRect);
     }
 
     private float getNextZoomPivot() {
@@ -1547,12 +1573,11 @@ public class InteractiveImageView extends AppCompatImageView
     private void getTranslationCoefficient(Matrix matrix, PointF outPoint) {
         // TODO Drawable has intrinsic size?
         final Rect contentRect = getContentRect();
-        final RectF drawableRect = mPoolManager.acquireRectF(getDrawable());
-        final RectF mappedRect = mPoolManager.acquireRectF();
-        matrix.mapRect(mappedRect, drawableRect);
+        final RectF mappedImageRect = mPoolManager.acquireRectF();
+        getMappedImageRect(matrix, mappedImageRect);
         outPoint.set(
-                contentRect.width() - mappedRect.width(),
-                contentRect.height() - mappedRect.height());
+                contentRect.width() - mappedImageRect.width(),
+                contentRect.height() - mappedImageRect.height());
         if (outPoint.x > 0.0f) {
             // The mapped image is narrower than the content area
             switch (mScaleType) {
@@ -1585,8 +1610,7 @@ public class InteractiveImageView extends AppCompatImageView
                     outPoint.y *= 0.5f;
             }
         }
-        mPoolManager.releaseRectF(mappedRect);
-        mPoolManager.releaseRectF(drawableRect);
+        mPoolManager.releaseRectF(mappedImageRect);
     }
 
     @SuppressWarnings("SameParameterValue")

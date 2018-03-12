@@ -10,3 +10,17 @@ xxx Bug: When Y can't scroll and you fling X, sometimes you still see Y edge eff
 Bug: Saving transform info over orientation change no longer works
 Bug: onScroll still sometimes clashes with onScale when pinching down far -- jerkiness etc.
 Bug: When switching from one image to another, need to reset matrix?
+Bug: When padding is not 0, coming up with wrong trans x/y when minimized in centerCrop (so,
+     the constrainTransformInfo seems to be wrong) <-- Mostly top or left being too big, it seems?
+
+TODO:
+Change to these methods
+setScrollEnabled(boolean enabled)
+setScaleEnabled(boolean enabled)
+setDoubleTapToScaleEnabled(boolean enabled)
+setOverScrollMode(OVER_SCROLL_ALWAYS / OVER_SCROLL_IF_CONTENT_SCROLLS / OVER_SCROLL_NEVER)
+-- fling --
+setFlingEnabled(boolean enabled)
+setOverScrollEnabledOnFling?
+-- or --
+setFlingMode(FLING_OFF / FLING_ON / FLING_OVER_SCROLL) **
