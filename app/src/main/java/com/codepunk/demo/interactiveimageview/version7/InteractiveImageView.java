@@ -1097,14 +1097,15 @@ public class InteractiveImageView extends AppCompatImageView
     }
 
     public boolean transformImage(float sx, float sy, float px, float py, boolean animate) {
-        return transformImage(
-                sx,
-                sy,
-                px,
-                py,
-                getContentRect().exactCenterX(),
-                getContentRect().exactCenterY(),
-                animate);
+        final float x;
+        final float y;
+        if (ViewCompat.isLaidOut(this)) {
+            x = getContentRect().exactCenterX();
+            y = getContentRect().exactCenterY();
+        } else {
+            x = y = Float.NaN;
+        }
+        return transformImage(sx, sy, px, py, x, y, animate);
     }
 
     public boolean transformImage(
@@ -1128,6 +1129,13 @@ public class InteractiveImageView extends AppCompatImageView
         if (!ViewCompat.isLaidOut(this)) {
             mPendingTransformInfo = new TransformInfo(sx, sy, px, py, x, y, animate);
             return false;
+        }
+
+        if (Float.isNaN(x)) {
+            x = getContentRect().exactCenterX();
+        }
+        if (Float.isNaN(y)) {
+            y = getContentRect().exactCenterY();
         }
 
         final Matrix matrix = mPoolManager.acquireMatrix();
