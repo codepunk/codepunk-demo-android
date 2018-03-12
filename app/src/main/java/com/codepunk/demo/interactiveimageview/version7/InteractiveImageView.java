@@ -4,12 +4,13 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.PointF;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
+import android.os.Parcel;
+import android.os.Parcelable;
 import android.os.SystemClock;
 import android.support.annotation.ArrayRes;
 import android.support.annotation.NonNull;
@@ -35,6 +36,8 @@ import com.codepunk.demo.OverScrollerCompat;
 import com.codepunk.demo.R;
 import com.codepunk.demo.support.DisplayCompat;
 import com.codepunk.demo.support.ImageViewCompat;
+
+import java.util.Objects;
 
 import static android.graphics.Matrix.MSCALE_X;
 import static android.graphics.Matrix.MSCALE_Y;
@@ -400,14 +403,36 @@ public class InteractiveImageView extends AppCompatImageView
         }
     }
 
-    public static class TransformInfo {
+    public static class TransformInfo implements Parcelable {
+
+        //region Fields
+
         public float sx = 1.0f;
         public float sy = 1.0f;
         public float px = 0.0f;
         public float py = 0.0f;
-        public float x = 0.0f;
-        public float y = 0.0f;
+        public float x = PLACE_IN_CENTER;
+        public float y = PLACE_IN_CENTER;
         public boolean animate = false;
+
+        //endregion Fields
+
+        //region Nested classes
+
+        public static final Parcelable.Creator<TransformInfo> CREATOR
+                = new Parcelable.Creator<TransformInfo>() {
+            public TransformInfo createFromParcel(Parcel in) {
+                return new TransformInfo(in);
+            }
+
+            public TransformInfo[] newArray(int size) {
+                return new TransformInfo[size];
+            }
+        };
+
+        //endregion Nested classes
+
+        //region Constructors
 
         public TransformInfo() {
         }
@@ -432,6 +457,85 @@ public class InteractiveImageView extends AppCompatImageView
             set(src.sx, src.sy, src.px, src.py, src.x, src.y, src.animate);
         }
 
+        private TransformInfo(Parcel src) {
+            sx = src.readFloat();
+            sy = src.readFloat();
+            px = src.readFloat();
+            px = src.readFloat();
+            x = src.readFloat();
+            y = src.readFloat();
+            animate = (src.readByte() != 0);
+        }
+
+        //endregion Constructors
+
+        //region Inherited methods
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+
+            TransformInfo that = (TransformInfo) o;
+
+            if (Float.compare(that.sx, sx) != 0) return false;
+            if (Float.compare(that.sy, sy) != 0) return false;
+            if (Float.compare(that.px, px) != 0) return false;
+            if (Float.compare(that.py, py) != 0) return false;
+            if (Float.compare(that.x, x) != 0) return false;
+            if (Float.compare(that.y, y) != 0) return false;
+            return animate == that.animate;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = (sx != +0.0f ? Float.floatToIntBits(sx) : 0);
+            result = 31 * result + (sy != +0.0f ? Float.floatToIntBits(sy) : 0);
+            result = 31 * result + (px != +0.0f ? Float.floatToIntBits(px) : 0);
+            result = 31 * result + (py != +0.0f ? Float.floatToIntBits(py) : 0);
+            result = 31 * result + (x != +0.0f ? Float.floatToIntBits(x) : 0);
+            result = 31 * result + (y != +0.0f ? Float.floatToIntBits(y) : 0);
+            result = 31 * result + (animate ? 1 : 0);
+            return result;
+        }
+
+        @Override
+        public String toString() {
+            return getClass().getSimpleName() +
+                    "{sx=" + sx +
+                    ", sy=" + sy +
+                    ", px=" + px +
+                    ", py=" + py +
+                    ", x=" + (Float.isNaN(x) ? "PLACE_IN_CENTER" : String.valueOf(x)) +
+                    ", y=" + (Float.isNaN(y) ? "PLACE_IN_CENTER" : String.valueOf(y)) +
+                    ", animate=" + animate +
+                    '}';
+        }
+
+        //endregion Inherited methods
+
+        //region Implemented methods
+
+        @Override
+        public int describeContents() {
+            return 0;
+        }
+
+        @Override
+        public void writeToParcel(Parcel dest, int flags) {
+            dest.writeFloat(sx);
+            dest.writeFloat(sy);
+            dest.writeFloat(px);
+            dest.writeFloat(py);
+            dest.writeFloat(x);
+            dest.writeFloat(y);
+            dest.writeByte((byte) (animate ? 1 : 0));
+        }
+
+        //endregion Implemented methods
+
+        //region Methods
+
         public void set(float sx, float sy, float px, float py, float x, float y) {
             this.sx = sx;
             this.sy = sy;
@@ -445,6 +549,8 @@ public class InteractiveImageView extends AppCompatImageView
             set(sx, sy, px, py, x, y);
             this.animate = animate;
         }
+
+        //endregion Methods
     }
 
     private static class ValuesWrapper {
@@ -733,7 +839,7 @@ public class InteractiveImageView extends AppCompatImageView
 
     //endregion Inherited methods
 
-    //region Interface methods
+    //region Implemented methods
 
     @Override // GestureDetector.OnGestureListener
     public boolean onDown(MotionEvent e) {
@@ -924,7 +1030,7 @@ public class InteractiveImageView extends AppCompatImageView
                 mPivotPoint);
     }
 
-    //endregion Interface methods
+    //endregion Implemented methods
 
     //region Methods
 
@@ -1069,6 +1175,10 @@ public class InteractiveImageView extends AppCompatImageView
         return mInteractivity;
     }
 
+    public void getTransformInfo(TransformInfo outInfo) {
+        matrixToTransformInfo(getImageMatrixInternal(), outInfo);
+    }
+
     public boolean onUp(MotionEvent e) {
         return false;
     }
@@ -1132,9 +1242,11 @@ public class InteractiveImageView extends AppCompatImageView
             y = getContentRect().exactCenterY();
         }
 
-        final Matrix matrix = mPoolManager.acquireMatrix();
+        final Matrix matrix = getImageMatrixInternal();
+        final Matrix transformMatrix = mPoolManager.acquireMatrix();
         // TODO When do I check if image has intrinsic size? Or does it matter?
-        final boolean transformed = transformToMatrix(sx, sy, px, py, x, y, matrix);
+        transformToMatrix(sx, sy, px, py, x, y, transformMatrix);
+        final boolean transformed = !matrix.equals(transformMatrix);
         if (transformed) {
             if (animate) {
                 final PtsWrapper drawablePts = mPoolManager.acquirePtsWrapper(px, py);
@@ -1160,14 +1272,14 @@ public class InteractiveImageView extends AppCompatImageView
                 if (super.getScaleType() != ScaleType.MATRIX) {
                     super.setScaleType(ScaleType.MATRIX);
                 }
-                super.setImageMatrix(matrix);
+                super.setImageMatrix(transformMatrix);
             }
         }
-        mPoolManager.releaseMatrix(matrix);
+        mPoolManager.releaseMatrix(transformMatrix);
         return transformed;
     }
 
-    protected boolean transformImage(TransformInfo info) {
+    public boolean transformImage(TransformInfo info) {
         return transformImage(info.sx, info.sy, info.px, info.py, info.x, info.y, info.animate);
     }
 
@@ -1655,7 +1767,34 @@ public class InteractiveImageView extends AppCompatImageView
         mEdgeEffectBottom.onRelease();
     }
 
-    private boolean transformToMatrix(
+    private void matrixToTransformInfo(Matrix matrix, TransformInfo outInfo) {
+        final ValuesWrapper matrixValues = mPoolManager.acquireValuesWrapper(matrix);
+        outInfo.sx = matrixValues.values[MSCALE_X];
+        outInfo.sy = matrixValues.values[MSCALE_Y];
+        if (ViewCompat.isLaidOut(this)) {
+            final PointF pivotPoint = mPoolManager.acquirePointF();
+            final Rect contentRect = getContentRect();
+            getPivotPoint(
+                    contentRect.exactCenterX(),
+                    contentRect.exactCenterY(),
+                    matrix,
+                    pivotPoint);
+            outInfo.px = pivotPoint.x;
+            outInfo.py = pivotPoint.y;
+            mPoolManager.releasePointF(pivotPoint);
+        } else {
+            final Drawable d = getDrawable();
+            final int intrinsicWidth = (d == null ? -1 : d.getIntrinsicWidth());
+            final int intrinsicHeight = (d == null ? -1 : d.getIntrinsicHeight());
+            outInfo.px = (intrinsicWidth > 0 ? intrinsicWidth * 0.5f : intrinsicWidth);
+            outInfo.py = (intrinsicHeight > 0 ? intrinsicHeight * 0.5f : intrinsicHeight);
+        }
+        outInfo.x = outInfo.y = PLACE_IN_CENTER;
+        outInfo.animate = false;
+        mPoolManager.releaseValuesWrapper(matrixValues);
+    }
+
+    private void transformToMatrix(
             float sx,
             float sy,
             float px,
@@ -1663,32 +1802,25 @@ public class InteractiveImageView extends AppCompatImageView
             float x,
             float y,
             Matrix outMatrix) {
-        if (outMatrix != null) {
-            final Matrix originalMatrix = getImageMatrixInternal();
-            outMatrix.set(originalMatrix);
-            final ValuesWrapper matrixValues =
-                    mPoolManager.acquireValuesWrapper(outMatrix);
-            final float deltaSx = sx / matrixValues.values[MSCALE_X];
-            final float deltaSy = sy / matrixValues.values[MSCALE_Y];
-            outMatrix.preScale(deltaSx, deltaSy, px, py);
+        outMatrix.set(getImageMatrixInternal());
+        final ValuesWrapper matrixValues = mPoolManager.acquireValuesWrapper(outMatrix);
+        final float deltaSx = sx / matrixValues.values[MSCALE_X];
+        final float deltaSy = sy / matrixValues.values[MSCALE_Y];
+        outMatrix.preScale(deltaSx, deltaSy, px, py);
 
-            // Get location of px/py in the view
-            final PtsWrapper drawablePts = mPoolManager.acquirePtsWrapper(px, py);
-            final PtsWrapper viewPts = mPoolManager.acquirePtsWrapper();
-            outMatrix.mapPoints(viewPts.pts, drawablePts.pts);
+        // Get location of px/py in the view
+        final PtsWrapper drawablePts = mPoolManager.acquirePtsWrapper(px, py);
+        final PtsWrapper viewPts = mPoolManager.acquirePtsWrapper();
+        outMatrix.mapPoints(viewPts.pts, drawablePts.pts);
 
-            final float deltaTx = x - viewPts.getX();
-            final float deltaTy = y - viewPts.getY();
-            outMatrix.postTranslate(deltaTx, deltaTy);
-            outMatrix.getValues(matrixValues.values);
+        final float deltaTx = x - viewPts.getX();
+        final float deltaTy = y - viewPts.getY();
+        outMatrix.postTranslate(deltaTx, deltaTy);
+        outMatrix.getValues(matrixValues.values);
 
-            mPoolManager.releasePtsWrapper(viewPts);
-            mPoolManager.releasePtsWrapper(drawablePts);
-            mPoolManager.releaseValuesWrapper(matrixValues);
-
-            return !outMatrix.equals(originalMatrix);
-        }
-        return false;
+        mPoolManager.releasePtsWrapper(viewPts);
+        mPoolManager.releasePtsWrapper(drawablePts);
+        mPoolManager.releaseValuesWrapper(matrixValues);
     }
 
     //endregion Private methods
