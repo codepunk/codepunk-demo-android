@@ -455,6 +455,8 @@ public class InteractiveImageView extends AppCompatImageView
 
     //region Constants
 
+    public static final float PLACE_IN_CENTER = Float.NaN;
+
     private static final String LOG_TAG = InteractiveImageView.class.getSimpleName();
     private static final float MAX_SCALE_BREADTH_MULTIPLIER = 4.0f;
     private static final float MAX_SCALE_LENGTH_MULTIPLIER = 6.0f;
@@ -1097,15 +1099,7 @@ public class InteractiveImageView extends AppCompatImageView
     }
 
     public boolean transformImage(float sx, float sy, float px, float py, boolean animate) {
-        final float x;
-        final float y;
-        if (ViewCompat.isLaidOut(this)) {
-            x = getContentRect().exactCenterX();
-            y = getContentRect().exactCenterY();
-        } else {
-            x = y = Float.NaN;
-        }
-        return transformImage(sx, sy, px, py, x, y, animate);
+        return transformImage(sx, sy, px, py, PLACE_IN_CENTER, PLACE_IN_CENTER, animate);
     }
 
     public boolean transformImage(
