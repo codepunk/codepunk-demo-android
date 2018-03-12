@@ -1,4 +1,4 @@
-package com.codepunk.demo.interactiveimageview.version7;
+package com.codepunk.demo;
 
 import android.annotation.SuppressLint;
 import android.content.res.Resources;
@@ -16,11 +16,6 @@ import android.widget.AdapterView;
 import android.widget.ImageView.ScaleType;
 import android.widget.Spinner;
 import android.widget.ToggleButton;
-
-import com.codepunk.demo.AbsSeekBarLayout;
-import com.codepunk.demo.FloatSeekBarLayout;
-import com.codepunk.demo.R;
-import com.codepunk.demo.interactiveimageview.version7.InteractiveImageView.TransformInfo;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -63,7 +58,7 @@ public class InteractiveImageViewControlsFragment extends Fragment
 
     private boolean mPendingResetClamps = true;
 
-    private TransformInfo mTransformInfo;
+    private InteractiveImageView.TransformInfo mTransformInfo;
 
     //endregion Fields
 
@@ -136,7 +131,7 @@ public class InteractiveImageViewControlsFragment extends Fragment
             mImageView.setImageResource(DEFAULT_DRAWABLE_RES_ID);
             final int position = mImageEntryValues.indexOf(DEFAULT_DRAWABLE_RES_ID);
             mImageSpinner.setSelection(position, false);
-            mTransformInfo = new TransformInfo();
+            mTransformInfo = new InteractiveImageView.TransformInfo();
         } else {
             setImageResourceByPosition(mImageSpinner.getSelectedItemPosition());
             mTransformInfo = savedInstanceState.getParcelable(KEY_TRANSFORM_INFO);
@@ -158,7 +153,7 @@ public class InteractiveImageViewControlsFragment extends Fragment
     @Override
     public void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
-        final TransformInfo info = new TransformInfo();
+        final InteractiveImageView.TransformInfo info = new InteractiveImageView.TransformInfo();
         mImageView.getTransformInfo(info);
         outState.putParcelable(KEY_TRANSFORM_INFO, mTransformInfo);
         outState.putBoolean(KEY_SCALE_LOCKED, mLockButton.isChecked());
@@ -247,10 +242,7 @@ public class InteractiveImageViewControlsFragment extends Fragment
             mScaleTypeSpinner.setSelection(position, false);
         }
 
-        mTransformInfo.sx = mImageView.getImageScaleX();
-        mTransformInfo.sy = mImageView.getImageScaleY();
-        mTransformInfo.px = mImageView.getImagePivotX();
-        mTransformInfo.py = mImageView.getImagePivotY();
+        mImageView.getTransformInfo(mTransformInfo);
 
         if (mPendingResetClamps) {
             mScaleXSeekBarLayout.setClampedMin(Integer.MIN_VALUE);

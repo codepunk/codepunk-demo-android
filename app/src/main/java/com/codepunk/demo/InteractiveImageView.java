@@ -1,13 +1,16 @@
-package com.codepunk.demo.interactiveimageview.version7;
+package com.codepunk.demo;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.res.TypedArray;
+import android.graphics.Canvas;
 import android.graphics.Matrix;
 import android.graphics.PointF;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
+import android.os.Parcel;
+import android.os.Parcelable;
 import android.os.SystemClock;
 import android.support.annotation.ArrayRes;
 import android.support.annotation.NonNull;
@@ -16,6 +19,7 @@ import android.support.v4.math.MathUtils;
 import android.support.v4.util.Pools.SimplePool;
 import android.support.v4.view.GestureDetectorCompat;
 import android.support.v4.view.ViewCompat;
+import android.support.v4.widget.EdgeEffectCompat;
 import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
@@ -25,20 +29,18 @@ import android.view.ScaleGestureDetector;
 import android.view.WindowManager;
 import android.view.animation.DecelerateInterpolator;
 import android.view.animation.Interpolator;
+import android.widget.EdgeEffect;
 import android.widget.OverScroller;
 
-import com.codepunk.demo.R;
 import com.codepunk.demo.support.DisplayCompat;
+import com.codepunk.demo.support.ImageViewCompat;
 
 import static android.graphics.Matrix.MSCALE_X;
 import static android.graphics.Matrix.MSCALE_Y;
 import static android.graphics.Matrix.MTRANS_X;
 import static android.graphics.Matrix.MTRANS_Y;
-import static com.codepunk.demo.R.styleable.InteractiveImageView_interactivity;
-import static com.codepunk.demo.R.styleable.InteractiveImageView_zoomPivots;
-import static com.codepunk.demo.R.styleable.InteractiveImageView;
 
-public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
+public class InteractiveImageView extends AppCompatImageView
         implements GestureDetector.OnGestureListener,
         GestureDetector.OnDoubleTapListener,
         ScaleGestureDetector.OnScaleGestureListener {
@@ -51,7 +53,7 @@ public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
         final OverScroller overScroller;
         final Transformer transformer;
 
-        Initializer(InteractiveImageView_BeforeEdgeEffects view) {
+        Initializer(InteractiveImageView view) {
             final Context context = view.getContext();
             gestureDetector = new GestureDetectorCompat(context, view);
             gestureDetector.setIsLongpressEnabled(false);
@@ -326,22 +328,20 @@ public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
             }
 
             long tRTC = SystemClock.elapsedRealtime() - mStartRTC;
-
             if (tRTC >= mAnimationDurationMillis) {
-                mFinished = true;
                 mCurrentSx = mEndSx;
                 mCurrentSy = mEndSy;
                 mCurrentX = mEndX;
                 mCurrentY = mEndY;
-                return false;
+                mFinished = true;
+            } else {
+                float t = tRTC * 1f / mAnimationDurationMillis;
+                float interpolation = mInterpolator.getInterpolation(t);
+                mCurrentSx = mStartSx + (mEndSx - mStartSx) * interpolation;
+                mCurrentSy = mStartSy + (mEndSy - mStartSy) * interpolation;
+                mCurrentX = mStartX + (mEndX - mStartX) * interpolation;
+                mCurrentY = mStartY + (mEndY - mStartY) * interpolation;
             }
-
-            float t = tRTC * 1f / mAnimationDurationMillis;
-            float interpolation = mInterpolator.getInterpolation(t);
-            mCurrentSx = mStartSx + (mEndSx - mStartSx) * interpolation;
-            mCurrentSy = mStartSy + (mEndSy - mStartSy) * interpolation;
-            mCurrentX = mStartX + (mEndX - mStartX) * interpolation;
-            mCurrentY = mStartY + (mEndY - mStartY) * interpolation;
             return true;
         }
 
@@ -396,14 +396,37 @@ public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
         }
     }
 
-    public static class TransformInfo {
+    @SuppressWarnings({"WeakerAccess, unused"})
+    public static class TransformInfo implements Parcelable {
+
+        //region Fields
+
         public float sx = 1.0f;
         public float sy = 1.0f;
         public float px = 0.0f;
         public float py = 0.0f;
-        public float x = 0.0f;
-        public float y = 0.0f;
+        public float x = PLACE_IN_CENTER;
+        public float y = PLACE_IN_CENTER;
         public boolean animate = false;
+
+        //endregion Fields
+
+        //region Nested classes
+
+        public static final Parcelable.Creator<TransformInfo> CREATOR
+                = new Parcelable.Creator<TransformInfo>() {
+            public TransformInfo createFromParcel(Parcel in) {
+                return new TransformInfo(in);
+            }
+
+            public TransformInfo[] newArray(int size) {
+                return new TransformInfo[size];
+            }
+        };
+
+        //endregion Nested classes
+
+        //region Constructors
 
         public TransformInfo() {
         }
@@ -424,6 +447,90 @@ public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
             this.animate = animate;
         }
 
+        public TransformInfo(TransformInfo src) {
+            set(src.sx, src.sy, src.px, src.py, src.x, src.y, src.animate);
+        }
+
+        private TransformInfo(Parcel src) {
+            sx = src.readFloat();
+            sy = src.readFloat();
+            px = src.readFloat();
+            px = src.readFloat();
+            x = src.readFloat();
+            y = src.readFloat();
+            animate = (src.readByte() != 0);
+        }
+
+        //endregion Constructors
+
+        //region Inherited methods
+
+        @SuppressWarnings("SimplifiableIfStatement")
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+
+            TransformInfo that = (TransformInfo) o;
+
+            if (Float.compare(that.sx, sx) != 0) return false;
+            if (Float.compare(that.sy, sy) != 0) return false;
+            if (Float.compare(that.px, px) != 0) return false;
+            if (Float.compare(that.py, py) != 0) return false;
+            if (Float.compare(that.x, x) != 0) return false;
+            if (Float.compare(that.y, y) != 0) return false;
+            return animate == that.animate;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = (sx != +0.0f ? Float.floatToIntBits(sx) : 0);
+            result = 31 * result + (sy != +0.0f ? Float.floatToIntBits(sy) : 0);
+            result = 31 * result + (px != +0.0f ? Float.floatToIntBits(px) : 0);
+            result = 31 * result + (py != +0.0f ? Float.floatToIntBits(py) : 0);
+            result = 31 * result + (x != +0.0f ? Float.floatToIntBits(x) : 0);
+            result = 31 * result + (y != +0.0f ? Float.floatToIntBits(y) : 0);
+            result = 31 * result + (animate ? 1 : 0);
+            return result;
+        }
+
+        @Override
+        public String toString() {
+            return getClass().getSimpleName() +
+                    "{sx=" + sx +
+                    ", sy=" + sy +
+                    ", px=" + px +
+                    ", py=" + py +
+                    ", x=" + (Float.isNaN(x) ? "PLACE_IN_CENTER" : String.valueOf(x)) +
+                    ", y=" + (Float.isNaN(y) ? "PLACE_IN_CENTER" : String.valueOf(y)) +
+                    ", animate=" + animate +
+                    '}';
+        }
+
+        //endregion Inherited methods
+
+        //region Implemented methods
+
+        @Override
+        public int describeContents() {
+            return 0;
+        }
+
+        @Override
+        public void writeToParcel(Parcel dest, int flags) {
+            dest.writeFloat(sx);
+            dest.writeFloat(sy);
+            dest.writeFloat(px);
+            dest.writeFloat(py);
+            dest.writeFloat(x);
+            dest.writeFloat(y);
+            dest.writeByte((byte) (animate ? 1 : 0));
+        }
+
+        //endregion Implemented methods
+
+        //region Methods
+
         public void set(float sx, float sy, float px, float py, float x, float y) {
             this.sx = sx;
             this.sy = sy;
@@ -437,6 +544,8 @@ public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
             set(sx, sy, px, py, x, y);
             this.animate = animate;
         }
+
+        //endregion Methods
     }
 
     private static class ValuesWrapper {
@@ -447,11 +556,14 @@ public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
 
     //region Constants
 
-    private static final String LOG_TAG = InteractiveImageView_BeforeEdgeEffects.class.getSimpleName();
+    public static final float PLACE_IN_CENTER = Float.NaN;
+
+    private static final String LOG_TAG = InteractiveImageView.class.getSimpleName();
     private static final float MAX_SCALE_BREADTH_MULTIPLIER = 4.0f;
     private static final float MAX_SCALE_LENGTH_MULTIPLIER = 6.0f;
-    private static final float ZOOM_PIVOT_EPSILON = 0.2f;
+    private static final float SCALE_PIVOT_EPSILON = 0.2f;
 
+    /*
     @SuppressWarnings("unused")
     public static final int INTERACTIVITY_FLAG_NONE = 0;
     public static final int INTERACTIVITY_FLAG_SCROLL = 0x00000001;
@@ -464,6 +576,7 @@ public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
             INTERACTIVITY_FLAG_SCALE |
             INTERACTIVITY_FLAG_DOUBLE_TAP |
             INTERACTIVITY_FLAG_EDGE_EFFECTS;
+    */
 
     private static final int INVALID_FLAG_CONTENT_RECT = 0x00000001;
     private static final int INVALID_FLAG_BASELINE_IMAGE_MATRIX = 0x00000002;
@@ -472,6 +585,8 @@ public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
     private static final int INVALID_FLAG_DEFAULT = INVALID_FLAG_BASELINE_IMAGE_MATRIX |
             INVALID_FLAG_IMAGE_MAX_SCALE |
             INVALID_FLAG_IMAGE_MIN_SCALE;
+
+    private static final float EDGE_EFFECT_SIZE_FACTOR = 1.25f;
 
     //endregion Constants
 
@@ -489,8 +604,14 @@ public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
     @NonNull
     private final Transformer mTransformer;
 
+    /*
     private int mInteractivity;
-    private float[] mZoomPivots;
+    */
+    private boolean mDoubleTapToScaleEnabled;
+    private int mOverScrollMode;
+    private boolean mScaleEnabled;
+    private boolean mScrollEnabled;
+    private float[] mScalePivots;
 
     private ScaleType mScaleType = super.getScaleType();
 
@@ -509,11 +630,22 @@ public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
     private TransformInfo mPendingTransformInfo = null;
     private int mInvalidFlags;
 
+    // Edge effect / overscroll tracking objects.
+    private EdgeEffect mEdgeEffectTop;
+    private EdgeEffect mEdgeEffectBottom;
+    private EdgeEffect mEdgeEffectLeft;
+    private EdgeEffect mEdgeEffectRight;
+
+    private boolean mEdgeEffectTopActive;
+    private boolean mEdgeEffectBottomActive;
+    private boolean mEdgeEffectLeftActive;
+    private boolean mEdgeEffectRightActive;
+
     //endregion Fields
 
     //region Constructors
 
-    public InteractiveImageView_BeforeEdgeEffects(Context context) {
+    public InteractiveImageView(Context context) {
         super(context);
         final Initializer initializer = initializeInteractiveImageView(
                 context,
@@ -526,7 +658,7 @@ public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
         mTransformer = initializer.transformer;
     }
 
-    public InteractiveImageView_BeforeEdgeEffects(Context context, AttributeSet attrs) {
+    public InteractiveImageView(Context context, AttributeSet attrs) {
         super(context, attrs);
         final Initializer initializer = initializeInteractiveImageView(
                 context,
@@ -539,7 +671,7 @@ public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
         mTransformer = initializer.transformer;
     }
 
-    public InteractiveImageView_BeforeEdgeEffects(Context context, AttributeSet attrs, int defStyleAttr) {
+    public InteractiveImageView(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
         final Initializer initializer =
                 initializeInteractiveImageView(context, attrs, defStyleAttr, 0);
@@ -560,33 +692,64 @@ public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
         boolean needsInvalidate = false;
 
         if (mOverScroller.computeScrollOffset()) {
-
-            final int x = mOverScroller.getCurrX();
-            final int y = mOverScroller.getCurrY();
-
-            transformImage(
+            final int currX = mOverScroller.getCurrX();
+            final int currY = mOverScroller.getCurrY();
+            mGestureTransformInfo.set(
                     getImageScaleX(),
                     getImageScaleY(),
                     mPivotPoint.x,
                     mPivotPoint.y,
-                    x,
-                    y);
+                    currX,
+                    currY);
+            constrainTransformInfo(mGestureTransformInfo, true);
 
-            // TODO needsInvalidate only if changed?
-            needsInvalidate = true;
+            if (canScrollX() && mOverScroller.isOverScrolled()) {
+                final int diff = (currX - Math.round(mGestureTransformInfo.x));
+                if (diff > 0 &&
+                        mEdgeEffectLeft.isFinished() &&
+                        !mEdgeEffectLeftActive) {
+                    mEdgeEffectLeft.onAbsorb(
+                            (int) OverScrollerCompat.getCurrVelocity(mOverScroller));
+                    mEdgeEffectLeftActive = true;
+                    needsInvalidate = true;
+                } else if (diff < 0 &&
+                        mEdgeEffectRight.isFinished() &&
+                        !mEdgeEffectRightActive) {
+                    mEdgeEffectRight.onAbsorb
+                            ((int) OverScrollerCompat.getCurrVelocity(mOverScroller));
+                    mEdgeEffectRightActive = true;
+                    needsInvalidate = true;
+                }
+            }
 
+            if (canScrollY() && mOverScroller.isOverScrolled()) {
+                final int diff = (currY - Math.round(mGestureTransformInfo.y));
+                if (diff > 0 &&
+                        mEdgeEffectTop.isFinished() &&
+                        !mEdgeEffectTopActive) {
+                    mEdgeEffectTop.onAbsorb(
+                            (int) OverScrollerCompat.getCurrVelocity(mOverScroller));
+                    mEdgeEffectTopActive = true;
+                    needsInvalidate = true;
+                } else if (diff < 0 &&
+                        mEdgeEffectBottom.isFinished() &&
+                        !mEdgeEffectBottomActive) {
+                    mEdgeEffectBottom.onAbsorb
+                            ((int) OverScrollerCompat.getCurrVelocity(mOverScroller));
+                    mEdgeEffectBottomActive = true;
+                    needsInvalidate = true;
+                }
+            }
+
+            needsInvalidate = transformImage(mGestureTransformInfo) || needsInvalidate;
         } else if (mTransformer.computeTransform()) {
-
-            transformImage(
+            needsInvalidate = transformImage(
                     mTransformer.getCurrScaleX(),
                     mTransformer.getCurrScaleY(),
                     mTransformer.getPx(),
                     mTransformer.getPy(),
                     mTransformer.getCurrX(),
                     mTransformer.getCurrY());
-
-            // TODO needsInvalidate only if changed?
-            needsInvalidate = true;
         }
 
         if (needsInvalidate) {
@@ -607,6 +770,12 @@ public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
             transformImage(mPendingTransformInfo);
             mPendingTransformInfo = null;
         }
+    }
+
+    @Override
+    protected void onDraw(Canvas canvas) {
+        super.onDraw(canvas);
+        drawEdgeEffects(canvas);
     }
 
     @Override
@@ -673,10 +842,11 @@ public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
 
     //endregion Inherited methods
 
-    //region Interface methods
+    //region Implemented methods
 
     @Override // GestureDetector.OnGestureListener
     public boolean onDown(MotionEvent e) {
+        releaseEdgeEffects();
         mOverScroller.forceFinished(true);
         getPivotPoint(e.getX(), e.getY(), getImageMatrixInternal(), mPivotPoint);
         return true;
@@ -688,10 +858,6 @@ public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
 
     @Override // GestureDetector.OnGestureListener
     public boolean onSingleTapUp(MotionEvent e) {
-        if ((mInteractivity & INTERACTIVITY_FLAG_DOUBLE_TAP) == 0) {
-            // If we haven't enabled double tap, fire the onSingleTapConfirmed for consistency
-            this.onSingleTapConfirmed(e);
-        }
         return false;
     }
 
@@ -700,15 +866,60 @@ public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
         if (mScaleGestureDetector.isInProgress()) {
             return false;
         }
-        final float sx = getImageScaleX();
-        final float sy = getImageScaleY();
         final float x = e2.getX();
         final float y = e2.getY();
-        mGestureTransformInfo.set(sx, sy, mPivotPoint.x, mPivotPoint.y, x, y, false);
+        mGestureTransformInfo.set(
+                getImageScaleX(),
+                getImageScaleY(),
+                mPivotPoint.x,
+                mPivotPoint.y,
+                x,
+                y,
+                false);
         final boolean constrained = constrainTransformInfo(mGestureTransformInfo, true);
-        transformImage(mGestureTransformInfo);
+        boolean needsInvalidate = transformImage(mGestureTransformInfo);
         if (constrained) {
             getPivotPoint(x, y, getImageMatrixInternal(), mPivotPoint);
+        }
+        final Rect contentRect = getContentRect();
+        if (canScrollX()) {
+            final float constrainedDiff = mGestureTransformInfo.x - x;
+            if (constrainedDiff < 0.0f) {
+                mEdgeEffectLeftActive = true;
+                EdgeEffectCompat.onPull(
+                        mEdgeEffectLeft,
+                        constrainedDiff / getContentRect().width(),
+                        1.0f - y / getHeight());
+                needsInvalidate = true;
+            } else if (constrainedDiff > 0.0f) {
+                mEdgeEffectRightActive = true;
+                EdgeEffectCompat.onPull(
+                        mEdgeEffectRight,
+                        constrainedDiff / getContentRect().width(),
+                        y / getHeight());
+                needsInvalidate = true;
+            }
+        }
+        if (canScrollY()) {
+            final float constrainedDiff = mGestureTransformInfo.y - y;
+            if (constrainedDiff < 0.0f) {
+                EdgeEffectCompat.onPull(
+                        mEdgeEffectTop,
+                        constrainedDiff / contentRect.height(),
+                        x / getWidth());
+                mEdgeEffectTopActive = true;
+                needsInvalidate = true;
+            } else if (constrainedDiff > 0.0f) {
+                EdgeEffectCompat.onPull(
+                        mEdgeEffectBottom,
+                        constrainedDiff / contentRect.height(),
+                        1.0f - x / getWidth());
+                mEdgeEffectBottomActive = true;
+                needsInvalidate = true;
+            }
+        }
+        if (needsInvalidate) {
+            ViewCompat.postInvalidateOnAnimation(this);
         }
         return true;
     }
@@ -719,16 +930,16 @@ public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
 
     @Override // GestureDetector.OnGestureListener
     public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
-        final Matrix matrix = mPoolManager.acquireMatrix(getImageMatrixInternal());
+        releaseEdgeEffects();
+        final Matrix matrix = getImageMatrixInternal();
         final ValuesWrapper matrixValues = mPoolManager.acquireValuesWrapper(matrix);
-        final RectF drawableRect = mPoolManager.acquireRectF(getDrawable());
-        final RectF mappedRect = mPoolManager.acquireRectF();
-        matrix.mapRect(mappedRect, drawableRect);
+        final RectF mappedImageRect = mPoolManager.acquireRectF();
+        getMappedImageRect(matrix, mappedImageRect);
         final Rect contentRect = getContentRect();
         final float startX = e2.getX();
         final float startY = e2.getY();
-        final float scrollableX = Math.max(mappedRect.width() - contentRect.width(), 0);
-        final float scrollableY = Math.max(mappedRect.height() - contentRect.height(), 0);
+        final float scrollableX = Math.max(mappedImageRect.width() - contentRect.width(), 0);
+        final float scrollableY = Math.max(mappedImageRect.height() - contentRect.height(), 0);
         final float scrolledX = -Math.min(matrixValues.values[MTRANS_X], 0);
         final float scrolledY = -Math.min(matrixValues.values[MTRANS_Y], 0);
         mOverScroller.fling(
@@ -739,11 +950,11 @@ public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
                 (int) (startX - scrollableX + scrolledX),
                 (int) (startX + scrolledX),
                 (int) (startY - scrollableY + scrolledY),
-                (int) (startY + scrolledY));
-        mPoolManager.releaseRectF(mappedRect);
-        mPoolManager.releaseRectF(drawableRect);
+                (int) (startY + scrolledY),
+                contentRect.width() / 2,
+                contentRect.height() / 2);
+        mPoolManager.releaseRectF(mappedImageRect);
         mPoolManager.releaseValuesWrapper(matrixValues);
-        mPoolManager.releaseMatrix(matrix);
         return true;
     }
 
@@ -754,11 +965,12 @@ public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
 
     @Override // GestureDetector.OnDoubleTapListener
     public boolean onDoubleTap(MotionEvent e) {
-        if ((mInteractivity & INTERACTIVITY_FLAG_DOUBLE_TAP) != 0) {
+        if (mDoubleTapToScaleEnabled) {
             mTransformer.forceFinished(true);
-            final float next = getNextZoomPivot();
-            final float sx = getImageMaxScaleX() * next + getImageMinScaleX() * (1 - next);
-            final float sy = getImageMaxScaleY() * next + getImageMinScaleY() * (1 - next);
+            final float next = getNextScalePivot();
+            getImageMinScale();
+            final float sx = mMinScale.x + (getImageMaxScaleX() - mMinScale.x) * next;
+            final float sy = mMinScale.y + (getImageMaxScaleY() - mMinScale.y) * next;
             final float x = getPaddingLeft() + getContentRect().width() * 0.5f;
             final float y = getPaddingTop() + getContentRect().height() * 0.5f;
             mGestureTransformInfo.set(sx, sy, mPivotPoint.x, mPivotPoint.y, x, y, true);
@@ -813,74 +1025,29 @@ public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
                 mPivotPoint);
     }
 
-    //endregion Interface methods
+    //endregion Implemented methods
 
     //region Methods
 
-    @SuppressWarnings("SpellCheckingInspection")
-    public boolean constrainTransformInfo(TransformInfo info, boolean fromUser) {
-        boolean constrained = false;
-        if (info != null) {
-            if (drawableHasIntrinsicSize()) {
-                // Get matrix and values
-                final Matrix matrix = mPoolManager.acquireMatrix(getImageMatrixInternal());
-                final ValuesWrapper matrixValues =
-                        mPoolManager.acquireValuesWrapper(matrix);
+    public boolean constrainTransformInfo(TransformInfo info) {
+        return constrainTransformInfo(info, false);
+    }
 
-                // Clamp scale
-                final float clampedSx =
-                        MathUtils.clamp(info.sx, getImageMinScaleX(), getImageMaxScaleX());
-                final float clampedSy =
-                        MathUtils.clamp(info.sy, getImageMinScaleY(), getImageMaxScaleY());
+    public boolean isDoubleTapToScaleEnabled() {
+        return mDoubleTapToScaleEnabled;
+    }
 
-                // Pre-scale the matrix to the clamped scale
-                final float deltaSx = clampedSx / matrixValues.values[MSCALE_X];
-                final float deltaSy = clampedSy / matrixValues.values[MSCALE_Y];
-                matrix.preScale(deltaSx, deltaSy);
-                matrix.getValues(matrixValues.values);
-                info.sx = matrixValues.values[MSCALE_X];
-                info.sy = matrixValues.values[MSCALE_Y];
+    @Override
+    public int getOverScrollMode() {
+        return mOverScrollMode;
+    }
 
-                // TODO Describe this while I remember what it all means :-)
-                final float clampedX;
-                final float clampedY;
-                final PtsWrapper drawablePts = mPoolManager.acquirePtsWrapper(info.px, info.py);
-                final PtsWrapper viewPts = mPoolManager.acquirePtsWrapper();
-                matrix.mapPoints(viewPts.pts, drawablePts.pts);
-                final float mappedPx = viewPts.getX() - matrixValues.values[MTRANS_X];
-                final float mappedPy = viewPts.getY() - matrixValues.values[MTRANS_Y];
+    public boolean isScaleEnabled() {
+        return mScaleEnabled;
+    }
 
-                final PointF tCoef = mPoolManager.acquirePointF();
-                getTranslationCoefficient(matrix, tCoef);
-                if (tCoef.x >= 0) {
-                    clampedX = getPaddingLeft() + tCoef.x + mappedPx;
-                } else {
-                    final float minX = Math.min(tCoef.x, 0.0f);
-                    final float clampedDx = MathUtils.clamp(info.x - mappedPx, minX, 0.0f);
-                    clampedX = mappedPx + clampedDx;
-                }
-                if (tCoef.y >= 0) {
-                    clampedY = getPaddingTop() + tCoef.y + mappedPy;
-                } else {
-                    final float minY = Math.min(tCoef.y, 0.0f);
-                    final float clampedDy = MathUtils.clamp(info.y - mappedPy, minY, 0.0f);
-                    clampedY = mappedPy + clampedDy;
-                }
-
-                if (info.x != clampedX || info.y != clampedY) {
-                    info.x = clampedX;
-                    info.y = clampedY;
-                    constrained = true;
-                }
-
-                mPoolManager.releasePointF(tCoef);
-                mPoolManager.releasePtsWrapper(viewPts);
-                mPoolManager.releasePtsWrapper(drawablePts);
-                mPoolManager.releaseValuesWrapper(matrixValues);
-                mPoolManager.releaseMatrix(matrix);
-            }
-        }
-        return constrained;
+    public boolean isScrollEnabled() {
+        return mScrollEnabled;
     }
 
     protected int getDrawableIntrinsicHeight() {
@@ -953,21 +1120,47 @@ public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
         return scaleY;
     }
 
-    @SuppressWarnings("unused")
-    public int getInteractivity() {
-        return mInteractivity;
+    public void getTransformInfo(TransformInfo outInfo) {
+        matrixToTransformInfo(getImageMatrixInternal(), outInfo);
     }
 
     public boolean onUp(MotionEvent e) {
         return false;
     }
 
-    public void setInteractivity(int flags) {
-        mInteractivity = flags;
+    public void setDoubleTapToScaleEnabled(boolean doubleTapToScaleEnabled) {
+        mDoubleTapToScaleEnabled = doubleTapToScaleEnabled;
     }
 
-    public void setZoomPivots(float... pivots) {
-        mZoomPivots = pivots;
+    @Override
+    public void setOverScrollMode(int mode) {
+        mOverScrollMode = mode;
+        if (mode != OVER_SCROLL_NEVER) {
+            if (mEdgeEffectLeft == null) {
+                Context context = getContext();
+                mEdgeEffectLeft = new EdgeEffect(context);
+                mEdgeEffectTop = new EdgeEffect(context);
+                mEdgeEffectRight = new EdgeEffect(context);
+                mEdgeEffectBottom = new EdgeEffect(context);
+            }
+        } else {
+            mEdgeEffectLeft = null;
+            mEdgeEffectTop = null;
+            mEdgeEffectRight = null;
+            mEdgeEffectBottom = null;
+        }
+    }
+
+    public void setScaleEnabled(boolean scaleEnabled) {
+        mScaleEnabled = scaleEnabled;
+    }
+
+    public void setScrollEnabled(boolean scrollEnabled) {
+        mScrollEnabled = scrollEnabled;
+    }
+
+    public void setScalePivots(float... pivots) {
+        mScalePivots = pivots;
     }
 
     @SuppressWarnings("UnusedReturnValue")
@@ -976,14 +1169,7 @@ public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
     }
 
     public boolean transformImage(float sx, float sy, float px, float py, boolean animate) {
-        return transformImage(
-                sx,
-                sy,
-                px,
-                py,
-                getContentRect().exactCenterX(),
-                getContentRect().exactCenterY(),
-                animate);
+        return transformImage(sx, sy, px, py, PLACE_IN_CENTER, PLACE_IN_CENTER, animate);
     }
 
     public boolean transformImage(
@@ -1009,9 +1195,18 @@ public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
             return false;
         }
 
-        final Matrix matrix = mPoolManager.acquireMatrix();
+        if (Float.isNaN(x)) {
+            x = getContentRect().exactCenterX();
+        }
+        if (Float.isNaN(y)) {
+            y = getContentRect().exactCenterY();
+        }
+
+        final Matrix matrix = getImageMatrixInternal();
+        final Matrix transformMatrix = mPoolManager.acquireMatrix();
         // TODO When do I check if image has intrinsic size? Or does it matter?
-        final boolean transformed = transformToMatrix(sx, sy, px, py, x, y, matrix);
+        transformToMatrix(sx, sy, px, py, x, y, transformMatrix);
+        final boolean transformed = !matrix.equals(transformMatrix);
         if (transformed) {
             if (animate) {
                 final PtsWrapper drawablePts = mPoolManager.acquirePtsWrapper(px, py);
@@ -1037,14 +1232,14 @@ public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
                 if (super.getScaleType() != ScaleType.MATRIX) {
                     super.setScaleType(ScaleType.MATRIX);
                 }
-                super.setImageMatrix(matrix);
+                super.setImageMatrix(transformMatrix);
             }
         }
-        mPoolManager.releaseMatrix(matrix);
+        mPoolManager.releaseMatrix(transformMatrix);
         return transformed;
     }
 
-    protected boolean transformImage(TransformInfo info) {
+    public boolean transformImage(TransformInfo info) {
         return transformImage(info.sx, info.sy, info.px, info.py, info.x, info.y, info.animate);
     }
 
@@ -1058,10 +1253,11 @@ public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
 
     @SuppressWarnings("SpellCheckingInspection")
     protected boolean canScrollX(Matrix matrix) {
-        final PointF tCoef = mPoolManager.acquirePointF();
-        getTranslationCoefficient(matrix, tCoef);
-        final boolean canScrollX = (tCoef.x < 0.0f);
-        mPoolManager.releasePointF(tCoef);
+        final PointF tc = mPoolManager.acquirePointF();
+        getTranslationCoefficient(matrix, tc);
+        final boolean canScrollX = (Math.round(tc.x) < 0
+        );
+        mPoolManager.releasePointF(tc);
         return canScrollX;
     }
 
@@ -1069,13 +1265,78 @@ public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
         return canScrollY(getImageMatrixInternal());
     }
 
-    @SuppressWarnings("SpellCheckingInspection")
     protected boolean canScrollY(Matrix matrix) {
-        final PointF tCoef = mPoolManager.acquirePointF();
-        getTranslationCoefficient(matrix, tCoef);
-        final boolean canScrollY = (tCoef.y < 0.0f);
-        mPoolManager.releasePointF(tCoef);
+        final PointF tc = mPoolManager.acquirePointF();
+        getTranslationCoefficient(matrix, tc);
+        final boolean canScrollY = (Math.round(tc.y) < 0);
+        mPoolManager.releasePointF(tc);
         return canScrollY;
+    }
+
+    @SuppressWarnings("SpellCheckingInspection")
+    protected boolean constrainTransformInfo(TransformInfo info, boolean isTouchEvent) {
+        boolean constrained = false;
+        if (info != null) {
+            if (drawableHasIntrinsicSize()) {
+                // Get matrix and values
+                final Matrix matrix = mPoolManager.acquireMatrix(getImageMatrixInternal());
+                final ValuesWrapper matrixValues =
+                        mPoolManager.acquireValuesWrapper(matrix);
+
+                // Clamp scale
+                final float clampedSx =
+                        MathUtils.clamp(info.sx, getImageMinScaleX(), getImageMaxScaleX());
+                final float clampedSy =
+                        MathUtils.clamp(info.sy, getImageMinScaleY(), getImageMaxScaleY());
+
+                // Pre-scale the matrix to the clamped scale
+                final float deltaSx = clampedSx / matrixValues.values[MSCALE_X];
+                final float deltaSy = clampedSy / matrixValues.values[MSCALE_Y];
+                matrix.preScale(deltaSx, deltaSy);
+                matrix.getValues(matrixValues.values);
+                info.sx = matrixValues.values[MSCALE_X];
+                info.sy = matrixValues.values[MSCALE_Y];
+
+                // TODO Describe this while I remember what it all means :-)
+                final float clampedX;
+                final float clampedY;
+                final PtsWrapper drawablePts = mPoolManager.acquirePtsWrapper(info.px, info.py);
+                final PtsWrapper viewPts = mPoolManager.acquirePtsWrapper();
+                matrix.mapPoints(viewPts.pts, drawablePts.pts);
+                final float mappedPx = viewPts.getX() - matrixValues.values[MTRANS_X];
+                final float mappedPy = viewPts.getY() - matrixValues.values[MTRANS_Y];
+
+                final PointF tCoef = mPoolManager.acquirePointF();
+                getTranslationCoefficient(matrix, tCoef);
+                if (tCoef.x >= 0) {
+                    clampedX = getPaddingLeft() + tCoef.x + mappedPx;
+                } else {
+                    final float minX = Math.min(tCoef.x, 0.0f);
+                    final float clampedDx = MathUtils.clamp(info.x - mappedPx, minX, 0.0f);
+                    clampedX = mappedPx + clampedDx;
+                }
+                if (tCoef.y >= 0) {
+                    clampedY = getPaddingTop() + tCoef.y + mappedPy;
+                } else {
+                    final float minY = Math.min(tCoef.y, 0.0f);
+                    final float clampedDy = MathUtils.clamp(info.y - mappedPy, minY, 0.0f);
+                    clampedY = mappedPy + clampedDy;
+                }
+
+                if (info.x != clampedX || info.y != clampedY) {
+                    info.x = clampedX;
+                    info.y = clampedY;
+                    constrained = true;
+                }
+
+                mPoolManager.releasePointF(tCoef);
+                mPoolManager.releasePtsWrapper(viewPts);
+                mPoolManager.releasePtsWrapper(drawablePts);
+                mPoolManager.releaseValuesWrapper(matrixValues);
+                mPoolManager.releaseMatrix(matrix);
+            }
+        }
+        return constrained;
     }
 
     protected boolean drawableHasIntrinsicSize() {
@@ -1086,6 +1347,7 @@ public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
      * Returns the baseline image matrix; that is, the matrix that describes the image
      * at the current scale type
      * minus any padding. Do not change this rectangle in place but make a copy.
+     *
      * @return
      */
     protected Matrix getBaselineImageMatrix() {
@@ -1174,6 +1436,7 @@ public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
     /**
      * Returns the view's content rectangle; that is, the rectangle defined by the view
      * minus any padding. Do not change this rectangle in place but make a copy.
+     *
      * @return
      */
     protected Rect getContentRect() {
@@ -1194,6 +1457,7 @@ public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
      * matrix, this method will return an identity matrix. Do not change this matrix in place but
      * make a copy. If you want a different matrix applied to the drawable, be sure to call
      * setImageMatrix().
+     *
      * @return The view's optional matrix
      */
     protected Matrix getImageMatrixInternal() {
@@ -1215,12 +1479,11 @@ public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
                 final Matrix baselineMatrix = getBaselineImageMatrix();
                 final ValuesWrapper matrixValues =
                         mPoolManager.acquireValuesWrapper(baselineMatrix);
-                final RectF srcRect = mPoolManager.acquireRectF(getDrawable());
-                final RectF dstRect = mPoolManager.acquireRectF();
+                final RectF mappedImageRect = mPoolManager.acquireRectF();
+                getMappedImageRect(baselineMatrix, mappedImageRect);
 
-                baselineMatrix.mapRect(dstRect, srcRect);
-                final float baselineWidth = dstRect.width();
-                final float baselineHeight = dstRect.height();
+                final float baselineWidth = mappedImageRect.width();
+                final float baselineHeight = mappedImageRect.height();
                 final float baselineBreadth = Math.min(baselineWidth, baselineHeight);
                 final float baselineLength = Math.max(baselineWidth, baselineHeight);
 
@@ -1257,8 +1520,7 @@ public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
                 maxScaleX = scale * matrixValues.values[MSCALE_X];
                 maxScaleY = scale * matrixValues.values[MSCALE_Y];
 
-                mPoolManager.releaseRectF(dstRect);
-                mPoolManager.releaseRectF(srcRect);
+                mPoolManager.releaseRectF(mappedImageRect);
                 mPoolManager.releaseValuesWrapper(matrixValues);
             } else {
                 maxScaleX = maxScaleY = 1.0f;
@@ -1281,7 +1543,7 @@ public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
     protected void getPivotPoint(float x, float y, Matrix matrix, PointF outPoint) {
         if (matrix != null && outPoint != null) {
             final Matrix invertedMatrix = mPoolManager.acquireMatrix();
-            final PtsWrapper srcPts = mPoolManager.acquirePtsWrapper(x,  y);
+            final PtsWrapper srcPts = mPoolManager.acquirePtsWrapper(x, y);
             final PtsWrapper dstPts = mPoolManager.acquirePtsWrapper();
             matrix.invert(invertedMatrix);
             invertedMatrix.mapPoints(dstPts.pts, srcPts.pts);
@@ -1323,9 +1585,98 @@ public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
 
     //region Private methods
 
-    private float getNextZoomPivot() {
-        float nextZoomPivot = 0.0f;
-        if (mZoomPivots != null) {
+    /**
+     * Draws the overscroll "glow" at the four edges of the chart region, if necessary. The edges
+     * of the chart region are stored in {@link #mContentRect}.
+     *
+     * @see EdgeEffect
+     */
+    @SuppressWarnings("SuspiciousNameCombination")
+    private void drawEdgeEffects(Canvas canvas) {
+        // TODO Maybe make these the size of the scaled image???
+        // The methods below rotate and translate the canvas as needed before drawing the glow,
+        // since EdgeEffectCompat always draws a top-glow at 0,0.
+        boolean needsInvalidate = false;
+        final RectF glowRect = mPoolManager.acquireRectF();
+        if (ImageViewCompat.getCropToPadding(this)) {
+            glowRect.set(getContentRect());
+        } else {
+            glowRect.set(0.0f, 0.0f, getWidth(), getHeight());
+        }
+        final float rectWidth = glowRect.width();
+        final float rectHeight = glowRect.height();
+        final int glowAreaWidth = (int) (rectWidth * EDGE_EFFECT_SIZE_FACTOR);
+        final int glowAreaHeight = (int) (rectHeight * EDGE_EFFECT_SIZE_FACTOR);
+
+        if (!mEdgeEffectTop.isFinished()) {
+            final int restoreCount = canvas.save();
+            canvas.clipRect(glowRect);
+            final float dx = glowRect.left - (glowAreaWidth - rectWidth) * 0.5f;
+            final float dy = glowRect.top;
+            canvas.translate(dx, dy);
+            mEdgeEffectTop.setSize(glowAreaWidth, glowAreaHeight);
+            if (mEdgeEffectTop.draw(canvas)) {
+                needsInvalidate = true;
+            }
+            canvas.restoreToCount(restoreCount);
+        }
+
+        if (!mEdgeEffectBottom.isFinished()) {
+            final int restoreCount = canvas.save();
+            canvas.clipRect(glowRect);
+            final float dx = glowRect.left - (glowAreaWidth - rectWidth) * 0.5f;
+            final float dy = glowRect.bottom;
+            canvas.translate(-glowAreaWidth + dx, dy);
+            canvas.rotate(180.0f, glowAreaWidth, 0.0f);
+            mEdgeEffectBottom.setSize(glowAreaWidth, glowAreaHeight);
+            if (mEdgeEffectBottom.draw(canvas)) {
+                needsInvalidate = true;
+            }
+            canvas.restoreToCount(restoreCount);
+        }
+
+        if (!mEdgeEffectLeft.isFinished()) {
+            final int restoreCount = canvas.save();
+            canvas.clipRect(glowRect);
+            final float dx = glowRect.left;
+            final float dy = glowRect.bottom + (glowAreaHeight - rectHeight) * 0.5f;
+            canvas.translate(dx, dy);
+            canvas.rotate(-90.0f, 0.0f, 0.0f);
+            mEdgeEffectLeft.setSize(glowAreaHeight, glowAreaWidth);
+            if (mEdgeEffectLeft.draw(canvas)) {
+                needsInvalidate = true;
+            }
+            canvas.restoreToCount(restoreCount);
+        }
+
+        if (!mEdgeEffectRight.isFinished()) {
+            final int restoreCount = canvas.save();
+            canvas.clipRect(glowRect);
+            final float dx = glowRect.right;
+            final float dy = glowRect.top - (glowAreaHeight - rectHeight) * 0.5f;
+            canvas.translate(dx, dy);
+            canvas.rotate(90.0f, 0.0f, 0.0f);
+            mEdgeEffectRight.setSize(glowAreaHeight, glowAreaWidth);
+            if (mEdgeEffectRight.draw(canvas)) {
+                needsInvalidate = true;
+            }
+            canvas.restoreToCount(restoreCount);
+        }
+
+        if (needsInvalidate) {
+            ViewCompat.postInvalidateOnAnimation(this);
+        }
+    }
+
+    private void getMappedImageRect(@NonNull Matrix matrix, @NonNull RectF outRect) {
+        final RectF drawableRect = mPoolManager.acquireRectF(getDrawable());
+        matrix.mapRect(outRect, drawableRect);
+        mPoolManager.releaseRectF(drawableRect);
+    }
+
+    private float getNextScalePivot() {
+        float nextScalePivot = 0.0f;
+        if (mScalePivots != null) {
             final float minSx = getImageMinScaleX();
             final float minSy = getImageMinScaleY();
             float relativeSx = (getImageScaleX() - minSx) / (getImageMaxScaleX() - minSx);
@@ -1338,21 +1689,21 @@ public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
             }
             boolean foundX = false;
             boolean foundY = false;
-            for (final float zoomPivot : mZoomPivots) {
-                if (zoomPivot - relativeSx > ZOOM_PIVOT_EPSILON) {
+            for (final float zoomPivot : mScalePivots) {
+                if (zoomPivot - relativeSx > SCALE_PIVOT_EPSILON) {
                     foundX = true;
-                    nextZoomPivot = zoomPivot;
+                    nextScalePivot = zoomPivot;
                 }
-                if (zoomPivot - relativeSy > ZOOM_PIVOT_EPSILON) {
+                if (zoomPivot - relativeSy > SCALE_PIVOT_EPSILON) {
                     foundY = true;
-                    nextZoomPivot = zoomPivot;
+                    nextScalePivot = zoomPivot;
                 }
                 if (foundX && foundY) {
                     break;
                 }
             }
         }
-        return nextZoomPivot;
+        return nextScalePivot;
     }
 
     /*
@@ -1362,12 +1713,11 @@ public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
     private void getTranslationCoefficient(Matrix matrix, PointF outPoint) {
         // TODO Drawable has intrinsic size?
         final Rect contentRect = getContentRect();
-        final RectF drawableRect = mPoolManager.acquireRectF(getDrawable());
-        final RectF mappedRect = mPoolManager.acquireRectF();
-        matrix.mapRect(mappedRect, drawableRect);
+        final RectF mappedImageRect = mPoolManager.acquireRectF();
+        getMappedImageRect(matrix, mappedImageRect);
         outPoint.set(
-                contentRect.width() - mappedRect.width(),
-                contentRect.height() - mappedRect.height());
+                contentRect.width() - mappedImageRect.width(),
+                contentRect.height() - mappedImageRect.height());
         if (outPoint.x > 0.0f) {
             // The mapped image is narrower than the content area
             switch (mScaleType) {
@@ -1400,8 +1750,7 @@ public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
                     outPoint.y *= 0.5f;
             }
         }
-        mPoolManager.releaseRectF(mappedRect);
-        mPoolManager.releaseRectF(drawableRect);
+        mPoolManager.releaseRectF(mappedImageRect);
     }
 
     @SuppressWarnings("SameParameterValue")
@@ -1412,27 +1761,80 @@ public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
             int defStyleRes) {
         TypedArray a = context.obtainStyledAttributes(
                 attrs,
-                InteractiveImageView,
+                R.styleable.InteractiveImageView,
                 defStyleAttr,
                 defStyleRes);
-        setInteractivity(a.getInt(InteractiveImageView_interactivity, INTERACTIVITY_FLAG_ALL));
-        final @ArrayRes int resId =
-                a.getResourceId(InteractiveImageView_zoomPivots, -1);
+
+        setScrollEnabled(a.getBoolean(
+                R.styleable.InteractiveImageView_scrollEnabled,
+                true));
+        setScaleEnabled(a.getBoolean(
+                R.styleable.InteractiveImageView_scaleEnabled,
+                true));
+        setDoubleTapToScaleEnabled(a.getBoolean(
+                R.styleable.InteractiveImageView_doubleTapToScaleEnabled,
+                true));
+        setOverScrollMode(a.getInt(
+                R.styleable.InteractiveImageView_android_overScrollMode,
+                OVER_SCROLL_IF_CONTENT_SCROLLS));
+
+        final @ArrayRes int resId = a.getResourceId(
+                R.styleable.InteractiveImageView_scalePivots,
+                -1);
         if (resId != -1) {
             TypedArray ta = getResources().obtainTypedArray(resId);
             final int length = ta.length();
-            final float[] zoomPivots = new float[length];
+            final float[] scalePivots = new float[length];
             for (int i = 0; i < length; i++) {
-                zoomPivots[i] = ta.getFloat(i, Float.NaN);
+                scalePivots[i] = ta.getFloat(i, Float.NaN);
             }
-            setZoomPivots(zoomPivots);
+            setScalePivots(scalePivots);
             ta.recycle();
         }
         a.recycle();
         return new Initializer(this);
     }
 
-    private boolean transformToMatrix(
+    private void releaseEdgeEffects() {
+        mEdgeEffectLeftActive
+                = mEdgeEffectTopActive
+                = mEdgeEffectRightActive
+                = mEdgeEffectBottomActive
+                = false;
+        mEdgeEffectLeft.onRelease();
+        mEdgeEffectTop.onRelease();
+        mEdgeEffectRight.onRelease();
+        mEdgeEffectBottom.onRelease();
+    }
+
+    private void matrixToTransformInfo(Matrix matrix, TransformInfo outInfo) {
+        final ValuesWrapper matrixValues = mPoolManager.acquireValuesWrapper(matrix);
+        outInfo.sx = matrixValues.values[MSCALE_X];
+        outInfo.sy = matrixValues.values[MSCALE_Y];
+        if (ViewCompat.isLaidOut(this)) {
+            final PointF pivotPoint = mPoolManager.acquirePointF();
+            final Rect contentRect = getContentRect();
+            getPivotPoint(
+                    contentRect.exactCenterX(),
+                    contentRect.exactCenterY(),
+                    matrix,
+                    pivotPoint);
+            outInfo.px = pivotPoint.x;
+            outInfo.py = pivotPoint.y;
+            mPoolManager.releasePointF(pivotPoint);
+        } else {
+            final Drawable d = getDrawable();
+            final int intrinsicWidth = (d == null ? -1 : d.getIntrinsicWidth());
+            final int intrinsicHeight = (d == null ? -1 : d.getIntrinsicHeight());
+            outInfo.px = (intrinsicWidth > 0 ? intrinsicWidth * 0.5f : intrinsicWidth);
+            outInfo.py = (intrinsicHeight > 0 ? intrinsicHeight * 0.5f : intrinsicHeight);
+        }
+        outInfo.x = outInfo.y = PLACE_IN_CENTER;
+        outInfo.animate = false;
+        mPoolManager.releaseValuesWrapper(matrixValues);
+    }
+
+    private void transformToMatrix(
             float sx,
             float sy,
             float px,
@@ -1440,32 +1842,25 @@ public class InteractiveImageView_BeforeEdgeEffects extends AppCompatImageView
             float x,
             float y,
             Matrix outMatrix) {
-        if (outMatrix != null) {
-            final Matrix originalMatrix = getImageMatrixInternal();
-            outMatrix.set(originalMatrix);
-            final ValuesWrapper matrixValues =
-                    mPoolManager.acquireValuesWrapper(outMatrix);
-            final float deltaSx = sx / matrixValues.values[MSCALE_X];
-            final float deltaSy = sy / matrixValues.values[MSCALE_Y];
-            outMatrix.preScale(deltaSx, deltaSy, px, py);
+        outMatrix.set(getImageMatrixInternal());
+        final ValuesWrapper matrixValues = mPoolManager.acquireValuesWrapper(outMatrix);
+        final float deltaSx = sx / matrixValues.values[MSCALE_X];
+        final float deltaSy = sy / matrixValues.values[MSCALE_Y];
+        outMatrix.preScale(deltaSx, deltaSy, px, py);
 
-            // Get location of px/py in the view
-            final PtsWrapper drawablePts = mPoolManager.acquirePtsWrapper(px, py);
-            final PtsWrapper viewPts = mPoolManager.acquirePtsWrapper();
-            outMatrix.mapPoints(viewPts.pts, drawablePts.pts);
+        // Get location of px/py in the view
+        final PtsWrapper drawablePts = mPoolManager.acquirePtsWrapper(px, py);
+        final PtsWrapper viewPts = mPoolManager.acquirePtsWrapper();
+        outMatrix.mapPoints(viewPts.pts, drawablePts.pts);
 
-            final float deltaTx = x - viewPts.getX();
-            final float deltaTy = y - viewPts.getY();
-            outMatrix.postTranslate(deltaTx, deltaTy);
-            outMatrix.getValues(matrixValues.values);
+        final float deltaTx = x - viewPts.getX();
+        final float deltaTy = y - viewPts.getY();
+        outMatrix.postTranslate(deltaTx, deltaTy);
+        outMatrix.getValues(matrixValues.values);
 
-            mPoolManager.releasePtsWrapper(viewPts);
-            mPoolManager.releasePtsWrapper(drawablePts);
-            mPoolManager.releaseValuesWrapper(matrixValues);
-
-            return !outMatrix.equals(originalMatrix);
-        }
-        return false;
+        mPoolManager.releasePtsWrapper(viewPts);
+        mPoolManager.releasePtsWrapper(drawablePts);
+        mPoolManager.releaseValuesWrapper(matrixValues);
     }
 
     //endregion Private methods

@@ -14,12 +14,14 @@ Bug: When switching from one image to another, need to reset matrix?
 Bug: When padding is not 0, coming up with wrong trans x/y when minimized in centerCrop (so,
      the constrainTransformInfo seems to be wrong) <-- Mostly top or left being too big, it seems?
 
-TODO:
-Change to these methods
-setScrollEnabled(boolean enabled)
-setScaleEnabled(boolean enabled)
-setDoubleTapToScaleEnabled(boolean enabled)
-setOverScrollMode(OVER_SCROLL_ALWAYS / OVER_SCROLL_IF_CONTENT_SCROLLS / OVER_SCROLL_NEVER)
+xxx TODO:
+xxx Change to these methods
+xxx setScrollEnabled(boolean enabled)
+xxx setScaleEnabled(boolean enabled)
+xxx setDoubleTapToScaleEnabled(boolean enabled)
+xxx setOverScrollMode(OVER_SCROLL_ALWAYS / OVER_SCROLL_IF_CONTENT_SCROLLS / OVER_SCROLL_NEVER)
+
+TODO NEXT
 -- fling --
 setFlingEnabled(boolean enabled)
 setOverScrollEnabledOnFling?

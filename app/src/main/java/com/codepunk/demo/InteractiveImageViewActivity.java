@@ -1,4 +1,4 @@
-package com.codepunk.demo.interactiveimageview.version7;
+package com.codepunk.demo;
 
 import android.graphics.Color;
 import android.graphics.Rect;
@@ -9,8 +9,6 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
-
-import com.codepunk.demo.R;
 
 public class InteractiveImageViewActivity extends AppCompatActivity
         implements DemoDrawerLayout.DemoDrawerLayoutListener,

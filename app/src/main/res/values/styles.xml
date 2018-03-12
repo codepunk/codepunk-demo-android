@@ -3,21 +3,16 @@
     </style>
 
     <style name="InteractiveImageView" parent="@android:style/Widget">
-        <item name="centerX">0.5</item>
-        <item name="centerY">0.5</item>
-        <item name="panEnabled">true</item>
-        <item name="scaleX">auto</item>
-        <item name="scaleY">auto</item>
-        <item name="zoomEnabled">true</item>
-        <item name="interactivity">all</item>
-        <item name="zoomPivots">@array/zoom_pivots</item>
+        <item name="scrollEnabled">true</item>
+        <item name="scaleEnabled">true</item>
+        <item name="doubleTapToScaleEnabled">true</item>
+        <item name="android:overScrollMode">ifContentScrolls</item>
+        <item name="scalePivots">@array/scale_pivots</item>
     </style>
 
     <style name="InteractiveImageViewEx" parent="InteractiveImageView">
         <item name="android:scaleType">centerCrop</item>
     </style>
 
-    <style name="AbsSeekBarLayout" parent="@android:style/Widget">
-        <item name="range">1000</item>
-    </style>
+    <style name="AbsSeekBarLayout" parent="@android:style/Widget" />
 </resources>

@@ -1,4 +1,4 @@
-package com.codepunk.demo.interactiveimageview.version7;
+package com.codepunk.demo;
 
 import android.content.Context;
 import android.support.v4.widget.DrawerLayout;

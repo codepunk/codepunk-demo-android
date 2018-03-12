@@ -161,10 +161,6 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
         mSeekBar.setOnTouchListener(listener);
     }
 
-    public void setRange(int range) {
-        mSeekBar.setMax(range);
-    }
-
     public void setValue(@NonNull T value) {
         setValue(value, false);
     }
@@ -323,9 +319,6 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
 
         final String label = a.getString(R.styleable.AbsSeekBarLayout_android_label);
         setLabelText(label);
-
-        final int range = a.getInteger(R.styleable.AbsSeekBarLayout_range, 100);
-        setRange(range);
 
         if (a.hasValue(R.styleable.AbsSeekBarLayout_android_format)) {
             final String format = a.getString(R.styleable.AbsSeekBarLayout_android_format);

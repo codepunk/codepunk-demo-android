@@ -46,7 +46,7 @@
         <item>Gradient</item>
     </string-array>
 
-    <array name="zoom_pivots">
+    <array name="scale_pivots">
         <item>0.0</item>
         <item>1.0</item>
     </array>
