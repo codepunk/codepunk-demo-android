@@ -127,13 +127,19 @@ public class InteractiveImageViewControlsFragment extends Fragment
     @Override
     public void onViewStateRestored(@Nullable Bundle savedInstanceState) {
         super.onViewStateRestored(savedInstanceState);
+
         if (savedInstanceState == null) {
             mImageView.setImageResource(DEFAULT_DRAWABLE_RES_ID);
             final int position = mImageEntryValues.indexOf(DEFAULT_DRAWABLE_RES_ID);
             mImageSpinner.setSelection(position, false);
             mTransformInfo = new InteractiveImageView.TransformInfo();
         } else {
-            setImageResourceByPosition(mImageSpinner.getSelectedItemPosition());
+            // This prevents onItemSelected from being fired immediately after calling
+            // setOnItemSelected listener below
+            final int position = mImageSpinner.getSelectedItemPosition();
+            mImageSpinner.setSelection(position, false);
+
+            setImageResourceByPosition(position);
             mTransformInfo = savedInstanceState.getParcelable(KEY_TRANSFORM_INFO);
             if (mTransformInfo != null) {
                 mScaleXSeekBarLayout.setValue(mTransformInfo.sx);

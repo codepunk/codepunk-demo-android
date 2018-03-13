@@ -23,7 +23,6 @@ import android.support.v4.widget.EdgeEffectCompat;
 import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
-import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
@@ -261,7 +260,7 @@ public class InteractiveImageView extends AppCompatImageView
         public Transformer(Context context) {
             mInterpolator = new DecelerateInterpolator();
             mAnimationDurationMillis =
-                    context.getResources().getInteger(android.R.integer.config_shortAnimTime);
+                    context.getResources().getInteger(android.R.integer.config_mediumAnimTime);
         }
 
         /**
@@ -564,25 +563,11 @@ public class InteractiveImageView extends AppCompatImageView
     private static final float MAX_SCALE_LENGTH_MULTIPLIER = 6.0f;
     private static final float SCALE_PIVOT_EPSILON = 0.2f;
 
-    /*
-    @SuppressWarnings("unused")
-    public static final int INTERACTIVITY_FLAG_NONE = 0;
-    public static final int INTERACTIVITY_FLAG_SCROLL = 0x00000001;
-    public static final int INTERACTIVITY_FLAG_FLING = 0x00000002;
-    public static final int INTERACTIVITY_FLAG_SCALE = 0x00000004;
-    public static final int INTERACTIVITY_FLAG_DOUBLE_TAP = 0x00000008;
-    public static final int INTERACTIVITY_FLAG_EDGE_EFFECTS = 0x00000010;
-    public static final int INTERACTIVITY_FLAG_ALL = INTERACTIVITY_FLAG_SCROLL |
-            INTERACTIVITY_FLAG_FLING |
-            INTERACTIVITY_FLAG_SCALE |
-            INTERACTIVITY_FLAG_DOUBLE_TAP |
-            INTERACTIVITY_FLAG_EDGE_EFFECTS;
-    */
-
     private static final int INVALID_FLAG_CONTENT_RECT = 0x00000001;
     private static final int INVALID_FLAG_BASELINE_IMAGE_MATRIX = 0x00000002;
     private static final int INVALID_FLAG_IMAGE_MAX_SCALE = 0x00000004;
     private static final int INVALID_FLAG_IMAGE_MIN_SCALE = 0x00000008;
+    private static final int INVALID_FLAG_PIVOT_POINT = 0x00000010;
     private static final int INVALID_FLAG_DEFAULT = INVALID_FLAG_BASELINE_IMAGE_MATRIX |
             INVALID_FLAG_IMAGE_MAX_SCALE |
             INVALID_FLAG_IMAGE_MIN_SCALE;
@@ -630,8 +615,9 @@ public class InteractiveImageView extends AppCompatImageView
 
     private TransformInfo mPendingTransformInfo = null;
     private int mInvalidFlags;
+    boolean mPivotDirty = false;
 
-    // Edge effect / overscroll tracking objects.
+    // Edge effect / over scroll tracking objects.
     private EdgeEffect mEdgeEffectLeft;
     private EdgeEffect mEdgeEffectTop;
     private EdgeEffect mEdgeEffectRight;
@@ -866,11 +852,19 @@ public class InteractiveImageView extends AppCompatImageView
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         boolean retVal = false;
+        final int action = event.getActionMasked();
         if (drawableHasIntrinsicSize()) {
+            // If we're going from 1 pointer to 2 or vice versa, mark the pivot point dirty
+            if ((action == MotionEvent.ACTION_POINTER_DOWN ||
+                    action == MotionEvent.ACTION_POINTER_UP)) {
+                if (event.getPointerCount() == 2) {
+                    mPivotDirty = true;
+                }
+            }
             retVal = mScaleGestureDetector.onTouchEvent(event);
             retVal = mGestureDetector.onTouchEvent(event) || retVal;
         }
-        if (event.getAction() == MotionEvent.ACTION_UP) {
+        if (action == MotionEvent.ACTION_UP) {
             onUp(event);
         }
         return retVal || super.onTouchEvent(event);
@@ -885,7 +879,7 @@ public class InteractiveImageView extends AppCompatImageView
     @Override
     public void setImageDrawable(@Nullable Drawable drawable) {
         super.setImageDrawable(drawable);
-//        setScaleType(mScaleType); <-- TODO Does setting this here mess up saving state after configuration change? How to reset?
+        setScaleType(mScaleType);
         mInvalidFlags |= INVALID_FLAG_DEFAULT;
     }
 
@@ -950,6 +944,7 @@ public class InteractiveImageView extends AppCompatImageView
         maybeReleaseEdgeEffects();
         mOverScroller.forceFinished(true);
         getPivotPoint(e.getX(), e.getY(), getImageMatrixInternal(), mPivotPoint);
+        mPivotDirty = false;
         return true;
     }
 
@@ -966,6 +961,11 @@ public class InteractiveImageView extends AppCompatImageView
     public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
         if (!mScrollEnabled || mScaleGestureDetector.isInProgress()) {
             return false;
+        }
+
+        if (mPivotDirty) {
+            mPivotDirty = false;
+            getPivotPoint(e2.getX(), e2.getY(), getImageMatrixInternal(), mPivotPoint);
         }
 
         final float x = e2.getX();
@@ -1044,6 +1044,14 @@ public class InteractiveImageView extends AppCompatImageView
             return false;
         }
 
+        if (mPivotDirty) {
+            // This catches an outlier case where user removes all fingers simultaneously.
+            // Depending on the timing, mPivotDirty may be set to true but is not caught by
+            // an onScroll or onScale before onFling is called. In that case, ignore the gesture.
+            mPivotDirty = false;
+            return false;
+        }
+
         maybeReleaseEdgeEffects();
         final Matrix matrix = getImageMatrixInternal();
         final ValuesWrapper matrixValues = mPoolManager.acquireValuesWrapper(matrix);
@@ -1056,17 +1064,13 @@ public class InteractiveImageView extends AppCompatImageView
         final float scrollableY = Math.max(mappedImageRect.height() - contentRect.height(), 0);
         final float scrolledX = -Math.min(matrixValues.values[MTRANS_X], 0);
         final float scrolledY = -Math.min(matrixValues.values[MTRANS_Y], 0);
-        int overX = 0;
-        int overY = 0;
         final int overScrollMode = getOverScrollMode();
-        if (overScrollMode != OVER_SCROLL_NEVER) {
-            if (overScrollMode == OVER_SCROLL_ALWAYS || canScrollX()) {
-                overX = contentRect.width() / 2;
-            }
-            if (overScrollMode == OVER_SCROLL_ALWAYS || canScrollY()) {
-                overY = contentRect.height() / 2;
-            }
-        }
+        final boolean canOverScrollX = (overScrollMode == OVER_SCROLL_ALWAYS ||
+                (overScrollMode == OVER_SCROLL_IF_CONTENT_SCROLLS && scrollableX > 0));
+        final boolean canOverScrollY = (overScrollMode == OVER_SCROLL_ALWAYS ||
+                (overScrollMode == OVER_SCROLL_IF_CONTENT_SCROLLS && scrollableY > 0));
+        final int overX = (canOverScrollX ? contentRect.width() / 2 : 0);
+        final int overY = (canOverScrollY ? contentRect.height() / 2 : 0);
         mOverScroller.fling(
                 (int) startX,
                 (int) startY,
@@ -1114,17 +1118,18 @@ public class InteractiveImageView extends AppCompatImageView
 
     @Override // ScaleGestureDetector.OnScaleGestureListener
     public boolean onScale(ScaleGestureDetector detector) {
-        if (!mScaleEnabled) {
-            return false;
-        }
-
         final float currentSpan = detector.getCurrentSpan();
-        Log.d(LOG_TAG, "onScroll: currentSpan=" + currentSpan);
         final float spanDelta = (currentSpan / mLastSpan);
         final float sx = getImageScaleX() * spanDelta;
         final float sy = getImageScaleY() * spanDelta;
         final float x = detector.getFocusX();
         final float y = detector.getFocusY();
+
+        if (mPivotDirty) {
+            mPivotDirty = false;
+            getPivotPoint(x, y, getImageMatrixInternal(), mPivotPoint);
+        }
+
         mGestureTransformInfo.set(sx, sy, mPivotPoint.x, mPivotPoint.y, x, y, false);
         final boolean constrained = constrainTransformInfo(mGestureTransformInfo, true);
         transformImage(mGestureTransformInfo);
@@ -1133,7 +1138,6 @@ public class InteractiveImageView extends AppCompatImageView
         }
         mLastSpan = currentSpan;
         return true;
-
     }
 
     @Override // ScaleGestureDetector.OnScaleGestureListener
@@ -1143,29 +1147,13 @@ public class InteractiveImageView extends AppCompatImageView
         }
 
         mLastSpan = detector.getCurrentSpan();
-        getPivotPoint(
-                detector.getFocusX(),
-                detector.getFocusY(),
-                getImageMatrixInternal(),
-                mPivotPoint);
+        mPivotDirty = true;
         return true;
     }
 
     @Override // ScaleGestureDetector.OnScaleGestureListener
     public void onScaleEnd(ScaleGestureDetector detector) {
-        if (!mScaleEnabled) {
-            return;
-        }
-
-        // TODO Smarter logic for getting pivot point. We might still have 2 fingers down, they're
-        // just close to each other.
-
-
-        getPivotPoint(
-                detector.getFocusX(),
-                detector.getFocusY(),
-                getImageMatrixInternal(),
-                mPivotPoint);
+        mPivotDirty = true;
     }
 
     //endregion Implemented methods

@@ -3,7 +3,5 @@ Test to see if image is at "baseline" before saving/restoring on config change
 Think about when to test for drawable has intrinsic size
 
 Bug: If scaleType is centerCrop and you go from landscape to portrait, scale isn't adjusted correctly
-Bug: onScroll still sometimes clashes with onScale when pinching down far -- jerkiness etc.
-Bug: When switching from one image to another, need to reset matrix?
 Bug: When padding is not 0, coming up with wrong trans x/y when minimized in centerCrop (so,
      the constrainTransformInfo seems to be wrong) <-- Mostly top or left being too big, it seems?
