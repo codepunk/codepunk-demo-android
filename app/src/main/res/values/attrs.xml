@@ -8,10 +8,11 @@
         <attr name="clampedMax" format="integer" />
         <attr name="clampedMin" format="integer" />
 
-        <attr name="scrollEnabled" format="boolean" />
-        <attr name="scaleEnabled" format="boolean" />
         <attr name="doubleTapToScaleEnabled" />
+        <attr name="flingEnabled" format="boolean" />
+        <attr name="scaleEnabled" format="boolean" />
         <attr name="scalePivots" format="reference" />
+        <attr name="scrollEnabled" format="boolean" />
     </declare-styleable>
 
     <declare-styleable name="CustomAppCompatSeekBar">
@@ -20,11 +21,11 @@
     </declare-styleable>
 
     <declare-styleable name="InteractiveImageView">
-        <attr name="scrollEnabled" />
-        <attr name="scaleEnabled" />
-        <attr name="android:overScrollMode" />
         <attr name="doubleTapToScaleEnabled" />
+        <attr name="flingEnabled" />
+        <attr name="scaleEnabled" />
         <attr name="scalePivots" />
+        <attr name="scrollEnabled" />
     </declare-styleable>
 
     <declare-styleable name="AbsSeekBarLayout">

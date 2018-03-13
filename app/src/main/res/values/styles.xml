@@ -3,11 +3,11 @@
     </style>
 
     <style name="InteractiveImageView" parent="@android:style/Widget">
-        <item name="scrollEnabled">true</item>
-        <item name="scaleEnabled">true</item>
         <item name="doubleTapToScaleEnabled">true</item>
-        <item name="android:overScrollMode">ifContentScrolls</item>
+        <item name="flingEnabled">true</item>
+        <item name="scaleEnabled">true</item>
         <item name="scalePivots">@array/scale_pivots</item>
+        <item name="scrollEnabled">true</item>
     </style>
 
     <style name="InteractiveImageViewEx" parent="InteractiveImageView">
