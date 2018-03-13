@@ -28,7 +28,7 @@ public class InteractiveImageViewActivity extends AppCompatActivity
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_interactive_image_view_v7);
+        setContentView(R.layout.activity_interactive_image_view);
 
         mDrawerLayout = findViewById(R.id.layout_drawer);
         mDrawerLayout.setScrimColor(Color.TRANSPARENT);

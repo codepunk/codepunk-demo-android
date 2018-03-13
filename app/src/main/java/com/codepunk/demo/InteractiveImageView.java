@@ -23,6 +23,7 @@ import android.support.v4.widget.EdgeEffectCompat;
 import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
@@ -984,50 +985,49 @@ public class InteractiveImageView extends AppCompatImageView
         }
         final Rect contentRect = getContentRect();
         final int overScrollMode = getOverScrollMode();
-        final boolean canOverScrollX = (overScrollMode == OVER_SCROLL_ALWAYS || (overScrollMode == OVER_SCROLL_IF_CONTENT_SCROLLS && canScrollX()));
+        final boolean canOverScrollX = (overScrollMode == OVER_SCROLL_ALWAYS ||
+                (overScrollMode == OVER_SCROLL_IF_CONTENT_SCROLLS && canScrollX()));
 
-//        if (overScrollMode != OVER_SCROLL_NEVER) {
-//            if (overScrollMode == OVER_SCROLL_ALWAYS || canScrollX()) {
         if (canOverScrollX) {
-                final float constrainedDiff = mGestureTransformInfo.x - x;
-                if (constrainedDiff < 0.0f) {
-                    mEdgeEffectLeftActive = true;
-                    EdgeEffectCompat.onPull(
-                            mEdgeEffectLeft,
-                            constrainedDiff / getContentRect().width(),
-                            1.0f - y / getHeight());
-                    needsInvalidate = true;
-                } else if (constrainedDiff > 0.0f) {
-                    mEdgeEffectRightActive = true;
-                    EdgeEffectCompat.onPull(
-                            mEdgeEffectRight,
-                            constrainedDiff / getContentRect().width(),
-                            y / getHeight());
-                    needsInvalidate = true;
-                }
+            final float constrainedDiff = mGestureTransformInfo.x - x;
+            if (constrainedDiff < 0.0f) {
+                mEdgeEffectLeftActive = true;
+                EdgeEffectCompat.onPull(
+                        mEdgeEffectLeft,
+                        constrainedDiff / getContentRect().width(),
+                        1.0f - y / getHeight());
+                needsInvalidate = true;
+            } else if (constrainedDiff > 0.0f) {
+                mEdgeEffectRightActive = true;
+                EdgeEffectCompat.onPull(
+                        mEdgeEffectRight,
+                        constrainedDiff / getContentRect().width(),
+                        y / getHeight());
+                needsInvalidate = true;
             }
+        }
 
-        final boolean canOverScrollY = (overScrollMode == OVER_SCROLL_ALWAYS || (overScrollMode == OVER_SCROLL_IF_CONTENT_SCROLLS && canScrollY()));
-//            if (overScrollMode == OVER_SCROLL_ALWAYS || canScrollY()) {
+        final boolean canOverScrollY = (overScrollMode == OVER_SCROLL_ALWAYS ||
+                (overScrollMode == OVER_SCROLL_IF_CONTENT_SCROLLS && canScrollY()));
         if (canOverScrollY) {
-                final float constrainedDiff = mGestureTransformInfo.y - y;
-                if (constrainedDiff < 0.0f) {
-                    EdgeEffectCompat.onPull(
-                            mEdgeEffectTop,
-                            constrainedDiff / contentRect.height(),
-                            x / getWidth());
-                    mEdgeEffectTopActive = true;
-                    needsInvalidate = true;
-                } else if (constrainedDiff > 0.0f) {
-                    EdgeEffectCompat.onPull(
-                            mEdgeEffectBottom,
-                            constrainedDiff / contentRect.height(),
-                            1.0f - x / getWidth());
-                    mEdgeEffectBottomActive = true;
-                    needsInvalidate = true;
-                }
+            final float constrainedDiff = mGestureTransformInfo.y - y;
+            if (constrainedDiff < 0.0f) {
+                EdgeEffectCompat.onPull(
+                        mEdgeEffectTop,
+                        constrainedDiff / contentRect.height(),
+                        x / getWidth());
+                mEdgeEffectTopActive = true;
+                needsInvalidate = true;
+            } else if (constrainedDiff > 0.0f) {
+                EdgeEffectCompat.onPull(
+                        mEdgeEffectBottom,
+                        constrainedDiff / contentRect.height(),
+                        1.0f - x / getWidth());
+                mEdgeEffectBottomActive = true;
+                needsInvalidate = true;
             }
-//        }
+        }
+
         if (needsInvalidate) {
             ViewCompat.postInvalidateOnAnimation(this);
         }
@@ -1119,6 +1119,7 @@ public class InteractiveImageView extends AppCompatImageView
         }
 
         final float currentSpan = detector.getCurrentSpan();
+        Log.d(LOG_TAG, "onScroll: currentSpan=" + currentSpan);
         final float spanDelta = (currentSpan / mLastSpan);
         final float sx = getImageScaleX() * spanDelta;
         final float sy = getImageScaleY() * spanDelta;
@@ -1155,6 +1156,10 @@ public class InteractiveImageView extends AppCompatImageView
         if (!mScaleEnabled) {
             return;
         }
+
+        // TODO Smarter logic for getting pivot point. We might still have 2 fingers down, they're
+        // just close to each other.
+
 
         getPivotPoint(
                 detector.getFocusX(),
