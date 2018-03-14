@@ -1,5 +1,6 @@
 TODO NEXT:
 Test to see if image is at "baseline" before saving/restoring on config change
+ -- I can do this by using NaN for scaleX/scaleY?
 Think about when to test for drawable has intrinsic size
 
 Bug: If scaleType is centerCrop and you go from landscape to portrait, scale isn't adjusted correctly
