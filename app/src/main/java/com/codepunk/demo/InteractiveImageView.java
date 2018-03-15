@@ -749,7 +749,6 @@ public class InteractiveImageView extends AppCompatImageView
     private TransformInfo mPendingTransformInfo = null;
     private TransformInfo.Options mPendingOptions = null;
     private int mInvalidFlags;
-    boolean mPivotDirty = false;
 
     // Edge effect / over scroll tracking objects.
     private EdgeEffect mEdgeEffectLeft;
@@ -1000,7 +999,7 @@ public class InteractiveImageView extends AppCompatImageView
             if ((action == MotionEvent.ACTION_POINTER_DOWN ||
                     action == MotionEvent.ACTION_POINTER_UP)) {
                 if (event.getPointerCount() == 2) {
-                    mPivotDirty = true;
+                    mInvalidFlags &= INVALID_FLAG_PIVOT_POINT;
                 }
             }
             retVal = mScaleGestureDetector.onTouchEvent(event);
@@ -1086,7 +1085,7 @@ public class InteractiveImageView extends AppCompatImageView
         maybeReleaseEdgeEffects();
         mOverScroller.forceFinished(true);
         getPivotPoint(e.getX(), e.getY(), getImageMatrixInternal(), mPivotPoint);
-        mPivotDirty = false;
+        mInvalidFlags &= ~INVALID_FLAG_PIVOT_POINT;
         return true;
     }
 
@@ -1105,8 +1104,8 @@ public class InteractiveImageView extends AppCompatImageView
             return false;
         }
 
-        if (mPivotDirty) {
-            mPivotDirty = false;
+        if ((mInvalidFlags & INVALID_FLAG_PIVOT_POINT) != 0) {
+            mInvalidFlags &= ~INVALID_FLAG_PIVOT_POINT;
             getPivotPoint(e2.getX(), e2.getY(), getImageMatrixInternal(), mPivotPoint);
         }
 
@@ -1192,11 +1191,11 @@ public class InteractiveImageView extends AppCompatImageView
             return false;
         }
 
-        if (mPivotDirty) {
+        if ((mInvalidFlags & INVALID_FLAG_PIVOT_POINT) != 0) {
             // This catches an outlier case where user removes all fingers simultaneously.
             // Depending on the timing, mPivotDirty may be set to true but is not caught by
             // an onScroll or onScale before onFling is called. In that case, ignore the gesture.
-            mPivotDirty = false;
+            mInvalidFlags &= ~INVALID_FLAG_PIVOT_POINT;
             return false;
         }
 
@@ -1274,8 +1273,8 @@ public class InteractiveImageView extends AppCompatImageView
     public boolean onScale(ScaleGestureDetector detector) {
         final float focusX = detector.getFocusX();
         final float focusY = detector.getFocusY();
-        if (mPivotDirty) {
-            mPivotDirty = false;
+        if ((mInvalidFlags & INVALID_FLAG_PIVOT_POINT) != 0) {
+            mInvalidFlags &= ~INVALID_FLAG_PIVOT_POINT;
             getPivotPoint(focusX, focusY, getImageMatrixInternal(), mPivotPoint);
         }
 
@@ -1310,13 +1309,13 @@ public class InteractiveImageView extends AppCompatImageView
         }
 
         mLastSpan = detector.getCurrentSpan();
-        mPivotDirty = true;
+        mInvalidFlags &= INVALID_FLAG_PIVOT_POINT;
         return true;
     }
 
     @Override // ScaleGestureDetector.OnScaleGestureListener
     public void onScaleEnd(ScaleGestureDetector detector) {
-        mPivotDirty = true;
+        mInvalidFlags &= INVALID_FLAG_PIVOT_POINT;
     }
 
     //endregion Implemented methods
