@@ -1,4 +1,7 @@
 TODO NEXT:
+
+Bug: Controls fragment now shows NaN for scale
+
 Take care of INVALID_FLAG_PIVOT_POINT
 Calls to firstFinite always calculate the last one. Can I avoid?
 Test to see if image is at "baseline" before saving/restoring on config change
@@ -10,6 +13,3 @@ Bug: When padding is not 0, coming up with wrong trans x/y when minimized in cen
      the constrainTransformInfo seems to be wrong) <-- Mostly top or left being too big, it seems?
 
 
-HOLD ON HOLD ON
-Don't have options be part of TransformInfo. That should be separate argument to transformImage();
-Should fromUser be a private field in Options? I do believe so!
