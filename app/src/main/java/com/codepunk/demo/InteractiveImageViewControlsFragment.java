@@ -141,9 +141,11 @@ public class InteractiveImageViewControlsFragment extends Fragment
 
             setImageResourceByPosition(position);
             mTransformInfo = savedInstanceState.getParcelable(KEY_TRANSFORM_INFO);
-            if (mTransformInfo != null) {
-                mScaleXSeekBarLayout.setValue(mTransformInfo.inSx);
-                mScaleYSeekBarLayout.setValue(mTransformInfo.inSy);
+            if (mTransformInfo == null) {
+                mTransformInfo = new InteractiveImageView.TransformInfo();
+            } else {
+                mScaleXSeekBarLayout.setValue(mTransformInfo.sx);
+                mScaleYSeekBarLayout.setValue(mTransformInfo.sy);
                 mPivotXSeekBarLayout.setValue(mTransformInfo.px);
                 mPivotYSeekBarLayout.setValue(mTransformInfo.py);
                 mImageView.transformImage(mTransformInfo);
@@ -158,11 +160,13 @@ public class InteractiveImageViewControlsFragment extends Fragment
 
     @Override
     public void onSaveInstanceState(Bundle outState) {
-        super.onSaveInstanceState(outState);
-        final InteractiveImageView.TransformInfo info = new InteractiveImageView.TransformInfo();
-        mImageView.getTransformInfo(info);
-        outState.putParcelable(KEY_TRANSFORM_INFO, mTransformInfo);
         outState.putBoolean(KEY_SCALE_LOCKED, mLockButton.isChecked());
+        if (mImageView.isTransformed()) {
+            InteractiveImageView.TransformInfo info = new InteractiveImageView.TransformInfo();
+            mImageView.getTransformInfo(info);
+            outState.putParcelable(KEY_TRANSFORM_INFO, info);
+        }
+        super.onSaveInstanceState(outState);
     }
 
     //endregion Lifecycle methods
@@ -187,20 +191,20 @@ public class InteractiveImageViewControlsFragment extends Fragment
                     break;
                 }
                 case R.id.layout_seek_bar_scale_x: {
-                    final float oldSx = mTransformInfo.inSx;
-                    mTransformInfo.inSx = seekBarLayout.getValue();
+                    final float oldSx = mTransformInfo.sx;
+                    mTransformInfo.sx = seekBarLayout.getValue();
                     if (mLockButton.isChecked()) {
-                        mTransformInfo.inSy *= mTransformInfo.inSx / oldSx;
-                        mScaleYSeekBarLayout.setValue(mTransformInfo.inSy);
+                        mTransformInfo.sy *= mTransformInfo.sx / oldSx;
+                        mScaleYSeekBarLayout.setValue(mTransformInfo.sy);
                     }
                     break;
                 }
                 case R.id.layout_seek_bar_scale_y: {
-                    final float oldSy = mTransformInfo.inSy;
-                    mTransformInfo.inSy = seekBarLayout.getValue();
+                    final float oldSy = mTransformInfo.sy;
+                    mTransformInfo.sy = seekBarLayout.getValue();
                     if (mLockButton.isChecked()) {
-                        mTransformInfo.inSx *= mTransformInfo.inSy / oldSy;
-                        mScaleXSeekBarLayout.setValue(mTransformInfo.inSx);
+                        mTransformInfo.sx *= mTransformInfo.sy / oldSy;
+                        mScaleXSeekBarLayout.setValue(mTransformInfo.sx);
                     }
                     break;
                 }
@@ -267,8 +271,8 @@ public class InteractiveImageViewControlsFragment extends Fragment
         if (mDisallowUpdatingSeekBars) {
             mDisallowUpdatingSeekBars = false;
         } else {
-            mScaleXSeekBarLayout.setValue(mTransformInfo.inSx, false);
-            mScaleYSeekBarLayout.setValue(mTransformInfo.inSy, false);
+            mScaleXSeekBarLayout.setValue(mTransformInfo.sx, false);
+            mScaleYSeekBarLayout.setValue(mTransformInfo.sy, false);
             mPivotXSeekBarLayout.setValue(mTransformInfo.px, false);
             mPivotYSeekBarLayout.setValue(mTransformInfo.py, false);
         }

@@ -1,15 +1,10 @@
 TODO NEXT:
 
-Bug: Controls fragment now shows NaN for scale
-
 Take care of INVALID_FLAG_PIVOT_POINT
-Calls to firstFinite always calculate the last one. Can I avoid?
-Test to see if image is at "baseline" before saving/restoring on config change
- -- I can do this by using NaN for scaleX/scaleY?
 Think about when to test for drawable has intrinsic size
 
-Bug: If scaleType is centerCrop and you go from landscape to portrait, scale isn't adjusted correctly
 Bug: When padding is not 0, coming up with wrong trans x/y when minimized in centerCrop (so,
      the constrainTransformInfo seems to be wrong) <-- Mostly top or left being too big, it seems?
 
 
+Reconsider all of my null checks. Can I just allow crash? What does google do?
