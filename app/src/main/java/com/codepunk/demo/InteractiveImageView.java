@@ -23,6 +23,7 @@ import android.support.v4.widget.EdgeEffectCompat;
 import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
@@ -34,6 +35,8 @@ import android.widget.OverScroller;
 
 import com.codepunk.demo.support.DisplayCompat;
 import com.codepunk.demo.support.ImageViewCompat;
+
+import java.util.Locale;
 
 import static android.graphics.Matrix.MSCALE_X;
 import static android.graphics.Matrix.MSCALE_Y;
@@ -1523,7 +1526,14 @@ public class InteractiveImageView extends AppCompatImageView
         final Matrix transformMatrix = mPoolManager.acquireMatrix();
         // TODO When do I check if image has intrinsic size? Or does it matter?
         resolveTransformInfo(info, outInfo, options);
+
+        Log.d(LOG_TAG, String.format(Locale.ENGLISH, "transformImage:        info=%s", info));
+        Log.d(LOG_TAG, String.format(Locale.ENGLISH, "*** transformImage: outInfo=%s", outInfo));
+
         transformToMatrix(outInfo, transformMatrix);
+
+        Log.d(LOG_TAG, String.format(Locale.ENGLISH, "*** transformImage:  matrix=%s", matrix));
+
         final boolean transformed = !matrix.equals(transformMatrix);
         if (transformed) {
             if (options.animate) {
@@ -1592,7 +1602,6 @@ public class InteractiveImageView extends AppCompatImageView
             TransformInfo info,
             TransformInfo outInfo,
             boolean isTouchEvent) {
-        boolean constrained = false; // TODO REMOVE
         if (info != null) {
             if (drawableHasIntrinsicSize()) {
                 resolveTransformInfo(info, outInfo);
@@ -2107,6 +2116,8 @@ public class InteractiveImageView extends AppCompatImageView
         final PtsWrapper drawablePts = mPoolManager.acquirePtsWrapper(info.px, info.py);
         final PtsWrapper viewPts = mPoolManager.acquirePtsWrapper();
         outMatrix.mapPoints(viewPts.pts, drawablePts.pts);
+
+        // TODO BUG Somewhere in here, wrong top/left value(s) are happening when padding != 0
 
         final float deltaTx = info.x - viewPts.getX();
         final float deltaTy = info.y - viewPts.getY();
