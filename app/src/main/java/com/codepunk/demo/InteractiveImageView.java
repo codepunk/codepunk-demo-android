@@ -23,7 +23,6 @@ import android.support.v4.widget.EdgeEffectCompat;
 import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
-import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
@@ -35,8 +34,6 @@ import android.widget.OverScroller;
 
 import com.codepunk.demo.support.DisplayCompat;
 import com.codepunk.demo.support.ImageViewCompat;
-
-import java.util.Locale;
 
 import static android.graphics.Matrix.MSCALE_X;
 import static android.graphics.Matrix.MSCALE_Y;
@@ -391,56 +388,6 @@ public class InteractiveImageView extends AppCompatImageView
                 mCurrentY = mStartY + (mEndY - mStartY) * interpolation;
             }
             return true;
-        }
-
-        /**
-         * Returns the current scale X.
-         *
-         * @see android.widget.Scroller#getCurrX()
-         */
-        float getCurrScaleX() {
-            return mCurrentSx;
-        }
-
-        /**
-         * Returns the current scale Y.
-         *
-         * @see android.widget.Scroller#getCurrX()
-         */
-        float getCurrScaleY() {
-            return mCurrentSy;
-        }
-
-        /**
-         * Returns the current translation X.
-         *
-         * @see android.widget.Scroller#getCurrX()
-         */
-        float getCurrX() {
-            return mCurrentX;
-        }
-
-        /**
-         * Returns the current translation Y.
-         *
-         * @see android.widget.Scroller#getCurrX()
-         */
-        float getCurrY() {
-            return mCurrentY;
-        }
-
-        /**
-         * Returns the pivot X.
-         */
-        float getPx() {
-            return mPx;
-        }
-
-        /**
-         * Returns the pivot Y.
-         */
-        float getPy() {
-            return mPy;
         }
     }
 
@@ -1087,8 +1034,7 @@ public class InteractiveImageView extends AppCompatImageView
 
         maybeReleaseEdgeEffects();
         mOverScroller.forceFinished(true);
-        getPivotPoint(e.getX(), e.getY(), getImageMatrixInternal(), mPivotPoint);
-        mInvalidFlags &= ~INVALID_FLAG_PIVOT_POINT;
+        updatePivotPoint(e.getX(), e.getY());
         return true;
     }
 
@@ -1108,8 +1054,7 @@ public class InteractiveImageView extends AppCompatImageView
         }
 
         if ((mInvalidFlags & INVALID_FLAG_PIVOT_POINT) != 0) {
-            mInvalidFlags &= ~INVALID_FLAG_PIVOT_POINT;
-            getPivotPoint(e2.getX(), e2.getY(), getImageMatrixInternal(), mPivotPoint);
+            updatePivotPoint(e2.getX(), e2.getY());
         }
 
         final float x = e2.getX();
@@ -1127,7 +1072,7 @@ public class InteractiveImageView extends AppCompatImageView
 
         boolean needsInvalidate = transformImage(info, outInfo, options);
         if (Float.compare(info.x, outInfo.x) != 0 || Float.compare(info.y, outInfo.y) != 0) {
-            getPivotPoint(x, y, getImageMatrixInternal(), mPivotPoint);
+            updatePivotPoint(x, y);
         }
         final Rect contentRect = getContentRect();
         final int overScrollMode = getOverScrollMode();
@@ -1260,7 +1205,7 @@ public class InteractiveImageView extends AppCompatImageView
                 VIEW_CENTER,
                 VIEW_CENTER);
         final TransformInfo.Options options =
-                mPoolManager.acquireOptions(true, true, false);
+                mPoolManager.acquireOptions(true, true, true);
         transformImage(info, options);
         mPoolManager.releaseOptions(options);
         mPoolManager.releaseTransformInfo(info);
@@ -1277,8 +1222,7 @@ public class InteractiveImageView extends AppCompatImageView
         final float focusX = detector.getFocusX();
         final float focusY = detector.getFocusY();
         if ((mInvalidFlags & INVALID_FLAG_PIVOT_POINT) != 0) {
-            mInvalidFlags &= ~INVALID_FLAG_PIVOT_POINT;
-            getPivotPoint(focusX, focusY, getImageMatrixInternal(), mPivotPoint);
+            updatePivotPoint(focusX, focusY);
         }
 
         final float currentSpan = detector.getCurrentSpan();
@@ -1295,7 +1239,7 @@ public class InteractiveImageView extends AppCompatImageView
                 mPoolManager.acquireOptions(true, false, true);
         transformImage(info, outInfo, options);
         if (!info.equals(outInfo)) {
-            getPivotPoint(focusX, focusY, getImageMatrixInternal(), mPivotPoint);
+            updatePivotPoint(focusX, focusY);
         }
         mLastSpan = currentSpan;
 
@@ -1344,26 +1288,24 @@ public class InteractiveImageView extends AppCompatImageView
     }
 
     public float getImagePivotX() {
-        final PointF pivotPoint = mPoolManager.acquirePointF();
-        getPivotPoint(
-                getContentRect().exactCenterX(),
-                0.0f,
-                getImageMatrixInternal(),
-                pivotPoint);
-        final float pivotX = pivotPoint.x;
-        mPoolManager.releasePointF(pivotPoint);
+        final PtsWrapper viewPts =
+                mPoolManager.acquirePtsWrapper(getContentRect().exactCenterX(), 0.0f);
+        final PtsWrapper drawablePts = mPoolManager.acquirePtsWrapper();
+        mapViewPtsToDrawablePts(getImageMatrixInternal(), drawablePts.pts, viewPts.pts);
+        final float pivotX = drawablePts.pts[0];
+        mPoolManager.releasePtsWrapper(drawablePts);
+        mPoolManager.releasePtsWrapper(viewPts);
         return pivotX;
     }
 
     public float getImagePivotY() {
-        final PointF pivotPoint = mPoolManager.acquirePointF();
-        getPivotPoint(
-                0.0f,
-                getContentRect().exactCenterY(),
-                getImageMatrixInternal(),
-                pivotPoint);
-        final float pivotY = pivotPoint.y;
-        mPoolManager.releasePointF(pivotPoint);
+        final PtsWrapper viewPts =
+                mPoolManager.acquirePtsWrapper(0.0f, getContentRect().exactCenterY());
+        final PtsWrapper drawablePts = mPoolManager.acquirePtsWrapper();
+        mapViewPtsToDrawablePts(getImageMatrixInternal(), drawablePts.pts, viewPts.pts);
+        final float pivotY = drawablePts.pts[1];
+        mPoolManager.releasePtsWrapper(drawablePts);
+        mPoolManager.releasePtsWrapper(viewPts);
         return pivotY;
     }
 
@@ -1436,11 +1378,6 @@ public class InteractiveImageView extends AppCompatImageView
         mPoolManager.releaseValuesWrapper(baselineMatrixValues);
         mPoolManager.releaseValuesWrapper(matrixValues);
         return transformed;
-        /*
-        final Matrix matrix = getImageMatrixInternal();
-        final Matrix baselineMatrix = getBaselineImageMatrix();
-        return !getImageMatrixInternal().equals(getBaselineImageMatrix());
-        */
     }
 
     public boolean onUp(MotionEvent e) {
@@ -1526,20 +1463,15 @@ public class InteractiveImageView extends AppCompatImageView
         final Matrix transformMatrix = mPoolManager.acquireMatrix();
         // TODO When do I check if image has intrinsic size? Or does it matter?
         resolveTransformInfo(info, outInfo, options);
-
-        Log.d(LOG_TAG, String.format(Locale.ENGLISH, "transformImage:        info=%s", info));
-        Log.d(LOG_TAG, String.format(Locale.ENGLISH, "*** transformImage: outInfo=%s", outInfo));
-
         transformToMatrix(outInfo, transformMatrix);
-
-        Log.d(LOG_TAG, String.format(Locale.ENGLISH, "*** transformImage:  matrix=%s", matrix));
-
         final boolean transformed = !matrix.equals(transformMatrix);
         if (transformed) {
             if (options.animate) {
+
                 final PtsWrapper drawablePts = mPoolManager.acquirePtsWrapper(info.px, info.py);
                 final PtsWrapper viewPts = mPoolManager.acquirePtsWrapper();
-                getImageMatrixInternal().mapPoints(viewPts.pts, drawablePts.pts);
+                mapDrawablePtsToViewPts(getImageMatrixInternal(), viewPts.pts, drawablePts.pts);
+//                getImageMatrixInternal().mapPoints(viewPts.pts, drawablePts.pts);
                 final float startX = viewPts.getX();
                 final float startY = viewPts.getY();
                 mPoolManager.releasePtsWrapper(viewPts);
@@ -1633,21 +1565,21 @@ public class InteractiveImageView extends AppCompatImageView
                 final PtsWrapper drawablePts =
                         mPoolManager.acquirePtsWrapper(outInfo.px, outInfo.py);
                 final PtsWrapper viewPts = mPoolManager.acquirePtsWrapper();
-                matrix.mapPoints(viewPts.pts, drawablePts.pts);
+                mapDrawablePtsToViewPts(matrix, viewPts.pts, drawablePts.pts);
                 final float mappedPx = viewPts.getX() - matrixValues.values[MTRANS_X];
                 final float mappedPy = viewPts.getY() - matrixValues.values[MTRANS_Y];
 
                 final PointF coefficient = mPoolManager.acquirePointF();
                 getTranslationCoefficient(matrix, coefficient);
                 if (coefficient.x >= 0) {
-                    outInfo.x = getPaddingLeft() + coefficient.x + mappedPx;
+                    outInfo.x = coefficient.x + mappedPx;
                 } else {
                     final float minX = Math.min(coefficient.x, 0.0f);
                     final float clampedDx = MathUtils.clamp(outInfo.x - mappedPx, minX, 0.0f);
                     outInfo.x = mappedPx + clampedDx;
                 }
                 if (coefficient.y >= 0) {
-                    outInfo.y = getPaddingTop() + coefficient.y + mappedPy;
+                    outInfo.y = coefficient.y + mappedPy;
                 } else {
                     final float minY = Math.min(coefficient.y, 0.0f);
                     final float clampedDy = MathUtils.clamp(outInfo.y - mappedPy, minY, 0.0f);
@@ -1864,18 +1796,25 @@ public class InteractiveImageView extends AppCompatImageView
         }
     }
 
-    protected void getPivotPoint(float x, float y, Matrix matrix, PointF outPoint) {
-        if (matrix != null && outPoint != null) {
-            final Matrix invertedMatrix = mPoolManager.acquireMatrix();
-            final PtsWrapper srcPts = mPoolManager.acquirePtsWrapper(x, y);
-            final PtsWrapper dstPts = mPoolManager.acquirePtsWrapper();
-            matrix.invert(invertedMatrix);
-            invertedMatrix.mapPoints(dstPts.pts, srcPts.pts);
-            outPoint.set(dstPts.getX(), dstPts.getY());
-            mPoolManager.releasePtsWrapper(dstPts);
-            mPoolManager.releasePtsWrapper(srcPts);
-            mPoolManager.releaseMatrix(invertedMatrix);
-        }
+    protected final void mapDrawablePtsToViewPts(Matrix matrix, float[] dstPts, float[] srcPts) {
+        final PtsWrapper intermediatePts = mPoolManager.acquirePtsWrapper();
+        matrix.mapPoints(intermediatePts.pts, srcPts);
+        final boolean cropToPadding = ImageViewCompat.getCropToPadding(this);
+        dstPts[0] = intermediatePts.pts[0] + (cropToPadding ? getPaddingLeft() : 0.0f);
+        dstPts[1] = intermediatePts.pts[1] + (cropToPadding ? getPaddingTop() : 0.0f);
+        mPoolManager.releasePtsWrapper(intermediatePts);
+    }
+
+    protected final void mapViewPtsToDrawablePts(Matrix matrix, float[] dstPts, float[] srcPts) {
+        final boolean cropToPadding = ImageViewCompat.getCropToPadding(this);
+        final Matrix invertedMatrix = mPoolManager.acquireMatrix();
+        final PtsWrapper adjustedPts = mPoolManager.acquirePtsWrapper(
+                srcPts[0] - (cropToPadding ? getPaddingLeft() : 0.0f),
+                srcPts[1] - (cropToPadding ? getPaddingTop() : 0.0f));
+        matrix.invert(invertedMatrix);
+        invertedMatrix.mapPoints(dstPts, adjustedPts.pts);
+        mPoolManager.releasePtsWrapper(adjustedPts);
+        mPoolManager.releaseMatrix(invertedMatrix);
     }
 
     protected static Matrix.ScaleToFit scaleTypeToScaleToFit(ScaleType scaleType) {
@@ -2054,16 +1993,16 @@ public class InteractiveImageView extends AppCompatImageView
         outInfo.sx = getImageScaleX();
         outInfo.sy = getImageScaleY();
         if (ViewCompat.isLaidOut(this)) {
-            final PointF pivotPoint = mPoolManager.acquirePointF();
             final Rect contentRect = getContentRect();
-            getPivotPoint(
+            final PtsWrapper viewPts = mPoolManager.acquirePtsWrapper(
                     contentRect.exactCenterX(),
-                    contentRect.exactCenterY(),
-                    matrix,
-                    pivotPoint);
-            outInfo.px = pivotPoint.x;
-            outInfo.py = pivotPoint.y;
-            mPoolManager.releasePointF(pivotPoint);
+                    contentRect.exactCenterY());
+            final PtsWrapper drawablePts = mPoolManager.acquirePtsWrapper();
+            mapViewPtsToDrawablePts(matrix, drawablePts.pts, viewPts.pts);
+            outInfo.px = drawablePts.pts[0];
+            outInfo.py = drawablePts.pts[1];
+            mPoolManager.releasePtsWrapper(drawablePts);
+            mPoolManager.releasePtsWrapper(viewPts);
         } else if (drawableHasIntrinsicSize()) {
             final RectF drawableRect = mPoolManager.acquireRectF(getDrawable());
             outInfo.px = drawableRect.centerX();
@@ -2115,18 +2054,23 @@ public class InteractiveImageView extends AppCompatImageView
         // Get location of px/py in the view
         final PtsWrapper drawablePts = mPoolManager.acquirePtsWrapper(info.px, info.py);
         final PtsWrapper viewPts = mPoolManager.acquirePtsWrapper();
-        outMatrix.mapPoints(viewPts.pts, drawablePts.pts);
-
-        // TODO BUG Somewhere in here, wrong top/left value(s) are happening when padding != 0
+        mapDrawablePtsToViewPts(outMatrix, viewPts.pts, drawablePts.pts);
 
         final float deltaTx = info.x - viewPts.getX();
         final float deltaTy = info.y - viewPts.getY();
         outMatrix.postTranslate(deltaTx, deltaTy);
-        //outMatrix.getValues(matrixValues.values);
 
         mPoolManager.releasePtsWrapper(viewPts);
         mPoolManager.releasePtsWrapper(drawablePts);
         mPoolManager.releaseValuesWrapper(matrixValues);
+    }
+
+    private void updatePivotPoint(float x, float y) {
+        final PtsWrapper viewPts = mPoolManager.acquirePtsWrapper(x, y);
+        final PtsWrapper drawablePts = mPoolManager.acquirePtsWrapper();
+        mapViewPtsToDrawablePts(getImageMatrixInternal(), drawablePts.pts, viewPts.pts);
+        mPivotPoint.set(drawablePts.pts[0], drawablePts.pts[1]);
+        mInvalidFlags &= ~INVALID_FLAG_PIVOT_POINT;
     }
 
     //endregion Private methods

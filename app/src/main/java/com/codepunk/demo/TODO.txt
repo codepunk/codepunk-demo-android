@@ -2,7 +2,6 @@ TODO NEXT:
 
 Think about when to test for drawable has intrinsic size
 
-Bug: When padding is not 0, coming up with wrong trans x/y when minimized in centerCrop (so,
-     the constrainTransformInfo seems to be wrong) <-- Mostly top or left being too big, it seems?
-
 Reconsider all of my null checks. Can I just allow crash? What does google do?
+
+Replace all "releaseXYZ" methods in PoolManager with single generic
