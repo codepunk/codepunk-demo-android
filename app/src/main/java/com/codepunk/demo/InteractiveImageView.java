@@ -16,7 +16,6 @@ import android.support.annotation.ArrayRes;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.math.MathUtils;
-import android.support.v4.util.Pools.SimplePool;
 import android.support.v4.view.GestureDetectorCompat;
 import android.support.v4.view.ViewCompat;
 import android.support.v4.widget.EdgeEffectCompat;
@@ -62,66 +61,6 @@ public class InteractiveImageView extends AppCompatImageView
             overScroller = new OverScroller(context);
             transformer = new Transformer(context);
         }
-    }
-
-    private static class PoolManager {
-        final SimplePool<TransformInfo> mTransformInfoPool;
-
-        // TODO TEMP
-        /*
-        private int mValuesWrapperPoolSize = 0;
-        private int mValuesWrapperInUseCount = 0;
-        */
-        // END TEMP
-
-        public PoolManager(int maxPoolSize) {
-            mTransformInfoPool = new SimplePool<>(maxPoolSize);
-        }
-
-        TransformInfo acquireTransformInfo() {
-            final TransformInfo instance = mTransformInfoPool.acquire();
-            return (instance == null ? new TransformInfo() : instance);
-        }
-
-        TransformInfo acquireTransformInfo(
-                float sx,
-                float sy,
-                float px,
-                float py,
-                float x,
-                float y) {
-            final TransformInfo instance = acquireTransformInfo();
-            instance.set(sx, sy, px, py, x, y);
-            return instance;
-        }
-
-        <T> void release(T instance) {
-            if (instance instanceof TransformInfo) {
-                mTransformInfoPool.release((TransformInfo) instance);
-            }
-        }
-
-        /*
-        private void logSize(String poolName, String methodName, int poolSize, int inUseCount) {
-            StringBuilder sb = new StringBuilder();
-            try {
-                StackTraceElement[] elements = new Throwable().getStackTrace();
-                for (int i = 1; i < 7; i++) {
-                    if (elements.length > i) {
-                        if (sb.length() > 0) {
-                            sb.append(", ");
-                        }
-                        sb.append(elements[i].getMethodName());
-                    }
-                }
-            } catch (Exception e) {
-                // NO OP
-            }
-            final String stars = (inUseCount > 1 ? "**********" : "");
-            Log.d(LOG_TAG, String.format(Locale.ENGLISH, "%s|%s: poolSize=%d, inUseCount=%d%s, methods=%s", poolName, methodName, poolSize, inUseCount, stars, sb.toString()));
-        }
-        */
-        // END TEMP
     }
 
     @SuppressWarnings("WeakerAccess")
@@ -319,6 +258,7 @@ public class InteractiveImageView extends AppCompatImageView
 
             public boolean constrain = true;
             public boolean animate = false;
+            public boolean outConstrained = false;
             protected boolean isTouchEvent = false;
 
             //endregion Fields
@@ -328,7 +268,7 @@ public class InteractiveImageView extends AppCompatImageView
             public Options() {}
 
             public Options(boolean constrain, boolean animate) {
-                set(constrain, animate);
+                set(constrain, animate, false);
             }
 
             protected Options(boolean constrain, boolean animate, boolean isTouchEvent) {
@@ -339,12 +279,14 @@ public class InteractiveImageView extends AppCompatImageView
                 this.constrain = src.constrain;
                 this.animate = src.animate;
                 this.isTouchEvent = src.isTouchEvent;
+                this.outConstrained = src.outConstrained;
             }
 
             private Options(Parcel src) {
                 constrain = (src.readByte() != 0);
                 animate = (src.readByte() != 0);
                 isTouchEvent = (src.readByte() != 0);
+                outConstrained = (src.readByte() != 0);
             }
 
             //endregion Constructors
@@ -361,7 +303,8 @@ public class InteractiveImageView extends AppCompatImageView
 
                 if (constrain != options.constrain) return false;
                 if (animate != options.animate) return false;
-                return isTouchEvent == options.isTouchEvent;
+                if (isTouchEvent != options.isTouchEvent) return false;
+                return outConstrained == options.outConstrained;
             }
 
             @Override
@@ -369,6 +312,7 @@ public class InteractiveImageView extends AppCompatImageView
                 int result = (constrain ? 1 : 0);
                 result = 31 * result + (animate ? 1 : 0);
                 result = 31 * result + (isTouchEvent ? 1 : 0);
+                result = 31 * result + (outConstrained ? 1 : 0);
                 return result;
             }
 
@@ -378,6 +322,7 @@ public class InteractiveImageView extends AppCompatImageView
                         "{constrain=" + constrain +
                         ", animate=" + animate +
                         ", isTouchEvent=" + isTouchEvent +
+                        ", outConstrained=" + outConstrained +
                         '}';
             }
 
@@ -395,6 +340,7 @@ public class InteractiveImageView extends AppCompatImageView
                 dest.writeByte((byte) (constrain ? 1 : 0));
                 dest.writeByte((byte) (animate ? 1 : 0));
                 dest.writeByte((byte) (isTouchEvent ? 1 : 0));
+                dest.writeByte((byte) (outConstrained ? 1 : 0));
             }
 
             //endregion Implemented methods
@@ -402,21 +348,21 @@ public class InteractiveImageView extends AppCompatImageView
             //region Methods
 
             public void set(boolean constrain, boolean animate) {
-                this.constrain = constrain;
-                this.animate = animate;
+                set(constrain, animate, false);
             }
 
             //endregion Methods
 
-            //region Methods
+            //region Protected methods
 
             protected void set(boolean constrain, boolean animate, boolean isTouchEvent) {
                 this.constrain = constrain;
                 this.animate = animate;
                 this.isTouchEvent = isTouchEvent;
+                this.outConstrained = false;
             }
 
-            //endregion Methods
+            //endregion Protected methods
         }
 
         //endregion Nested classes
@@ -561,7 +507,6 @@ public class InteractiveImageView extends AppCompatImageView
 
     private static final String LOG_TAG = InteractiveImageView.class.getSimpleName();
     private static final float EDGE_EFFECT_SIZE_FACTOR = 1.25f;
-    private static final float FLOAT_EPSILON = 0.0001f;
     private static final float MAX_SCALE_BREADTH_MULTIPLIER = 4.0f;
     private static final float MAX_SCALE_LENGTH_MULTIPLIER = 6.0f;
     private static final float SCALE_PIVOT_EPSILON = 0.2f;
@@ -619,13 +564,14 @@ public class InteractiveImageView extends AppCompatImageView
     private final Rect mContentRect = new Rect();
     private final Rect mDrawableRect = new Rect();
 
-    private final PoolManager mPoolManager = new PoolManager(8);
+    // Avoid allocations...
     private final Matrix mMatrix = new Matrix();
     private final PointF mPointF = new PointF();
     private final RectF mRectF = new RectF();
     private final RectF mDstRectF = new RectF();
     private final float[] mValues = new float[9];
     private final float[] mPts = new float[2];
+    private final TransformInfo mTransformInfo = new TransformInfo();
     private final TransformInfo.Options mOptions = new TransformInfo.Options();
 
     private TransformInfo mPendingTransformInfo = null;
@@ -696,7 +642,7 @@ public class InteractiveImageView extends AppCompatImageView
         if (mOverScroller.computeScrollOffset()) {
             final int currX = mOverScroller.getCurrX();
             final int currY = mOverScroller.getCurrY();
-            final TransformInfo info = mPoolManager.acquireTransformInfo(
+            mTransformInfo.set(
                     CURRENT_SCALE,
                     CURRENT_SCALE,
                     mPivotPoint.x,
@@ -704,11 +650,11 @@ public class InteractiveImageView extends AppCompatImageView
                     currX,
                     currY);
             mOptions.set(true, false, false);
-            needsInvalidate = transformImage(info, mOptions);
+            needsInvalidate = transformImage(mTransformInfo, mOptions);
 
             if (getOverScrollMode() != OVER_SCROLL_NEVER) {
                 if (canScrollX() && mOverScroller.isOverScrolled()) {
-                    final int diff = (currX - Math.round(info.x));
+                    final int diff = (currX - Math.round(mTransformInfo.x));
                     if (diff > 0 &&
                             mEdgeEffectLeft.isFinished() &&
                             !mEdgeEffectLeftActive) {
@@ -727,7 +673,7 @@ public class InteractiveImageView extends AppCompatImageView
                 }
 
                 if (canScrollY() && mOverScroller.isOverScrolled()) {
-                    final int diff = (currY - Math.round(info.y));
+                    final int diff = (currY - Math.round(mTransformInfo.y));
                     if (diff > 0 &&
                             mEdgeEffectTop.isFinished() &&
                             !mEdgeEffectTopActive) {
@@ -745,10 +691,8 @@ public class InteractiveImageView extends AppCompatImageView
                     }
                 }
             }
-
-            mPoolManager.release(info);
         } else if (mTransformer.computeTransform()) {
-            final TransformInfo info = mPoolManager.acquireTransformInfo(
+            mTransformInfo.set(
                     mTransformer.mCurrentSx,
                     mTransformer.mCurrentSy,
                     mTransformer.mPx,
@@ -756,8 +700,7 @@ public class InteractiveImageView extends AppCompatImageView
                     mTransformer.mCurrentX,
                     mTransformer.mCurrentY);
             mOptions.set(false, false, false);
-            needsInvalidate = transformImage(info, mOptions);
-            mPoolManager.release(info);
+            needsInvalidate = transformImage(mTransformInfo, mOptions);
         }
 
         if (needsInvalidate) {
@@ -987,18 +930,11 @@ public class InteractiveImageView extends AppCompatImageView
 
         final float x = e2.getX();
         final float y = e2.getY();
-        final TransformInfo info = mPoolManager.acquireTransformInfo(
-                CURRENT_SCALE,
-                CURRENT_SCALE,
-                mPivotPoint.x,
-                mPivotPoint.y,
-                x,
-                y);
-        final TransformInfo outInfo = mPoolManager.acquireTransformInfo();
+        mTransformInfo.set(CURRENT_SCALE, CURRENT_SCALE, mPivotPoint.x, mPivotPoint.y, x, y);
         mOptions.set(true, false, true);
 
-        boolean needsInvalidate = transformImage(info, outInfo, mOptions);
-        if (Float.compare(info.x, outInfo.x) != 0 || Float.compare(info.y, outInfo.y) != 0) {
+        boolean needsInvalidate = transformImage(mTransformInfo, mOptions);
+        if (mOptions.outConstrained) {
             updatePivotPoint(x, y);
         }
         final Rect contentRect = getContentRect();
@@ -1007,7 +943,7 @@ public class InteractiveImageView extends AppCompatImageView
                 (overScrollMode == OVER_SCROLL_IF_CONTENT_SCROLLS && canScrollX()));
 
         if (canOverScrollX) {
-            final float constrainedDiff = outInfo.x - x;
+            final float constrainedDiff = mTransformInfo.x - x;
             if (constrainedDiff < 0.0f) {
                 mEdgeEffectLeftActive = true;
                 EdgeEffectCompat.onPull(
@@ -1028,7 +964,7 @@ public class InteractiveImageView extends AppCompatImageView
         final boolean canOverScrollY = (overScrollMode == OVER_SCROLL_ALWAYS ||
                 (overScrollMode == OVER_SCROLL_IF_CONTENT_SCROLLS && canScrollY()));
         if (canOverScrollY) {
-            final float constrainedDiff = outInfo.y - y;
+            final float constrainedDiff = mTransformInfo.y - y;
             if (constrainedDiff < 0.0f) {
                 EdgeEffectCompat.onPull(
                         mEdgeEffectTop,
@@ -1045,10 +981,6 @@ public class InteractiveImageView extends AppCompatImageView
                 needsInvalidate = true;
             }
         }
-
-        mPoolManager.release(outInfo);
-        mPoolManager.release(info);
-
         if (needsInvalidate) {
             ViewCompat.postInvalidateOnAnimation(this);
         }
@@ -1102,7 +1034,6 @@ public class InteractiveImageView extends AppCompatImageView
                 (int) (startY + scrolledY),
                 overX,
                 overY);
-//        mPoolManager.release(mappedImageRect);
         return true;
     }
 
@@ -1121,7 +1052,7 @@ public class InteractiveImageView extends AppCompatImageView
 
         final float next = getNextScalePivot();
 
-        final TransformInfo info = mPoolManager.acquireTransformInfo(
+        mTransformInfo.set(
                 getImageMinScaleX() * (1.0f - next) + getImageMaxScaleX() * next,
                 getImageMinScaleY() * (1.0f - next) + getImageMaxScaleY() * next,
                 mPivotPoint.x,
@@ -1129,8 +1060,7 @@ public class InteractiveImageView extends AppCompatImageView
                 VIEW_CENTER,
                 VIEW_CENTER);
         mOptions.set(true, true, true);
-        transformImage(info, mOptions);
-        mPoolManager.release(info);
+        transformImage(mTransformInfo, mOptions);
         return true;
     }
 
@@ -1149,23 +1079,19 @@ public class InteractiveImageView extends AppCompatImageView
 
         final float currentSpan = detector.getCurrentSpan();
         final float spanDelta = (currentSpan / mLastSpan);
-        final TransformInfo info = mPoolManager.acquireTransformInfo(
+        mTransformInfo.set(
                 getImageScaleX() * spanDelta,
                 getImageScaleY() * spanDelta,
                 mPivotPoint.x,
                 mPivotPoint.y,
                 focusX,
                 focusY);
-        final TransformInfo outInfo = mPoolManager.acquireTransformInfo();
         mOptions.set(true, false, true);
-        transformImage(info, outInfo, mOptions);
-        if (!info.equals(outInfo)) {
+        transformImage(mTransformInfo, mOptions);
+        if (mOptions.outConstrained) {
             updatePivotPoint(focusX, focusY);
         }
         mLastSpan = currentSpan;
-
-        mPoolManager.release(outInfo);
-        mPoolManager.release(info);
         return true;
     }
 
@@ -1277,13 +1203,12 @@ public class InteractiveImageView extends AppCompatImageView
         final float baselineImageMatrixValues[] = new float[9];
         getImageMatrixInternal().getValues(imageMatrixValues);
         getBaselineImageMatrix().getValues(baselineImageMatrixValues);
-        boolean transformed = false;
         for (int i = 0; i < 9; i++) {
-            if (Math.abs(imageMatrixValues[i] - baselineImageMatrixValues[i]) > FLOAT_EPSILON) {
-                transformed = true;
+            if (!almostEquals(imageMatrixValues[i], baselineImageMatrixValues[i])) {
+                return true;
             }
         }
-        return transformed;
+        return false;
     }
 
     public boolean onUp(MotionEvent e) {
@@ -1328,10 +1253,8 @@ public class InteractiveImageView extends AppCompatImageView
             float x,
             float y,
             TransformInfo.Options options) {
-        final TransformInfo info = mPoolManager.acquireTransformInfo(sx, sy, px, py, x, y);
-        final boolean transformed = transformImage(info, info, options);
-        mPoolManager.release(info);
-        return transformed;
+        mTransformInfo.set(sx, sy, px, py, x, y);
+        return transformImage(mTransformInfo, options);
     }
 
     @SuppressWarnings("UnusedReturnValue")
@@ -1423,59 +1346,76 @@ public class InteractiveImageView extends AppCompatImageView
     }
 
     @SuppressWarnings("unused")
-    protected void constrainTransformInfo(
+    protected boolean constrainTransformInfo(
             TransformInfo info,
             TransformInfo outInfo,
             boolean isTouchEvent) {
-        if (info != null) {
-            if (drawableHasIntrinsicSize()) {
-                resolveTransformInfo(info, outInfo);
+        if (info != null && drawableHasIntrinsicSize()) {
+            boolean constrained = false;
+            resolveTransformInfo(info, outInfo);
 
-                // Get matrix and values
-                mMatrix.set(getImageMatrixInternal());
+            // Get matrix and values
+            mMatrix.set(getImageMatrixInternal());
+            mMatrix.getValues(mValues);
+
+            // Clamp scale
+            final float clampedSx =
+                    MathUtils.clamp(outInfo.sx, getImageMinScaleX(), getImageMaxScaleX());
+            final float clampedSy =
+                    MathUtils.clamp(outInfo.sy, getImageMinScaleY(), getImageMaxScaleY());
+
+            // Pre-scale the matrix to the clamped scale
+            if (Float.compare(clampedSx, mValues[MSCALE_X]) != 0 ||
+                    Float.compare(clampedSy, mValues[MSCALE_Y]) != 0) {
+                final float deltaSx = clampedSx / mValues[MSCALE_X];
+                final float deltaSy = clampedSy / mValues[MSCALE_Y];
+                mMatrix.preScale(deltaSx, deltaSy);
                 mMatrix.getValues(mValues);
+            }
 
-                // Clamp scale
-                final float clampedSx =
-                        MathUtils.clamp(outInfo.sx, getImageMinScaleX(), getImageMaxScaleX());
-                final float clampedSy =
-                        MathUtils.clamp(outInfo.sy, getImageMinScaleY(), getImageMaxScaleY());
-
-                // Pre-scale the matrix to the clamped scale
-                if (Float.compare(clampedSx, mValues[MSCALE_X]) != 0 ||
-                        Float.compare(clampedSy, mValues[MSCALE_Y]) != 0) {
-                    final float deltaSx = clampedSx / mValues[MSCALE_X];
-                    final float deltaSy = clampedSy / mValues[MSCALE_Y];
-                    mMatrix.preScale(deltaSx, deltaSy);
-                    mMatrix.getValues(mValues);
-                }
-
+            if (!almostEquals(outInfo.sx, mValues[MSCALE_X]) ||
+                    !almostEquals(outInfo.sy, mValues[MSCALE_Y])) {
+                constrained = true;
                 outInfo.sx = mValues[MSCALE_X];
                 outInfo.sy = mValues[MSCALE_Y];
-
-                // TODO Describe this while I remember what it all means :-)
-                mPts[0] = outInfo.px;
-                mPts[1] = outInfo.py;
-                mapDrawablePtsToViewPts(mMatrix, mPts);
-                final float mappedPx = mPts[0] - mValues[MTRANS_X];
-                final float mappedPy = mPts[1] - mValues[MTRANS_Y];
-
-                getTranslationCoefficient(mMatrix, mPointF);
-                if (mPointF.x >= 0) {
-                    outInfo.x = mPointF.x + mappedPx;
-                } else {
-                    final float minX = Math.min(mPointF.x, 0.0f);
-                    final float clampedDx = MathUtils.clamp(outInfo.x - mappedPx, minX, 0.0f);
-                    outInfo.x = mappedPx + clampedDx;
-                }
-                if (mPointF.y >= 0) {
-                    outInfo.y = mPointF.y + mappedPy;
-                } else {
-                    final float minY = Math.min(mPointF.y, 0.0f);
-                    final float clampedDy = MathUtils.clamp(outInfo.y - mappedPy, minY, 0.0f);
-                    outInfo.y = mappedPy + clampedDy;
-                }
             }
+
+            // TODO Describe this while I remember what it all means :-)
+            mPts[0] = outInfo.px;
+            mPts[1] = outInfo.py;
+            mapDrawablePtsToViewPts(mMatrix, mPts);
+            final float mappedPx = mPts[0] - mValues[MTRANS_X];
+            final float mappedPy = mPts[1] - mValues[MTRANS_Y];
+
+            final float newX;
+            final float newY;
+            getTranslationCoefficient(mMatrix, mPointF);
+            if (mPointF.x >= 0) {
+                newX = mPointF.x + mappedPx;
+            } else {
+                final float minX = Math.min(mPointF.x, 0.0f);
+                final float clampedDx =
+                        MathUtils.clamp(outInfo.x - mappedPx, minX, 0.0f);
+                newX = mappedPx + clampedDx;
+            }
+            if (mPointF.y >= 0) {
+                newY = mPointF.y + mappedPy;
+            } else {
+                final float minY = Math.min(mPointF.y, 0.0f);
+                final float clampedDy =
+                        MathUtils.clamp(outInfo.y - mappedPy, minY, 0.0f);
+                newY = mappedPy + clampedDy;
+            }
+
+            if (!almostEquals(outInfo.x, newX) || !almostEquals(outInfo.y, newY)) {
+                constrained = true;
+                outInfo.x = newX;
+                outInfo.y = newY;
+            }
+
+            return constrained;
+        } else {
+            return false;
         }
     }
 
@@ -1742,6 +1682,10 @@ public class InteractiveImageView extends AppCompatImageView
 
     //region Private methods
 
+    private boolean almostEquals(float a, float b) {
+        return Math.abs(Float.floatToIntBits(a) - Float.floatToIntBits(b)) <= 1;
+    }
+
     private void getMappedImageRect(@NonNull Matrix matrix, @NonNull RectF outRect) {
         outRect.set(getDrawableRect());
         matrix.mapRect(outRect);
@@ -1919,9 +1863,10 @@ public class InteractiveImageView extends AppCompatImageView
             TransformInfo outInfo,
             TransformInfo.Options options) {
         if (options.constrain) {
-            constrainTransformInfo(info, outInfo, options.isTouchEvent);
+            options.outConstrained = constrainTransformInfo(info, outInfo, options.isTouchEvent);
         } else {
             resolveTransformInfo(info, outInfo);
+            options.outConstrained = false;
         }
     }
 
