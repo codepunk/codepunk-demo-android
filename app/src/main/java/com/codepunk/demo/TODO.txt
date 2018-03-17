@@ -5,3 +5,13 @@ Think about when to test for drawable has intrinsic size
 Reconsider all of my null checks. Can I just allow crash? What does google do?
 
 Replace all "releaseXYZ" methods in PoolManager with single generic
+
+Tracking pools:
+When creating, increase "number in use"
+When I don't have to create, decrease "number stored"
+When releasing increase "number stored" and decrease "number in use"
+
+* Use sMatrix instead of matrix pool
+* Test other pools for usage > 1 (like Options? Or just use a simple instance var and grab the fields immediately)
+
+* The bug is back with image jumping after scale. Something about pivot point

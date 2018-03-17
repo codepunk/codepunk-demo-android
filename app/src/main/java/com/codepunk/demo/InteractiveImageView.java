@@ -23,6 +23,7 @@ import android.support.v4.widget.EdgeEffectCompat;
 import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
@@ -34,6 +35,8 @@ import android.widget.OverScroller;
 
 import com.codepunk.demo.support.DisplayCompat;
 import com.codepunk.demo.support.ImageViewCompat;
+
+import java.util.Locale;
 
 import static android.graphics.Matrix.MSCALE_X;
 import static android.graphics.Matrix.MSCALE_Y;
@@ -65,54 +68,19 @@ public class InteractiveImageView extends AppCompatImageView
     }
 
     private static class PoolManager {
-        final SimplePool<Matrix> mMatrixPool;
-        final SimplePool<TransformInfo.Options> mOptionsPool;
-        final SimplePool<PointF> mPointFPool;
         final SimplePool<PtsWrapper> mPtsWrapperPool;
         final SimplePool<RectF> mRectFPool;
         final SimplePool<TransformInfo> mTransformInfoPool;
-        final SimplePool<ValuesWrapper> mValuesWrapperPool;
+
+        // TODO TEMP
+        private int mValuesWrapperPoolSize = 0;
+        private int mValuesWrapperInUseCount = 0;
+        // END TEMP
 
         public PoolManager(int maxPoolSize) {
-            mMatrixPool = new SimplePool<>(maxPoolSize);
-            mOptionsPool = new SimplePool<>(maxPoolSize);
-            mPointFPool = new SimplePool<>(maxPoolSize);
             mPtsWrapperPool = new SimplePool<>(maxPoolSize);
             mRectFPool = new SimplePool<>(maxPoolSize);
             mTransformInfoPool = new SimplePool<>(maxPoolSize);
-            mValuesWrapperPool = new SimplePool<>(maxPoolSize);
-        }
-
-        Matrix acquireMatrix() {
-            final Matrix instance = mMatrixPool.acquire();
-            return (instance == null ? new Matrix() : instance);
-        }
-
-        Matrix acquireMatrix(Matrix src) {
-            final Matrix instance = acquireMatrix();
-            instance.set(src);
-            return instance;
-        }
-
-        TransformInfo.Options acquireOptions() {
-            final TransformInfo.Options instance = mOptionsPool.acquire();
-            return (instance == null ? new TransformInfo.Options() : instance);
-        }
-
-        TransformInfo.Options acquireOptions(
-                boolean constrain,
-                boolean animate,
-                boolean isTouchEvent) {
-            final TransformInfo.Options instance = acquireOptions();
-            instance.constrain = constrain;
-            instance.animate = animate;
-            instance.isTouchEvent = isTouchEvent;
-            return instance;
-        }
-
-        PointF acquirePointF() {
-            final PointF instance = mPointFPool.acquire();
-            return (instance == null ? new PointF() : instance);
         }
 
         PtsWrapper acquirePtsWrapper() {
@@ -165,44 +133,35 @@ public class InteractiveImageView extends AppCompatImageView
             return instance;
         }
 
-        ValuesWrapper acquireValuesWrapper() {
-            final ValuesWrapper instance = mValuesWrapperPool.acquire();
-            return (instance == null ? new ValuesWrapper() : instance);
+        <T> void release(T instance) {
+            if (instance instanceof PtsWrapper) {
+                mPtsWrapperPool.release((PtsWrapper) instance);
+            } else if (instance instanceof RectF) {
+                mRectFPool.release((RectF) instance);
+            } else if (instance instanceof TransformInfo) {
+                mTransformInfoPool.release((TransformInfo) instance);
+            }
         }
 
-        ValuesWrapper acquireValuesWrapper(Matrix matrix) {
-            final ValuesWrapper wrapper = acquireValuesWrapper();
-            matrix.getValues(wrapper.values);
-            return wrapper;
+        private void logSize(String poolName, String methodName, int poolSize, int inUseCount) {
+            StringBuilder sb = new StringBuilder();
+            try {
+                StackTraceElement[] elements = new Throwable().getStackTrace();
+                for (int i = 1; i < 7; i++) {
+                    if (elements.length > i) {
+                        if (sb.length() > 0) {
+                            sb.append(", ");
+                        }
+                        sb.append(elements[i].getMethodName());
+                    }
+                }
+            } catch (Exception e) {
+                // NO OP
+            }
+            final String stars = (inUseCount > 1 ? "**********" : "");
+            Log.d(LOG_TAG, String.format(Locale.ENGLISH, "%s|%s: poolSize=%d, inUseCount=%d%s, methods=%s", poolName, methodName, poolSize, inUseCount, stars, sb.toString()));
         }
-
-        void releaseMatrix(Matrix instance) {
-            mMatrixPool.release(instance);
-        }
-
-        void releaseOptions(TransformInfo.Options instance) {
-            mOptionsPool.release(instance);
-        }
-
-        void releasePointF(PointF instance) {
-            mPointFPool.release(instance);
-        }
-
-        void releasePtsWrapper(PtsWrapper instance) {
-            mPtsWrapperPool.release(instance);
-        }
-
-        void releaseRectF(RectF instance) {
-            mRectFPool.release(instance);
-        }
-
-        void releaseTransformInfo(TransformInfo instance) {
-            mTransformInfoPool.release(instance);
-        }
-
-        void releaseValuesWrapper(ValuesWrapper instance) {
-            mValuesWrapperPool.release(instance);
-        }
+        // END TEMP
     }
 
     private static class PtsWrapper {
@@ -425,6 +384,14 @@ public class InteractiveImageView extends AppCompatImageView
 
             public Options() {}
 
+            public Options(boolean constrain, boolean animate) {
+                set(constrain, animate);
+            }
+
+            protected Options(boolean constrain, boolean animate, boolean isTouchEvent) {
+                set(constrain, animate, isTouchEvent);
+            }
+
             public Options(Options src) {
                 this.constrain = src.constrain;
                 this.animate = src.animate;
@@ -488,6 +455,25 @@ public class InteractiveImageView extends AppCompatImageView
             }
 
             //endregion Implemented methods
+
+            //region Methods
+
+            public void set(boolean constrain, boolean animate) {
+                this.constrain = constrain;
+                this.animate = animate;
+            }
+
+            //endregion Methods
+
+            //region Methods
+
+            protected void set(boolean constrain, boolean animate, boolean isTouchEvent) {
+                this.constrain = constrain;
+                this.animate = animate;
+                this.isTouchEvent = isTouchEvent;
+            }
+
+            //endregion Methods
         }
 
         //endregion Nested classes
@@ -623,10 +609,6 @@ public class InteractiveImageView extends AppCompatImageView
         //endregion Methods
     }
 
-    private static class ValuesWrapper {
-        float[] values = new float[9];
-    }
-
     //endregion Nested classes
 
     //region Constants
@@ -674,9 +656,6 @@ public class InteractiveImageView extends AppCompatImageView
     @NonNull
     private final Transformer mTransformer;
 
-    /*
-    private int mInteractivity;
-    */
     private boolean mDoubleTapToScaleEnabled;
     private boolean mScaleEnabled;
     private boolean mScrollEnabled;
@@ -695,6 +674,10 @@ public class InteractiveImageView extends AppCompatImageView
     private final Rect mContentRect = new Rect();
 
     private final PoolManager mPoolManager = new PoolManager(8);
+    private final Matrix mMatrix = new Matrix();
+    private final PointF mPointF = new PointF();
+    private final float[] mValues = new float[9];
+    private final TransformInfo.Options mOptions = new TransformInfo.Options();
 
     private TransformInfo mPendingTransformInfo = null;
     private TransformInfo.Options mPendingOptions = null;
@@ -771,9 +754,8 @@ public class InteractiveImageView extends AppCompatImageView
                     mPivotPoint.y,
                     currX,
                     currY);
-            final TransformInfo.Options options =
-                    mPoolManager.acquireOptions(true, false, false);
-            needsInvalidate = transformImage(info, options);
+            mOptions.set(true, false, false);
+            needsInvalidate = transformImage(info, mOptions);
 
             if (getOverScrollMode() != OVER_SCROLL_NEVER) {
                 if (canScrollX() && mOverScroller.isOverScrolled()) {
@@ -815,8 +797,7 @@ public class InteractiveImageView extends AppCompatImageView
                 }
             }
 
-            mPoolManager.releaseOptions(options);
-            mPoolManager.releaseTransformInfo(info);
+            mPoolManager.release(info);
         } else if (mTransformer.computeTransform()) {
             final TransformInfo info = mPoolManager.acquireTransformInfo(
                     mTransformer.mCurrentSx,
@@ -825,11 +806,9 @@ public class InteractiveImageView extends AppCompatImageView
                     mTransformer.mPy,
                     mTransformer.mCurrentX,
                     mTransformer.mCurrentY);
-            final TransformInfo.Options options =
-                    mPoolManager.acquireOptions(false, false, false);
-            needsInvalidate = transformImage(info, options);
-            mPoolManager.releaseOptions(options);
-            mPoolManager.releaseTransformInfo(info);
+            mOptions.set(false, false, false);
+            needsInvalidate = transformImage(info, mOptions);
+            mPoolManager.release(info);
         }
 
         if (needsInvalidate) {
@@ -946,6 +925,7 @@ public class InteractiveImageView extends AppCompatImageView
         final int action = event.getActionMasked();
         if (drawableHasIntrinsicSize()) {
             // If we're going from 1 pointer to 2 or vice versa, mark the pivot point dirty
+            // TODO BUG :'(
             if ((action == MotionEvent.ACTION_POINTER_DOWN ||
                     action == MotionEvent.ACTION_POINTER_UP)) {
                 if (event.getPointerCount() == 2) {
@@ -1067,10 +1047,9 @@ public class InteractiveImageView extends AppCompatImageView
                 x,
                 y);
         final TransformInfo outInfo = mPoolManager.acquireTransformInfo();
-        final TransformInfo.Options options =
-                mPoolManager.acquireOptions(true, false, true);
+        mOptions.set(true, false, true);
 
-        boolean needsInvalidate = transformImage(info, outInfo, options);
+        boolean needsInvalidate = transformImage(info, outInfo, mOptions);
         if (Float.compare(info.x, outInfo.x) != 0 || Float.compare(info.y, outInfo.y) != 0) {
             updatePivotPoint(x, y);
         }
@@ -1119,9 +1098,8 @@ public class InteractiveImageView extends AppCompatImageView
             }
         }
 
-        mPoolManager.releaseOptions(options);
-        mPoolManager.releaseTransformInfo(outInfo);
-        mPoolManager.releaseTransformInfo(info);
+        mPoolManager.release(outInfo);
+        mPoolManager.release(info);
 
         if (needsInvalidate) {
             ViewCompat.postInvalidateOnAnimation(this);
@@ -1149,7 +1127,7 @@ public class InteractiveImageView extends AppCompatImageView
 
         maybeReleaseEdgeEffects();
         final Matrix matrix = getImageMatrixInternal();
-        final ValuesWrapper matrixValues = mPoolManager.acquireValuesWrapper(matrix);
+        matrix.getValues(mValues);
         final RectF mappedImageRect = mPoolManager.acquireRectF();
         getMappedImageRect(matrix, mappedImageRect);
         final Rect contentRect = getContentRect();
@@ -1157,8 +1135,8 @@ public class InteractiveImageView extends AppCompatImageView
         final float startY = e2.getY();
         final float scrollableX = Math.max(mappedImageRect.width() - contentRect.width(), 0);
         final float scrollableY = Math.max(mappedImageRect.height() - contentRect.height(), 0);
-        final float scrolledX = -Math.min(matrixValues.values[MTRANS_X], 0);
-        final float scrolledY = -Math.min(matrixValues.values[MTRANS_Y], 0);
+        final float scrolledX = -Math.min(mValues[MTRANS_X], 0);
+        final float scrolledY = -Math.min(mValues[MTRANS_Y], 0);
         final int overScrollMode = getOverScrollMode();
         final boolean canOverScrollX = (overScrollMode == OVER_SCROLL_ALWAYS ||
                 (overScrollMode == OVER_SCROLL_IF_CONTENT_SCROLLS && scrollableX > 0));
@@ -1177,8 +1155,7 @@ public class InteractiveImageView extends AppCompatImageView
                 (int) (startY + scrolledY),
                 overX,
                 overY);
-        mPoolManager.releaseRectF(mappedImageRect);
-        mPoolManager.releaseValuesWrapper(matrixValues);
+        mPoolManager.release(mappedImageRect);
         return true;
     }
 
@@ -1204,11 +1181,9 @@ public class InteractiveImageView extends AppCompatImageView
                 mPivotPoint.y,
                 VIEW_CENTER,
                 VIEW_CENTER);
-        final TransformInfo.Options options =
-                mPoolManager.acquireOptions(true, true, true);
-        transformImage(info, options);
-        mPoolManager.releaseOptions(options);
-        mPoolManager.releaseTransformInfo(info);
+        mOptions.set(true, true, true);
+        transformImage(info, mOptions);
+        mPoolManager.release(info);
         return true;
     }
 
@@ -1235,17 +1210,15 @@ public class InteractiveImageView extends AppCompatImageView
                 focusX,
                 focusY);
         final TransformInfo outInfo = mPoolManager.acquireTransformInfo();
-        final TransformInfo.Options options =
-                mPoolManager.acquireOptions(true, false, true);
-        transformImage(info, outInfo, options);
+        mOptions.set(true, false, true);
+        transformImage(info, outInfo, mOptions);
         if (!info.equals(outInfo)) {
             updatePivotPoint(focusX, focusY);
         }
         mLastSpan = currentSpan;
 
-        mPoolManager.releaseOptions(options);
-        mPoolManager.releaseTransformInfo(outInfo);
-        mPoolManager.releaseTransformInfo(info);
+        mPoolManager.release(outInfo);
+        mPoolManager.release(info);
         return true;
     }
 
@@ -1293,8 +1266,8 @@ public class InteractiveImageView extends AppCompatImageView
         final PtsWrapper drawablePts = mPoolManager.acquirePtsWrapper();
         mapViewPtsToDrawablePts(getImageMatrixInternal(), drawablePts.pts, viewPts.pts);
         final float pivotX = drawablePts.pts[0];
-        mPoolManager.releasePtsWrapper(drawablePts);
-        mPoolManager.releasePtsWrapper(viewPts);
+        mPoolManager.release(drawablePts);
+        mPoolManager.release(viewPts);
         return pivotX;
     }
 
@@ -1304,8 +1277,8 @@ public class InteractiveImageView extends AppCompatImageView
         final PtsWrapper drawablePts = mPoolManager.acquirePtsWrapper();
         mapViewPtsToDrawablePts(getImageMatrixInternal(), drawablePts.pts, viewPts.pts);
         final float pivotY = drawablePts.pts[1];
-        mPoolManager.releasePtsWrapper(drawablePts);
-        mPoolManager.releasePtsWrapper(viewPts);
+        mPoolManager.release(drawablePts);
+        mPoolManager.release(viewPts);
         return pivotY;
     }
 
@@ -1330,19 +1303,13 @@ public class InteractiveImageView extends AppCompatImageView
     }
 
     public float getImageScaleX() {
-        final ValuesWrapper matrixValues =
-                mPoolManager.acquireValuesWrapper(getImageMatrixInternal());
-        final float scaleX = matrixValues.values[MSCALE_X];
-        mPoolManager.releaseValuesWrapper(matrixValues);
-        return scaleX;
+        getImageMatrixInternal().getValues(mValues);
+        return mValues[MSCALE_X];
     }
 
     public float getImageScaleY() {
-        final ValuesWrapper matrixValues =
-                mPoolManager.acquireValuesWrapper(getImageMatrixInternal());
-        final float scaleY = matrixValues.values[MSCALE_Y];
-        mPoolManager.releaseValuesWrapper(matrixValues);
-        return scaleY;
+        getImageMatrixInternal().getValues(mValues);
+        return mValues[MSCALE_Y];
     }
 
     public void getTransformInfo(TransformInfo outInfo) {
@@ -1367,16 +1334,16 @@ public class InteractiveImageView extends AppCompatImageView
     }
 
     public boolean isTransformed() {
-        final ValuesWrapper matrixValues = mPoolManager.acquireValuesWrapper(getImageMatrixInternal());
-        final ValuesWrapper baselineMatrixValues = mPoolManager.acquireValuesWrapper(getBaselineImageMatrix());
+        final float imageMatrixValues[] = new float[9];
+        final float baselineImageMatrixValues[] = new float[9];
+        getImageMatrixInternal().getValues(imageMatrixValues);
+        getBaselineImageMatrix().getValues(baselineImageMatrixValues);
         boolean transformed = false;
         for (int i = 0; i < 9; i++) {
-            if (Math.abs(matrixValues.values[i] - baselineMatrixValues.values[i]) > FLOAT_EPSILON) {
+            if (Math.abs(imageMatrixValues[i] - baselineImageMatrixValues[i]) > FLOAT_EPSILON) {
                 transformed = true;
             }
         }
-        mPoolManager.releaseValuesWrapper(baselineMatrixValues);
-        mPoolManager.releaseValuesWrapper(matrixValues);
         return transformed;
     }
 
@@ -1424,7 +1391,7 @@ public class InteractiveImageView extends AppCompatImageView
             TransformInfo.Options options) {
         final TransformInfo info = mPoolManager.acquireTransformInfo(sx, sy, px, py, x, y);
         final boolean transformed = transformImage(info, info, options);
-        mPoolManager.releaseTransformInfo(info);
+        mPoolManager.release(info);
         return transformed;
     }
 
@@ -1459,23 +1426,22 @@ public class InteractiveImageView extends AppCompatImageView
             options = DEFAULT_OPTIONS;
         }
 
-        final Matrix matrix = getImageMatrixInternal();
-        final Matrix transformMatrix = mPoolManager.acquireMatrix();
-        // TODO When do I check if image has intrinsic size? Or does it matter?
         resolveTransformInfo(info, outInfo, options);
-        transformToMatrix(outInfo, transformMatrix);
-        final boolean transformed = !matrix.equals(transformMatrix);
+
+        final Matrix matrix = getImageMatrixInternal();
+        // TODO When do I check if image has intrinsic size? Or does it matter?
+
+        transformToMatrix(outInfo, mMatrix);
+        final boolean transformed = !matrix.equals(mMatrix);
         if (transformed) {
             if (options.animate) {
-
                 final PtsWrapper drawablePts = mPoolManager.acquirePtsWrapper(info.px, info.py);
                 final PtsWrapper viewPts = mPoolManager.acquirePtsWrapper();
                 mapDrawablePtsToViewPts(getImageMatrixInternal(), viewPts.pts, drawablePts.pts);
-//                getImageMatrixInternal().mapPoints(viewPts.pts, drawablePts.pts);
                 final float startX = viewPts.getX();
                 final float startY = viewPts.getY();
-                mPoolManager.releasePtsWrapper(viewPts);
-                mPoolManager.releasePtsWrapper(drawablePts);
+                mPoolManager.release(viewPts);
+                mPoolManager.release(drawablePts);
                 mTransformer.startTransform(
                         outInfo.px,
                         outInfo.py,
@@ -1492,10 +1458,9 @@ public class InteractiveImageView extends AppCompatImageView
                 if (super.getScaleType() != ScaleType.MATRIX) {
                     super.setScaleType(ScaleType.MATRIX);
                 }
-                super.setImageMatrix(transformMatrix);
+                super.setImageMatrix(mMatrix);
             }
         }
-        mPoolManager.releaseMatrix(transformMatrix);
         return transformed;
     }
 
@@ -1509,12 +1474,8 @@ public class InteractiveImageView extends AppCompatImageView
 
     @SuppressWarnings("SpellCheckingInspection")
     protected boolean canScrollX(Matrix matrix) {
-        final PointF tc = mPoolManager.acquirePointF();
-        getTranslationCoefficient(matrix, tc);
-        final boolean canScrollX = (Math.round(tc.x) < 0
-        );
-        mPoolManager.releasePointF(tc);
-        return canScrollX;
+        getTranslationCoefficient(matrix, mPointF);
+        return (Math.round(mPointF.x) < 0);
     }
 
     protected boolean canScrollY() {
@@ -1522,11 +1483,8 @@ public class InteractiveImageView extends AppCompatImageView
     }
 
     protected boolean canScrollY(Matrix matrix) {
-        final PointF tc = mPoolManager.acquirePointF();
-        getTranslationCoefficient(matrix, tc);
-        final boolean canScrollY = (Math.round(tc.y) < 0);
-        mPoolManager.releasePointF(tc);
-        return canScrollY;
+        getTranslationCoefficient(matrix, mPointF);
+        return (Math.round(mPointF.y) < 0);
     }
 
     @SuppressWarnings("unused")
@@ -1539,9 +1497,8 @@ public class InteractiveImageView extends AppCompatImageView
                 resolveTransformInfo(info, outInfo);
 
                 // Get matrix and values
-                final Matrix matrix = mPoolManager.acquireMatrix(getImageMatrixInternal());
-                final ValuesWrapper matrixValues =
-                        mPoolManager.acquireValuesWrapper(matrix);
+                mMatrix.set(getImageMatrixInternal());
+                mMatrix.getValues(mValues);
 
                 // Clamp scale
                 final float clampedSx =
@@ -1550,47 +1507,43 @@ public class InteractiveImageView extends AppCompatImageView
                         MathUtils.clamp(outInfo.sy, getImageMinScaleY(), getImageMaxScaleY());
 
                 // Pre-scale the matrix to the clamped scale
-                if (Float.compare(clampedSx, matrixValues.values[MSCALE_X]) != 0 ||
-                        Float.compare(clampedSy, matrixValues.values[MSCALE_Y]) != 0) {
-                    final float deltaSx = clampedSx / matrixValues.values[MSCALE_X];
-                    final float deltaSy = clampedSy / matrixValues.values[MSCALE_Y];
-                    matrix.preScale(deltaSx, deltaSy);
-                    matrix.getValues(matrixValues.values);
+                if (Float.compare(clampedSx, mValues[MSCALE_X]) != 0 ||
+                        Float.compare(clampedSy, mValues[MSCALE_Y]) != 0) {
+                    final float deltaSx = clampedSx / mValues[MSCALE_X];
+                    final float deltaSy = clampedSy / mValues[MSCALE_Y];
+                    mMatrix.preScale(deltaSx, deltaSy);
+                    mMatrix.getValues(mValues);
                 }
 
-                outInfo.sx = matrixValues.values[MSCALE_X];
-                outInfo.sy = matrixValues.values[MSCALE_Y];
+                outInfo.sx = mValues[MSCALE_X];
+                outInfo.sy = mValues[MSCALE_Y];
 
                 // TODO Describe this while I remember what it all means :-)
                 final PtsWrapper drawablePts =
                         mPoolManager.acquirePtsWrapper(outInfo.px, outInfo.py);
                 final PtsWrapper viewPts = mPoolManager.acquirePtsWrapper();
-                mapDrawablePtsToViewPts(matrix, viewPts.pts, drawablePts.pts);
-                final float mappedPx = viewPts.getX() - matrixValues.values[MTRANS_X];
-                final float mappedPy = viewPts.getY() - matrixValues.values[MTRANS_Y];
+                mapDrawablePtsToViewPts(mMatrix, viewPts.pts, drawablePts.pts);
+                final float mappedPx = viewPts.getX() - mValues[MTRANS_X];
+                final float mappedPy = viewPts.getY() - mValues[MTRANS_Y];
 
-                final PointF coefficient = mPoolManager.acquirePointF();
-                getTranslationCoefficient(matrix, coefficient);
-                if (coefficient.x >= 0) {
-                    outInfo.x = coefficient.x + mappedPx;
+                getTranslationCoefficient(mMatrix, mPointF);
+                if (mPointF.x >= 0) {
+                    outInfo.x = mPointF.x + mappedPx;
                 } else {
-                    final float minX = Math.min(coefficient.x, 0.0f);
+                    final float minX = Math.min(mPointF.x, 0.0f);
                     final float clampedDx = MathUtils.clamp(outInfo.x - mappedPx, minX, 0.0f);
                     outInfo.x = mappedPx + clampedDx;
                 }
-                if (coefficient.y >= 0) {
-                    outInfo.y = coefficient.y + mappedPy;
+                if (mPointF.y >= 0) {
+                    outInfo.y = mPointF.y + mappedPy;
                 } else {
-                    final float minY = Math.min(coefficient.y, 0.0f);
+                    final float minY = Math.min(mPointF.y, 0.0f);
                     final float clampedDy = MathUtils.clamp(outInfo.y - mappedPy, minY, 0.0f);
                     outInfo.y = mappedPy + clampedDy;
                 }
 
-                mPoolManager.releasePointF(coefficient);
-                mPoolManager.releasePtsWrapper(viewPts);
-                mPoolManager.releasePtsWrapper(drawablePts);
-                mPoolManager.releaseValuesWrapper(matrixValues);
-                mPoolManager.releaseMatrix(matrix);
+                mPoolManager.release(viewPts);
+                mPoolManager.release(drawablePts);
             }
         }
     }
@@ -1680,8 +1633,8 @@ public class InteractiveImageView extends AppCompatImageView
                             srcRect,
                             dstRect,
                             scaleTypeToScaleToFit(scaleType));
-                    mPoolManager.releaseRectF(dstRect);
-                    mPoolManager.releaseRectF(srcRect);
+                    mPoolManager.release(dstRect);
+                    mPoolManager.release(srcRect);
                 }
             } else {
                 outMatrix.reset();
@@ -1733,10 +1686,9 @@ public class InteractiveImageView extends AppCompatImageView
             final float maxScaleY;
             if (drawableHasIntrinsicSize()) {
                 final Matrix baselineMatrix = getBaselineImageMatrix();
-                final ValuesWrapper matrixValues =
-                        mPoolManager.acquireValuesWrapper(baselineMatrix);
                 final RectF mappedImageRect = mPoolManager.acquireRectF();
                 getMappedImageRect(baselineMatrix, mappedImageRect);
+                baselineMatrix.getValues(mValues);
 
                 final float baselineWidth = mappedImageRect.width();
                 final float baselineHeight = mappedImageRect.height();
@@ -1773,11 +1725,10 @@ public class InteractiveImageView extends AppCompatImageView
                 final float viewBasedScale = availableSize / baselineBreadth;
                 final float scale = Math.max(screenBasedScale, viewBasedScale);
 
-                maxScaleX = scale * matrixValues.values[MSCALE_X];
-                maxScaleY = scale * matrixValues.values[MSCALE_Y];
+                maxScaleX = scale * mValues[MSCALE_X];
+                maxScaleY = scale * mValues[MSCALE_Y];
 
-                mPoolManager.releaseRectF(mappedImageRect);
-                mPoolManager.releaseValuesWrapper(matrixValues);
+                mPoolManager.release(mappedImageRect);
             } else {
                 maxScaleX = maxScaleY = 1.0f;
             }
@@ -1789,10 +1740,8 @@ public class InteractiveImageView extends AppCompatImageView
     protected void getImageMinScale() {
         if ((mInvalidFlags & INVALID_FLAG_IMAGE_MIN_SCALE) != 0) {
             mInvalidFlags &= ~INVALID_FLAG_IMAGE_MIN_SCALE;
-            final ValuesWrapper matrixValues =
-                    mPoolManager.acquireValuesWrapper(getBaselineImageMatrix());
-            setImageMinScale(matrixValues.values[MSCALE_X], matrixValues.values[MSCALE_Y]);
-            mPoolManager.releaseValuesWrapper(matrixValues);
+            getBaselineImageMatrix().getValues(mValues);
+            setImageMinScale(mValues[MSCALE_X], mValues[MSCALE_Y]);
         }
     }
 
@@ -1802,19 +1751,17 @@ public class InteractiveImageView extends AppCompatImageView
         final boolean cropToPadding = ImageViewCompat.getCropToPadding(this);
         dstPts[0] = intermediatePts.pts[0] + (cropToPadding ? getPaddingLeft() : 0.0f);
         dstPts[1] = intermediatePts.pts[1] + (cropToPadding ? getPaddingTop() : 0.0f);
-        mPoolManager.releasePtsWrapper(intermediatePts);
+        mPoolManager.release(intermediatePts);
     }
 
     protected final void mapViewPtsToDrawablePts(Matrix matrix, float[] dstPts, float[] srcPts) {
         final boolean cropToPadding = ImageViewCompat.getCropToPadding(this);
-        final Matrix invertedMatrix = mPoolManager.acquireMatrix();
         final PtsWrapper adjustedPts = mPoolManager.acquirePtsWrapper(
                 srcPts[0] - (cropToPadding ? getPaddingLeft() : 0.0f),
                 srcPts[1] - (cropToPadding ? getPaddingTop() : 0.0f));
-        matrix.invert(invertedMatrix);
-        invertedMatrix.mapPoints(dstPts, adjustedPts.pts);
-        mPoolManager.releasePtsWrapper(adjustedPts);
-        mPoolManager.releaseMatrix(invertedMatrix);
+        matrix.invert(mMatrix);
+        mMatrix.mapPoints(dstPts, adjustedPts.pts);
+        mPoolManager.release(adjustedPts);
     }
 
     protected static Matrix.ScaleToFit scaleTypeToScaleToFit(ScaleType scaleType) {
@@ -1851,7 +1798,7 @@ public class InteractiveImageView extends AppCompatImageView
     private void getMappedImageRect(@NonNull Matrix matrix, @NonNull RectF outRect) {
         final RectF drawableRect = mPoolManager.acquireRectF(getDrawable());
         matrix.mapRect(outRect, drawableRect);
-        mPoolManager.releaseRectF(drawableRect);
+        mPoolManager.release(drawableRect);
     }
 
     private float getNextScalePivot() {
@@ -1930,7 +1877,7 @@ public class InteractiveImageView extends AppCompatImageView
                     outPoint.y *= 0.5f;
             }
         }
-        mPoolManager.releaseRectF(mappedImageRect);
+        mPoolManager.release(mappedImageRect);
     }
 
     @SuppressWarnings("SameParameterValue")
@@ -2001,13 +1948,13 @@ public class InteractiveImageView extends AppCompatImageView
             mapViewPtsToDrawablePts(matrix, drawablePts.pts, viewPts.pts);
             outInfo.px = drawablePts.pts[0];
             outInfo.py = drawablePts.pts[1];
-            mPoolManager.releasePtsWrapper(drawablePts);
-            mPoolManager.releasePtsWrapper(viewPts);
+            mPoolManager.release(drawablePts);
+            mPoolManager.release(viewPts);
         } else if (drawableHasIntrinsicSize()) {
             final RectF drawableRect = mPoolManager.acquireRectF(getDrawable());
             outInfo.px = drawableRect.centerX();
             outInfo.py = drawableRect.centerY();
-            mPoolManager.releaseRectF(drawableRect);
+            mPoolManager.release(drawableRect);
         } else {
             outInfo.px = 0.0f;
             outInfo.py = 0.0f;
@@ -2045,10 +1992,10 @@ public class InteractiveImageView extends AppCompatImageView
     /* TODO Mention this method requires a resolved TransformInfo i.e. no NaN values */
     private void transformToMatrix(TransformInfo info, Matrix outMatrix) {
         outMatrix.set(getImageMatrixInternal());
-        final ValuesWrapper matrixValues = mPoolManager.acquireValuesWrapper(outMatrix);
+        outMatrix.getValues(mValues);
 
-        final float deltaSx = info.sx / matrixValues.values[MSCALE_X];
-        final float deltaSy = info.sy / matrixValues.values[MSCALE_Y];
+        final float deltaSx = info.sx / mValues[MSCALE_X];
+        final float deltaSy = info.sy / mValues[MSCALE_Y];
         outMatrix.preScale(deltaSx, deltaSy, info.px, info.py);
 
         // Get location of px/py in the view
@@ -2060,9 +2007,8 @@ public class InteractiveImageView extends AppCompatImageView
         final float deltaTy = info.y - viewPts.getY();
         outMatrix.postTranslate(deltaTx, deltaTy);
 
-        mPoolManager.releasePtsWrapper(viewPts);
-        mPoolManager.releasePtsWrapper(drawablePts);
-        mPoolManager.releaseValuesWrapper(matrixValues);
+        mPoolManager.release(viewPts);
+        mPoolManager.release(drawablePts);
     }
 
     private void updatePivotPoint(float x, float y) {
