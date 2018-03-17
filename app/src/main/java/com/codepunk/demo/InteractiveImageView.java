@@ -65,7 +65,6 @@ public class InteractiveImageView extends AppCompatImageView
     }
 
     private static class PoolManager {
-        final SimplePool<RectF> mRectFPool;
         final SimplePool<TransformInfo> mTransformInfoPool;
 
         // TODO TEMP
@@ -76,29 +75,7 @@ public class InteractiveImageView extends AppCompatImageView
         // END TEMP
 
         public PoolManager(int maxPoolSize) {
-            mRectFPool = new SimplePool<>(maxPoolSize);
             mTransformInfoPool = new SimplePool<>(maxPoolSize);
-        }
-
-        RectF acquireRectF() {
-            final RectF instance = mRectFPool.acquire();
-            return (instance == null ? new RectF() : instance);
-        }
-
-        RectF acquireRectF(float left, float top, float right, float bottom) {
-            final RectF instance = acquireRectF();
-            instance.set(left, top, right, bottom);
-            return instance;
-        }
-
-        RectF acquireRectF(Drawable d) {
-            final RectF instance = acquireRectF();
-            if (d == null) {
-                instance.set(0.0f, 0.0f, 0.0f, 0.0f);
-            } else {
-                instance.set(0.0f, 0.0f, d.getIntrinsicWidth(), d.getIntrinsicHeight());
-            }
-            return instance;
         }
 
         TransformInfo acquireTransformInfo() {
@@ -119,9 +96,7 @@ public class InteractiveImageView extends AppCompatImageView
         }
 
         <T> void release(T instance) {
-            if (instance instanceof RectF) {
-                mRectFPool.release((RectF) instance);
-            } else if (instance instanceof TransformInfo) {
+            if (instance instanceof TransformInfo) {
                 mTransformInfoPool.release((TransformInfo) instance);
             }
         }
@@ -592,11 +567,13 @@ public class InteractiveImageView extends AppCompatImageView
     private static final float SCALE_PIVOT_EPSILON = 0.2f;
 
     private static final int INVALID_FLAG_CONTENT_RECT = 0x00000001;
-    private static final int INVALID_FLAG_BASELINE_IMAGE_MATRIX = 0x00000002;
-    private static final int INVALID_FLAG_IMAGE_MAX_SCALE = 0x00000004;
-    private static final int INVALID_FLAG_IMAGE_MIN_SCALE = 0x00000008;
-    private static final int INVALID_FLAG_PIVOT_POINT = 0x00000010;
-    private static final int INVALID_FLAG_DEFAULT = INVALID_FLAG_BASELINE_IMAGE_MATRIX |
+    private static final int INVALID_FLAG_DRAWABLE_RECT = 0x00000002;
+    private static final int INVALID_FLAG_BASELINE_IMAGE_MATRIX = 0x00000004;
+    private static final int INVALID_FLAG_IMAGE_MAX_SCALE = 0x00000008;
+    private static final int INVALID_FLAG_IMAGE_MIN_SCALE = 0x00000010;
+    private static final int INVALID_FLAG_PIVOT_POINT = 0x00000020;
+    private static final int INVALID_FLAG_DEFAULT =
+            INVALID_FLAG_BASELINE_IMAGE_MATRIX |
             INVALID_FLAG_IMAGE_MAX_SCALE |
             INVALID_FLAG_IMAGE_MIN_SCALE;
 
@@ -640,10 +617,13 @@ public class InteractiveImageView extends AppCompatImageView
     private final PointF mMinScale = new PointF();
     private final PointF mPivotPoint = new PointF();
     private final Rect mContentRect = new Rect();
+    private final Rect mDrawableRect = new Rect();
 
     private final PoolManager mPoolManager = new PoolManager(8);
     private final Matrix mMatrix = new Matrix();
     private final PointF mPointF = new PointF();
+    private final RectF mRectF = new RectF();
+    private final RectF mDstRectF = new RectF();
     private final float[] mValues = new float[9];
     private final float[] mPts = new float[2];
     private final TransformInfo.Options mOptions = new TransformInfo.Options();
@@ -809,22 +789,21 @@ public class InteractiveImageView extends AppCompatImageView
             // The methods below rotate and translate the canvas as needed before drawing the glow,
             // since EdgeEffectCompat always draws a top-glow at 0,0.
             boolean needsInvalidate = false;
-            final RectF glowRect = mPoolManager.acquireRectF();
             if (ImageViewCompat.getCropToPadding(this)) {
-                glowRect.set(getContentRect());
+                mRectF.set(getContentRect());
             } else {
-                glowRect.set(0.0f, 0.0f, getWidth(), getHeight());
+                mRectF.set(0.0f, 0.0f, getWidth(), getHeight());
             }
-            final float rectWidth = glowRect.width();
-            final float rectHeight = glowRect.height();
+            final float rectWidth = mRectF.width();
+            final float rectHeight = mRectF.height();
             final int glowAreaWidth = (int) (rectWidth * EDGE_EFFECT_SIZE_FACTOR);
             final int glowAreaHeight = (int) (rectHeight * EDGE_EFFECT_SIZE_FACTOR);
 
             if (!mEdgeEffectTop.isFinished()) {
                 final int restoreCount = canvas.save();
-                canvas.clipRect(glowRect);
-                final float dx = glowRect.left - (glowAreaWidth - rectWidth) * 0.5f;
-                final float dy = glowRect.top;
+                canvas.clipRect(mRectF);
+                final float dx = mRectF.left - (glowAreaWidth - rectWidth) * 0.5f;
+                final float dy = mRectF.top;
                 canvas.translate(dx, dy);
                 mEdgeEffectTop.setSize(glowAreaWidth, glowAreaHeight);
                 if (mEdgeEffectTop.draw(canvas)) {
@@ -835,9 +814,9 @@ public class InteractiveImageView extends AppCompatImageView
 
             if (!mEdgeEffectBottom.isFinished()) {
                 final int restoreCount = canvas.save();
-                canvas.clipRect(glowRect);
-                final float dx = glowRect.left - (glowAreaWidth - rectWidth) * 0.5f;
-                final float dy = glowRect.bottom;
+                canvas.clipRect(mRectF);
+                final float dx = mRectF.left - (glowAreaWidth - rectWidth) * 0.5f;
+                final float dy = mRectF.bottom;
                 canvas.translate(-glowAreaWidth + dx, dy);
                 canvas.rotate(180.0f, glowAreaWidth, 0.0f);
                 mEdgeEffectBottom.setSize(glowAreaWidth, glowAreaHeight);
@@ -849,9 +828,9 @@ public class InteractiveImageView extends AppCompatImageView
 
             if (!mEdgeEffectLeft.isFinished()) {
                 final int restoreCount = canvas.save();
-                canvas.clipRect(glowRect);
-                final float dx = glowRect.left;
-                final float dy = glowRect.bottom + (glowAreaHeight - rectHeight) * 0.5f;
+                canvas.clipRect(mRectF);
+                final float dx = mRectF.left;
+                final float dy = mRectF.bottom + (glowAreaHeight - rectHeight) * 0.5f;
                 canvas.translate(dx, dy);
                 canvas.rotate(-90.0f, 0.0f, 0.0f);
                 mEdgeEffectLeft.setSize(glowAreaHeight, glowAreaWidth);
@@ -863,9 +842,9 @@ public class InteractiveImageView extends AppCompatImageView
 
             if (!mEdgeEffectRight.isFinished()) {
                 final int restoreCount = canvas.save();
-                canvas.clipRect(glowRect);
-                final float dx = glowRect.right;
-                final float dy = glowRect.top - (glowAreaHeight - rectHeight) * 0.5f;
+                canvas.clipRect(mRectF);
+                final float dx = mRectF.right;
+                final float dy = mRectF.top - (glowAreaHeight - rectHeight) * 0.5f;
                 canvas.translate(dx, dy);
                 canvas.rotate(90.0f, 0.0f, 0.0f);
                 mEdgeEffectRight.setSize(glowAreaHeight, glowAreaWidth);
@@ -913,14 +892,14 @@ public class InteractiveImageView extends AppCompatImageView
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
-        mInvalidFlags |= INVALID_FLAG_CONTENT_RECT | INVALID_FLAG_DEFAULT;
+        mInvalidFlags |= INVALID_FLAG_DEFAULT | INVALID_FLAG_CONTENT_RECT;
     }
 
     @Override
     public void setImageDrawable(@Nullable Drawable drawable) {
         super.setImageDrawable(drawable);
         setScaleType(mScaleType);
-        mInvalidFlags |= INVALID_FLAG_DEFAULT;
+        mInvalidFlags |= INVALID_FLAG_DEFAULT | INVALID_FLAG_DRAWABLE_RECT;
     }
 
     @Override
@@ -1097,13 +1076,12 @@ public class InteractiveImageView extends AppCompatImageView
         maybeReleaseEdgeEffects();
         final Matrix matrix = getImageMatrixInternal();
         matrix.getValues(mValues);
-        final RectF mappedImageRect = mPoolManager.acquireRectF();
-        getMappedImageRect(matrix, mappedImageRect);
+        getMappedImageRect(matrix, mRectF);
         final Rect contentRect = getContentRect();
         final float startX = e2.getX();
         final float startY = e2.getY();
-        final float scrollableX = Math.max(mappedImageRect.width() - contentRect.width(), 0);
-        final float scrollableY = Math.max(mappedImageRect.height() - contentRect.height(), 0);
+        final float scrollableX = Math.max(mRectF.width() - contentRect.width(), 0);
+        final float scrollableY = Math.max(mRectF.height() - contentRect.height(), 0);
         final float scrolledX = -Math.min(mValues[MTRANS_X], 0);
         final float scrolledY = -Math.min(mValues[MTRANS_Y], 0);
         final int overScrollMode = getOverScrollMode();
@@ -1124,7 +1102,7 @@ public class InteractiveImageView extends AppCompatImageView
                 (int) (startY + scrolledY),
                 overX,
                 overY);
-        mPoolManager.release(mappedImageRect);
+//        mPoolManager.release(mappedImageRect);
         return true;
     }
 
@@ -1578,16 +1556,12 @@ public class InteractiveImageView extends AppCompatImageView
                     outMatrix.postTranslate(dx, dy);
                 } else {
                     // Generate the required transform.
-                    RectF srcRect =
-                            mPoolManager.acquireRectF(0.0f, 0.0f, dwidth, dheight);
-                    RectF dstRect =
-                            mPoolManager.acquireRectF(0.0f, 0.0f, vwidth, vheight);
+                    mRectF.set(0.0f, 0.0f, dwidth, dheight);
+                    mDstRectF.set(0.0f, 0.0f, vwidth, vheight);
                     outMatrix.setRectToRect(
-                            srcRect,
-                            dstRect,
+                            mRectF,
+                            mDstRectF,
                             scaleTypeToScaleToFit(scaleType));
-                    mPoolManager.release(dstRect);
-                    mPoolManager.release(srcRect);
                 }
             } else {
                 outMatrix.reset();
@@ -1611,6 +1585,25 @@ public class InteractiveImageView extends AppCompatImageView
                     getHeight() - getPaddingBottom());
         }
         return mContentRect;
+    }
+
+    /**
+     * Returns the view's drawable rectangle; that is, the rectangle defined by the size
+     * of the image drawable. Do not change this rectangle in place but make a copy.
+     *
+     * @return
+     */
+    protected Rect getDrawableRect() {
+        if ((mInvalidFlags & INVALID_FLAG_DRAWABLE_RECT) != 0) {
+            mInvalidFlags &= ~INVALID_FLAG_DRAWABLE_RECT;
+            final Drawable d = getDrawable();
+            mDrawableRect.set(
+                    0,
+                    0,
+                    d == null ? 0 : d.getIntrinsicWidth(),
+                    d == null ? 0 : d.getIntrinsicHeight());
+        }
+        return mDrawableRect;
     }
 
     /**
@@ -1639,12 +1632,11 @@ public class InteractiveImageView extends AppCompatImageView
             final float maxScaleY;
             if (drawableHasIntrinsicSize()) {
                 final Matrix baselineMatrix = getBaselineImageMatrix();
-                final RectF mappedImageRect = mPoolManager.acquireRectF();
-                getMappedImageRect(baselineMatrix, mappedImageRect);
+                getMappedImageRect(baselineMatrix, mRectF);
                 baselineMatrix.getValues(mValues);
 
-                final float baselineWidth = mappedImageRect.width();
-                final float baselineHeight = mappedImageRect.height();
+                final float baselineWidth = mRectF.width();
+                final float baselineHeight = mRectF.height();
                 final float baselineBreadth = Math.min(baselineWidth, baselineHeight);
                 final float baselineLength = Math.max(baselineWidth, baselineHeight);
 
@@ -1680,8 +1672,6 @@ public class InteractiveImageView extends AppCompatImageView
 
                 maxScaleX = scale * mValues[MSCALE_X];
                 maxScaleY = scale * mValues[MSCALE_Y];
-
-                mPoolManager.release(mappedImageRect);
             } else {
                 maxScaleX = maxScaleY = 1.0f;
             }
@@ -1753,9 +1743,8 @@ public class InteractiveImageView extends AppCompatImageView
     //region Private methods
 
     private void getMappedImageRect(@NonNull Matrix matrix, @NonNull RectF outRect) {
-        final RectF drawableRect = mPoolManager.acquireRectF(getDrawable());
-        matrix.mapRect(outRect, drawableRect);
-        mPoolManager.release(drawableRect);
+        outRect.set(getDrawableRect());
+        matrix.mapRect(outRect);
     }
 
     private float getNextScalePivot() {
@@ -1797,11 +1786,10 @@ public class InteractiveImageView extends AppCompatImageView
     private void getTranslationCoefficient(Matrix matrix, PointF outPoint) {
         // TODO Drawable has intrinsic size?
         final Rect contentRect = getContentRect();
-        final RectF mappedImageRect = mPoolManager.acquireRectF();
-        getMappedImageRect(matrix, mappedImageRect);
+        getMappedImageRect(matrix, mRectF);
         outPoint.set(
-                contentRect.width() - mappedImageRect.width(),
-                contentRect.height() - mappedImageRect.height());
+                contentRect.width() - mRectF.width(),
+                contentRect.height() - mRectF.height());
         if (outPoint.x > 0.0f) {
             // The mapped image is narrower than the content area
             switch (mScaleType) {
@@ -1834,7 +1822,6 @@ public class InteractiveImageView extends AppCompatImageView
                     outPoint.y *= 0.5f;
             }
         }
-        mPoolManager.release(mappedImageRect);
     }
 
     @SuppressWarnings("SameParameterValue")
@@ -1903,14 +1890,10 @@ public class InteractiveImageView extends AppCompatImageView
             mapViewPtsToDrawablePts(matrix, mPts);
             outInfo.px = mPts[0];
             outInfo.py = mPts[1];
-        } else if (drawableHasIntrinsicSize()) {
-            final RectF drawableRect = mPoolManager.acquireRectF(getDrawable());
-            outInfo.px = drawableRect.centerX();
-            outInfo.py = drawableRect.centerY();
-            mPoolManager.release(drawableRect);
         } else {
-            outInfo.px = 0.0f;
-            outInfo.py = 0.0f;
+            final Rect drawableRect = getDrawableRect();
+            outInfo.px = drawableRect.exactCenterX();
+            outInfo.py = drawableRect.exactCenterY();
         }
         outInfo.x = outInfo.y = VIEW_CENTER;
     }
