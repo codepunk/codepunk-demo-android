@@ -15,3 +15,6 @@ When releasing increase "number stored" and decrease "number in use"
 * Test other pools for usage > 1 (like Options? Or just use a simple instance var and grab the fields immediately)
 
 * The bug is back with image jumping after scale. Something about pivot point
+
+* Bug - if you fling twice quickly to pan, you see 2 edge effects in succession
+* Bug - sometimes at end of fling, image shifts
