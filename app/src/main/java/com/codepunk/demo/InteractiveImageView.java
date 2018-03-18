@@ -818,10 +818,9 @@ public class InteractiveImageView extends AppCompatImageView
             // If we're going from 1 pointer to 2 or vice versa, mark the pivot point dirty
             // TODO BUG :'(
             if ((action == MotionEvent.ACTION_POINTER_DOWN ||
-                    action == MotionEvent.ACTION_POINTER_UP)) {
-                if (event.getPointerCount() == 2) {
-                    mInvalidFlags &= INVALID_FLAG_PIVOT_POINT;
-                }
+                    action == MotionEvent.ACTION_POINTER_UP)
+                    && event.getPointerCount() == 2) {
+                mInvalidFlags |= INVALID_FLAG_PIVOT_POINT;
             }
             retVal = mScaleGestureDetector.onTouchEvent(event);
             retVal = mGestureDetector.onTouchEvent(event) || retVal;
@@ -1102,13 +1101,13 @@ public class InteractiveImageView extends AppCompatImageView
         }
 
         mLastSpan = detector.getCurrentSpan();
-        mInvalidFlags &= INVALID_FLAG_PIVOT_POINT;
+        updatePivotPoint(detector.getFocusX(), detector.getFocusY());
         return true;
     }
 
     @Override // ScaleGestureDetector.OnScaleGestureListener
     public void onScaleEnd(ScaleGestureDetector detector) {
-        mInvalidFlags &= INVALID_FLAG_PIVOT_POINT;
+        mInvalidFlags |= INVALID_FLAG_PIVOT_POINT;
     }
 
     //endregion Implemented methods
