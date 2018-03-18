@@ -4,8 +4,21 @@ Think about when to test for drawable has intrinsic size
 
 Reconsider all of my null checks. Can I just allow crash? What does google do?
 
-* The bug is back with image jumping after scale. Something about pivot point
-
 * Bug - if you fling twice quickly to pan, you see 2 edge effects in succession. Probably because
   one ended before fling is finished
+
+  It seems to have something to do with -- if it was EVER not finished during a fling, then don't
+  absorb it again if it shows up as finished again.
+
+  So --
+  in onFling, set a mEdgeEffectLeftRan flag to false
+  in computeScroll, check mEdgeEffectLeft.isFinished. If false, set mEdgeEffectLeftRan to true.
+  ELSE, call mEdgeEffectLeft onAbsorb only if mEdgeEffectLeftRan is false.
+
+  - OR - can I use the active flags?
+  onFling: releaseEdgeEffects but DON'T reset active flags
+  computeScroll: if isFinished, THEN reset active flag. Otherwise, ??
+
+
 * Bug - sometimes at end of fling, image shifts
+

@@ -22,6 +22,7 @@ import android.support.v4.widget.EdgeEffectCompat;
 import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
@@ -33,6 +34,8 @@ import android.widget.OverScroller;
 
 import com.codepunk.demo.support.DisplayCompat;
 import com.codepunk.demo.support.ImageViewCompat;
+
+import java.util.Locale;
 
 import static android.graphics.Matrix.MSCALE_X;
 import static android.graphics.Matrix.MSCALE_Y;
@@ -516,7 +519,7 @@ public class InteractiveImageView extends AppCompatImageView
     private static final int INVALID_FLAG_BASELINE_IMAGE_MATRIX = 0x00000004;
     private static final int INVALID_FLAG_IMAGE_MAX_SCALE = 0x00000008;
     private static final int INVALID_FLAG_IMAGE_MIN_SCALE = 0x00000010;
-    private static final int INVALID_FLAG_PIVOT_POINT = 0x00000020;
+    private static final int INVALID_FLAG_TOUCH_POINT = 0x00000020;
     private static final int INVALID_FLAG_DEFAULT =
             INVALID_FLAG_BASELINE_IMAGE_MATRIX |
             INVALID_FLAG_IMAGE_MAX_SCALE |
@@ -560,7 +563,7 @@ public class InteractiveImageView extends AppCompatImageView
     private final Matrix mBaselineImageMatrix = new Matrix();
     private final PointF mMaxScale = new PointF();
     private final PointF mMinScale = new PointF();
-    private final PointF mPivotPoint = new PointF();
+    private final PointF mTouchPoint = new PointF();
     private final Rect mContentRect = new Rect();
     private final Rect mDrawableRect = new Rect();
 
@@ -645,8 +648,8 @@ public class InteractiveImageView extends AppCompatImageView
             mTransformInfo.set(
                     CURRENT_SCALE,
                     CURRENT_SCALE,
-                    mPivotPoint.x,
-                    mPivotPoint.y,
+                    mTouchPoint.x,
+                    mTouchPoint.y,
                     currX,
                     currY);
             mOptions.set(true, false, false);
@@ -674,9 +677,11 @@ public class InteractiveImageView extends AppCompatImageView
 
                 if (canScrollY() && mOverScroller.isOverScrolled()) {
                     final int diff = (currY - Math.round(mTransformInfo.y));
+                    Log.d(LOG_TAG, String.format(Locale.ENGLISH, "mEdgeEffectTop.isFinished()=%b, currY=%d, diff=%d", mEdgeEffectTop.isFinished(), currY, diff));
                     if (diff > 0 &&
                             mEdgeEffectTop.isFinished() &&
                             !mEdgeEffectTopActive) {
+                        Log.d(LOG_TAG, "computeScroll: mEdgeEffectTop.onAbsorb()");
                         mEdgeEffectTop.onAbsorb(
                                 (int) OverScrollerCompat.getCurrVelocity(mOverScroller));
                         mEdgeEffectTopActive = true;
@@ -820,7 +825,7 @@ public class InteractiveImageView extends AppCompatImageView
             if ((action == MotionEvent.ACTION_POINTER_DOWN ||
                     action == MotionEvent.ACTION_POINTER_UP)
                     && event.getPointerCount() == 2) {
-                mInvalidFlags |= INVALID_FLAG_PIVOT_POINT;
+                mInvalidFlags |= INVALID_FLAG_TOUCH_POINT;
             }
             retVal = mScaleGestureDetector.onTouchEvent(event);
             retVal = mGestureDetector.onTouchEvent(event) || retVal;
@@ -902,9 +907,9 @@ public class InteractiveImageView extends AppCompatImageView
             return false;
         }
 
-        maybeReleaseEdgeEffects();
         mOverScroller.forceFinished(true);
-        updatePivotPoint(e.getX(), e.getY());
+        releaseEdgeEffects();
+        getTouchPoint(e.getX(), e.getY());
         return true;
     }
 
@@ -923,18 +928,18 @@ public class InteractiveImageView extends AppCompatImageView
             return false;
         }
 
-        if ((mInvalidFlags & INVALID_FLAG_PIVOT_POINT) != 0) {
-            updatePivotPoint(e2.getX(), e2.getY());
+        if ((mInvalidFlags & INVALID_FLAG_TOUCH_POINT) != 0) {
+            getTouchPoint(e2.getX(), e2.getY());
         }
 
         final float x = e2.getX();
         final float y = e2.getY();
-        mTransformInfo.set(CURRENT_SCALE, CURRENT_SCALE, mPivotPoint.x, mPivotPoint.y, x, y);
+        mTransformInfo.set(CURRENT_SCALE, CURRENT_SCALE, mTouchPoint.x, mTouchPoint.y, x, y);
         mOptions.set(true, false, true);
 
         boolean needsInvalidate = transformImage(mTransformInfo, mOptions);
         if (mOptions.outConstrained) {
-            updatePivotPoint(x, y);
+            getTouchPoint(x, y);
         }
         final Rect contentRect = getContentRect();
         final int overScrollMode = getOverScrollMode();
@@ -996,15 +1001,17 @@ public class InteractiveImageView extends AppCompatImageView
             return false;
         }
 
-        if ((mInvalidFlags & INVALID_FLAG_PIVOT_POINT) != 0) {
+        if ((mInvalidFlags & INVALID_FLAG_TOUCH_POINT) != 0) {
             // This catches an outlier case where user removes all fingers simultaneously.
             // Depending on the timing, mPivotDirty may be set to true but is not caught by
             // an onScroll or onScale before onFling is called. In that case, ignore the gesture.
-            mInvalidFlags &= ~INVALID_FLAG_PIVOT_POINT;
+            mInvalidFlags &= ~INVALID_FLAG_TOUCH_POINT;
             return false;
         }
 
-        maybeReleaseEdgeEffects();
+        Log.d(LOG_TAG, "onFling");
+
+        releaseEdgeEffects();
         final Matrix matrix = getImageMatrixInternal();
         matrix.getValues(mValues);
         getMappedImageRect(matrix, mRectF);
@@ -1054,8 +1061,8 @@ public class InteractiveImageView extends AppCompatImageView
         mTransformInfo.set(
                 getImageMinScaleX() * (1.0f - next) + getImageMaxScaleX() * next,
                 getImageMinScaleY() * (1.0f - next) + getImageMaxScaleY() * next,
-                mPivotPoint.x,
-                mPivotPoint.y,
+                mTouchPoint.x,
+                mTouchPoint.y,
                 VIEW_CENTER,
                 VIEW_CENTER);
         mOptions.set(true, true, true);
@@ -1072,8 +1079,8 @@ public class InteractiveImageView extends AppCompatImageView
     public boolean onScale(ScaleGestureDetector detector) {
         final float focusX = detector.getFocusX();
         final float focusY = detector.getFocusY();
-        if ((mInvalidFlags & INVALID_FLAG_PIVOT_POINT) != 0) {
-            updatePivotPoint(focusX, focusY);
+        if ((mInvalidFlags & INVALID_FLAG_TOUCH_POINT) != 0) {
+            getTouchPoint(focusX, focusY);
         }
 
         final float currentSpan = detector.getCurrentSpan();
@@ -1081,14 +1088,14 @@ public class InteractiveImageView extends AppCompatImageView
         mTransformInfo.set(
                 getImageScaleX() * spanDelta,
                 getImageScaleY() * spanDelta,
-                mPivotPoint.x,
-                mPivotPoint.y,
+                mTouchPoint.x,
+                mTouchPoint.y,
                 focusX,
                 focusY);
         mOptions.set(true, false, true);
         transformImage(mTransformInfo, mOptions);
         if (mOptions.outConstrained) {
-            updatePivotPoint(focusX, focusY);
+            getTouchPoint(focusX, focusY);
         }
         mLastSpan = currentSpan;
         return true;
@@ -1101,13 +1108,13 @@ public class InteractiveImageView extends AppCompatImageView
         }
 
         mLastSpan = detector.getCurrentSpan();
-        updatePivotPoint(detector.getFocusX(), detector.getFocusY());
+        getTouchPoint(detector.getFocusX(), detector.getFocusY());
         return true;
     }
 
     @Override // ScaleGestureDetector.OnScaleGestureListener
     public void onScaleEnd(ScaleGestureDetector detector) {
-        mInvalidFlags |= INVALID_FLAG_PIVOT_POINT;
+        mInvalidFlags |= INVALID_FLAG_TOUCH_POINT;
     }
 
     //endregion Implemented methods
@@ -1809,20 +1816,6 @@ public class InteractiveImageView extends AppCompatImageView
         return new Initializer(this);
     }
 
-    private void maybeReleaseEdgeEffects() {
-        mEdgeEffectLeftActive
-                = mEdgeEffectTopActive
-                = mEdgeEffectRightActive
-                = mEdgeEffectBottomActive
-                = false;
-        if (mEdgeEffectLeft != null) {
-            mEdgeEffectLeft.onRelease();
-            mEdgeEffectTop.onRelease();
-            mEdgeEffectRight.onRelease();
-            mEdgeEffectBottom.onRelease();
-        }
-    }
-
     private void matrixToTransformInfo(Matrix matrix, TransformInfo outInfo) {
         outInfo.sx = getImageScaleX();
         outInfo.sy = getImageScaleY();
@@ -1839,6 +1832,21 @@ public class InteractiveImageView extends AppCompatImageView
             outInfo.py = drawableRect.exactCenterY();
         }
         outInfo.x = outInfo.y = VIEW_CENTER;
+    }
+
+    private void releaseEdgeEffects() {
+        mEdgeEffectLeftActive
+                = mEdgeEffectTopActive
+                = mEdgeEffectRightActive
+                = mEdgeEffectBottomActive
+                = false;
+        if (mEdgeEffectLeft != null) {
+            Log.d(LOG_TAG, "releaseEdgeEffects: mEdgeEffectTop.onRelease()");
+            mEdgeEffectLeft.onRelease();
+            mEdgeEffectTop.onRelease();
+            mEdgeEffectRight.onRelease();
+            mEdgeEffectBottom.onRelease();
+        }
     }
 
     private void resolveTransformInfo(TransformInfo info, TransformInfo outInfo) {
@@ -1888,12 +1896,12 @@ public class InteractiveImageView extends AppCompatImageView
         outMatrix.postTranslate(deltaTx, deltaTy);
     }
 
-    private void updatePivotPoint(float x, float y) {
+    private void getTouchPoint(float x, float y) {
         mPts[0] = x;
         mPts[1] = y;
         mapViewPtsToDrawablePts(getImageMatrixInternal(), mPts);
-        mPivotPoint.set(mPts[0], mPts[1]);
-        mInvalidFlags &= ~INVALID_FLAG_PIVOT_POINT;
+        mTouchPoint.set(mPts[0], mPts[1]);
+        mInvalidFlags &= ~INVALID_FLAG_TOUCH_POINT;
     }
 
     //endregion Private methods
