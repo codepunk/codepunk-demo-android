@@ -22,7 +22,6 @@ import android.support.v4.widget.EdgeEffectCompat;
 import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
-import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
@@ -34,8 +33,6 @@ import android.widget.OverScroller;
 
 import com.codepunk.demo.support.DisplayCompat;
 import com.codepunk.demo.support.ImageViewCompat;
-
-import java.util.Locale;
 
 import static android.graphics.Matrix.MSCALE_X;
 import static android.graphics.Matrix.MSCALE_Y;
@@ -681,8 +678,6 @@ public class InteractiveImageView extends AppCompatImageView
 
                 if (canScrollY() && mOverScroller.isOverScrolled()) {
                     final int diff = (currY - Math.round(mTransformInfo.y));
-                    Log.d(LOG_TAG, String.format(Locale.ENGLISH, "mEdgeEffectTop.isFinished()=%b, mEdgeEffectLeftActive=%b, currY=%d, diff=%d",
-                            mEdgeEffectTop.isFinished(), mEdgeEffectLeftActive, currY, diff));
                     if (diff > 0) {
                         if (!mEdgeEffectTop.isFinished()) {
                             mEdgeEffectTopActive = true;
@@ -701,29 +696,6 @@ public class InteractiveImageView extends AppCompatImageView
                             mEdgeEffectBottomActive = true;
                         }
                     }
-
-
-                    /*
-                    if (diff != 0) {
-
-                        if (diff > 0 &&
-                                mEdgeEffectTop.isFinished() &&
-                                !mEdgeEffectTopActive) {
-                            Log.d(LOG_TAG, "computeScroll: mEdgeEffectTop.onAbsorb()");
-                            mEdgeEffectTop.onAbsorb(
-                                    (int) OverScrollerCompat.getCurrVelocity(mOverScroller));
-                            mEdgeEffectTopActive = true;
-                            needsInvalidate = true;
-                        } else if (diff < 0 &&
-                                mEdgeEffectBottom.isFinished() &&
-                                !mEdgeEffectBottomActive) {
-                            mEdgeEffectBottom.onAbsorb
-                                    ((int) OverScrollerCompat.getCurrVelocity(mOverScroller));
-                            mEdgeEffectBottomActive = true;
-                            needsInvalidate = true;
-                        }
-                    }
-                    */
                 }
             }
         } else if (mTransformer.computeTransform()) {
@@ -1039,8 +1011,6 @@ public class InteractiveImageView extends AppCompatImageView
             return false;
         }
 
-        Log.d(LOG_TAG, "onFling");
-
         releaseEdgeEffects();
         final Matrix matrix = getImageMatrixInternal();
         matrix.getValues(mValues);
@@ -1272,20 +1242,20 @@ public class InteractiveImageView extends AppCompatImageView
     }
 
     public boolean transformImage(
-            float px,
-            float py,
             float sx,
             float sy,
+            float px,
+            float py,
             float x,
             float y) {
-        return transformImage(px, py, sx, sy, x, y, null);
+        return transformImage(sx, sy, px, py, x, y, null);
     }
 
     public boolean transformImage(
-            float px,
-            float py,
             float sx,
             float sy,
+            float px,
+            float py,
             float x,
             float y,
             TransformInfo.Options options) {
@@ -1871,7 +1841,6 @@ public class InteractiveImageView extends AppCompatImageView
                 = mEdgeEffectBottomActive
                 = false;
         if (mEdgeEffectLeft != null) {
-            Log.d(LOG_TAG, "releaseEdgeEffects: mEdgeEffectTop.onRelease()");
             mEdgeEffectLeft.onRelease();
             mEdgeEffectTop.onRelease();
             mEdgeEffectRight.onRelease();

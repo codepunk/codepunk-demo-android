@@ -21,6 +21,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import static com.codepunk.demo.InteractiveImageView.VIEW_CENTER;
+
 public class InteractiveImageViewControlsFragment extends Fragment
         implements AbsSeekBarLayout.OnSeekBarChangeListener<Float>,
                 AdapterView.OnItemSelectedListener,
@@ -61,8 +63,6 @@ public class InteractiveImageViewControlsFragment extends Fragment
     private boolean mDisallowUpdatingSeekBars = false;
 
     private boolean mPendingResetClamps = true;
-
-//    private InteractiveImageView.TransformInfo mTransformInfo;
 
     //endregion Fields
 
@@ -136,7 +136,6 @@ public class InteractiveImageViewControlsFragment extends Fragment
             mImageView.setImageResource(DEFAULT_DRAWABLE_RES_ID);
             final int position = mImageEntryValues.indexOf(DEFAULT_DRAWABLE_RES_ID);
             mImageSpinner.setSelection(position, false);
-//            mTransformInfo = new InteractiveImageView.TransformInfo();
         } else {
             // This prevents onItemSelected from being fired immediately after calling
             // setOnItemSelected listener below
@@ -148,31 +147,16 @@ public class InteractiveImageViewControlsFragment extends Fragment
 
             setImageResourceByPosition(position);
             if (savedInstanceState.getBoolean(KEY_IS_TRANSFORMED, false)) {
-                final float scaleX = savedInstanceState.getFloat(KEY_SCALEX, 1.0f);
-                final float scaleY = savedInstanceState.getFloat(KEY_SCALEY, 1.0f);
-                final float pivotX = savedInstanceState.getFloat(KEY_PIVOTX);
-                final float pivotY = savedInstanceState.getFloat(KEY_PIVOTY);
-                mScaleXSeekBarLayout.setValue(scaleX);
-                mScaleYSeekBarLayout.setValue(scaleY);
-                mPivotXSeekBarLayout.setValue(pivotX);
-                mPivotYSeekBarLayout.setValue(pivotY);
-                mImageView.transformImage(scaleX, scaleY, pivotX, pivotY, InteractiveImageView.VIEW_CENTER, InteractiveImageView.VIEW_CENTER);
-            } else {
-                // NO OP TODO?
+                final float sx = savedInstanceState.getFloat(KEY_SCALEX, 1.0f);
+                final float sy = savedInstanceState.getFloat(KEY_SCALEY, 1.0f);
+                final float px = savedInstanceState.getFloat(KEY_PIVOTX);
+                final float py = savedInstanceState.getFloat(KEY_PIVOTY);
+                mScaleXSeekBarLayout.setValue(sx);
+                mScaleYSeekBarLayout.setValue(sy);
+                mPivotXSeekBarLayout.setValue(px);
+                mPivotYSeekBarLayout.setValue(py);
+                mImageView.transformImage(sx, sy, px, py, VIEW_CENTER, VIEW_CENTER);
             }
-
-            /*
-            mTransformInfo = savedInstanceState.getParcelable(KEY_TRANSFORM_INFO);
-            if (mTransformInfo == null) {
-                mTransformInfo = new InteractiveImageView.TransformInfo();
-            } else {
-                mScaleXSeekBarLayout.setValue(mTransformInfo.sx);
-                mScaleYSeekBarLayout.setValue(mTransformInfo.sy);
-                mPivotXSeekBarLayout.setValue(mTransformInfo.px);
-                mPivotYSeekBarLayout.setValue(mTransformInfo.py);
-                mImageView.transformImage(mTransformInfo);
-            }
-            */
         }
 
         mImageSpinner.setOnItemSelectedListener(InteractiveImageViewControlsFragment.this);
@@ -188,9 +172,6 @@ public class InteractiveImageViewControlsFragment extends Fragment
             outState.putFloat(KEY_SCALEY, mImageView.getImageScaleY());
             outState.putFloat(KEY_PIVOTX, mImageView.getImagePivotX());
             outState.putFloat(KEY_PIVOTY, mImageView.getImagePivotY());
-//            InteractiveImageView.TransformInfo info = new InteractiveImageView.TransformInfo();
-//            mImageView.getTransformInfo(info);
-//            outState.putParcelable(KEY_TRANSFORM_INFO, info);
         } else {
             outState.putBoolean(KEY_IS_TRANSFORMED, false);
         }
@@ -204,42 +185,49 @@ public class InteractiveImageViewControlsFragment extends Fragment
     @Override // AbsSeekBarLayout.OnSeekBarChangeListener
     public void onValueChanged(
             AbsSeekBarLayout<Float> seekBarLayout,
-            Float previousValue,
             Float value,
             boolean fromUser) {
         if (fromUser) {
             mDisallowUpdatingSeekBars = true;
             final int id = seekBarLayout.getId();
             final boolean transformImage;
+            float sx = mScaleXSeekBarLayout.getValue();
+            float sy = mScaleYSeekBarLayout.getValue();
+            float px = mPivotXSeekBarLayout.getValue();
+            float py = mPivotYSeekBarLayout.getValue();
             switch (id) {
                 case R.id.layout_seek_bar_center_x: {
-//                    mTransformInfo.px = seekBarLayout.getValue();
+                    px = value;
                     transformImage = true;
                     break;
                 }
                 case R.id.layout_seek_bar_center_y: {
-//                    mTransformInfo.py = seekBarLayout.getValue();
+                    py = value;
                     transformImage = true;
                     break;
                 }
                 case R.id.layout_seek_bar_scale_x: {
-//                    final float oldSx = mTransformInfo.sx;
-//                    mTransformInfo.sx = seekBarLayout.getValue();
+                    sx = value;
                     if (mLockButton.isChecked()) {
-//                        mTransformInfo.sy *= mTransformInfo.sx / oldSx;
-                        mScaleYSeekBarLayout.setValue(
-                                mScaleYSeekBarLayout.getValue() * (value / previousValue));
+                        final int width = mImageView.getDrawableIntrinsicWidth();
+                        final int height = mImageView.getDrawableIntrinsicHeight();
+                        final float ratio = (float) width / height;
+                        final float scaledHeight = (width * value) / ratio;
+                        sy = scaledHeight / height;
+                        mScaleYSeekBarLayout.setValue(sy);
                     }
                     transformImage = true;
                     break;
                 }
                 case R.id.layout_seek_bar_scale_y: {
-//                    final float oldSy = mTransformInfo.sy;
-//                    mTransformInfo.sy = seekBarLayout.getValue();
+                    sy = value;
                     if (mLockButton.isChecked()) {
-//                        mTransformInfo.sx *= mTransformInfo.sy / oldSy;
-                        mScaleXSeekBarLayout.setValue(
-                                mScaleXSeekBarLayout.getValue() *(value / previousValue));
+                        final int width = mImageView.getDrawableIntrinsicWidth();
+                        final int height = mImageView.getDrawableIntrinsicHeight();
+                        final float ratio = (float) width / height;
+                        final float scaledWidth = (height * value) * ratio;
+                        sx = scaledWidth / width;
+                        mScaleXSeekBarLayout.setValue(sx);
                     }
                     transformImage = true;
                     break;
@@ -247,18 +235,10 @@ public class InteractiveImageViewControlsFragment extends Fragment
                 default:
                     mDisallowUpdatingSeekBars = false;
                     transformImage = false;
-                    return;
             }
             if (transformImage) {
-                mImageView.transformImage(
-                        mScaleXSeekBarLayout.getValue(),
-                        mScaleYSeekBarLayout.getValue(),
-                        mPivotXSeekBarLayout.getValue(),
-                        mPivotYSeekBarLayout.getValue(),
-                        InteractiveImageView.VIEW_CENTER,
-                        InteractiveImageView.VIEW_CENTER);
+                mImageView.transformImage(sx, sy, px, py, VIEW_CENTER, VIEW_CENTER);
             }
-//            mImageView.transformImage(mTransformInfo);
         }
     }
 
@@ -298,7 +278,6 @@ public class InteractiveImageViewControlsFragment extends Fragment
             mScaleTypeSpinner.setSelection(position, false);
         }
 
-//        mImageView.getTransformInfo(mTransformInfo);
         final float scaleX = mImageView.getImageScaleX();
         final float scaleY = mImageView.getImageScaleY();
         final float pivotX = mImageView.getImagePivotX();
