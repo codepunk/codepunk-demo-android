@@ -658,42 +658,72 @@ public class InteractiveImageView extends AppCompatImageView
             if (getOverScrollMode() != OVER_SCROLL_NEVER) {
                 if (canScrollX() && mOverScroller.isOverScrolled()) {
                     final int diff = (currX - Math.round(mTransformInfo.x));
-                    if (diff > 0 &&
-                            mEdgeEffectLeft.isFinished() &&
-                            !mEdgeEffectLeftActive) {
-                        mEdgeEffectLeft.onAbsorb(
-                                (int) OverScrollerCompat.getCurrVelocity(mOverScroller));
-                        mEdgeEffectLeftActive = true;
-                        needsInvalidate = true;
-                    } else if (diff < 0 &&
-                            mEdgeEffectRight.isFinished() &&
-                            !mEdgeEffectRightActive) {
-                        mEdgeEffectRight.onAbsorb
-                                ((int) OverScrollerCompat.getCurrVelocity(mOverScroller));
-                        mEdgeEffectRightActive = true;
-                        needsInvalidate = true;
+                    if (diff > 0) {
+                        if (!mEdgeEffectLeft.isFinished()) {
+                            mEdgeEffectLeftActive = true;
+                        } else if (!mEdgeEffectLeftActive) {
+                            mEdgeEffectLeft.onAbsorb(
+                                    (int) OverScrollerCompat.getCurrVelocity(mOverScroller));
+                            mEdgeEffectLeftActive = true;
+                            needsInvalidate = true;
+                        }
+                    } else if (diff < 0) {
+                        if (!mEdgeEffectRight.isFinished()) {
+                            mEdgeEffectRightActive = true;
+                        } else if (!mEdgeEffectRightActive) {
+                            mEdgeEffectRight.onAbsorb
+                                    ((int) OverScrollerCompat.getCurrVelocity(mOverScroller));
+                            mEdgeEffectRightActive = true;
+                            needsInvalidate = true;
+                        }
                     }
                 }
 
                 if (canScrollY() && mOverScroller.isOverScrolled()) {
                     final int diff = (currY - Math.round(mTransformInfo.y));
-                    Log.d(LOG_TAG, String.format(Locale.ENGLISH, "mEdgeEffectTop.isFinished()=%b, currY=%d, diff=%d", mEdgeEffectTop.isFinished(), currY, diff));
-                    if (diff > 0 &&
-                            mEdgeEffectTop.isFinished() &&
-                            !mEdgeEffectTopActive) {
-                        Log.d(LOG_TAG, "computeScroll: mEdgeEffectTop.onAbsorb()");
-                        mEdgeEffectTop.onAbsorb(
-                                (int) OverScrollerCompat.getCurrVelocity(mOverScroller));
-                        mEdgeEffectTopActive = true;
-                        needsInvalidate = true;
-                    } else if (diff < 0 &&
-                            mEdgeEffectBottom.isFinished() &&
-                            !mEdgeEffectBottomActive) {
-                        mEdgeEffectBottom.onAbsorb
-                                ((int) OverScrollerCompat.getCurrVelocity(mOverScroller));
-                        mEdgeEffectBottomActive = true;
-                        needsInvalidate = true;
+                    Log.d(LOG_TAG, String.format(Locale.ENGLISH, "mEdgeEffectTop.isFinished()=%b, mEdgeEffectLeftActive=%b, currY=%d, diff=%d",
+                            mEdgeEffectTop.isFinished(), mEdgeEffectLeftActive, currY, diff));
+                    if (diff > 0) {
+                        if (!mEdgeEffectTop.isFinished()) {
+                            mEdgeEffectTopActive = true;
+                        } else if (!mEdgeEffectTopActive) {
+                            mEdgeEffectTop.onAbsorb(
+                                    (int) OverScrollerCompat.getCurrVelocity(mOverScroller));
+                            mEdgeEffectTopActive = true;
+                            needsInvalidate = true;
+                        }
+                    } else if (diff < 0) {
+                        if (!mEdgeEffectBottom.isFinished()) {
+                            mEdgeEffectBottomActive = true;
+                        } else if (!mEdgeEffectBottomActive) {
+                            mEdgeEffectBottom.onAbsorb
+                                    ((int) OverScrollerCompat.getCurrVelocity(mOverScroller));
+                            mEdgeEffectBottomActive = true;
+                        }
                     }
+
+
+                    /*
+                    if (diff != 0) {
+
+                        if (diff > 0 &&
+                                mEdgeEffectTop.isFinished() &&
+                                !mEdgeEffectTopActive) {
+                            Log.d(LOG_TAG, "computeScroll: mEdgeEffectTop.onAbsorb()");
+                            mEdgeEffectTop.onAbsorb(
+                                    (int) OverScrollerCompat.getCurrVelocity(mOverScroller));
+                            mEdgeEffectTopActive = true;
+                            needsInvalidate = true;
+                        } else if (diff < 0 &&
+                                mEdgeEffectBottom.isFinished() &&
+                                !mEdgeEffectBottomActive) {
+                            mEdgeEffectBottom.onAbsorb
+                                    ((int) OverScrollerCompat.getCurrVelocity(mOverScroller));
+                            mEdgeEffectBottomActive = true;
+                            needsInvalidate = true;
+                        }
+                    }
+                    */
                 }
             }
         } else if (mTransformer.computeTransform()) {

@@ -28,7 +28,11 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
 
     //region Nested classes
     public interface OnSeekBarChangeListener<T extends Number> {
-        void onProgressChanged(AbsSeekBarLayout<T> seekBarLayout, int progress, boolean fromUser);
+        void onValueChanged(
+                AbsSeekBarLayout<T> seekBarLayout,
+                T previousValue,
+                T value,
+                boolean fromUser);
         void onStartTrackingTouch(AbsSeekBarLayout<T> seekBarLayout);
         void onStopTrackingTouch(AbsSeekBarLayout<T> seekBarLayout);
     }
@@ -46,6 +50,7 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
     @NonNull protected T mMaxValue = getInitialValue();
     @NonNull protected T mMinValue = getInitialValue();
     @NonNull protected T mValue = getInitialValue();
+    @NonNull protected T mPreviousValue = getInitialValue();
 
     protected boolean mUiDirty = true;
 
@@ -87,11 +92,16 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
     //region Implemented methods
     @Override
     public void onProgressChanged(SeekBar bar, int progress, boolean fromUser) {
-        mValue = progressToValue(mSeekBar.getProgress());
+        mPreviousValue = mValue;
+        mValue = progressToValue(progress); //mSeekBar.getProgress());
         mUiDirty = true;
         invalidate();
         if (mOnSeekBarChangeListener != null) {
-            mOnSeekBarChangeListener.onProgressChanged(this, progress, fromUser);
+            mOnSeekBarChangeListener.onValueChanged(
+                    this,
+                    mPreviousValue,
+                    mValue,
+                    fromUser);
         }
     }
 
@@ -113,6 +123,16 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
     //region Methods
     public float getRelativeProgress() {
         return (float) mSeekBar.getProgress() / mSeekBar.getMax();
+    }
+
+    @NonNull
+    public T getMaxValue() {
+        return mMaxValue;
+    }
+
+    @NonNull
+    public T getMinValue() {
+        return mMinValue;
     }
 
     public @NonNull T getValue() {
@@ -166,6 +186,7 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
     }
 
     public void setValue(@NonNull T value, boolean animate) {
+        mPreviousValue = mValue;
         mValue = value;
         final int progress = valueToProgress(value);
         if (Math.abs(mSeekBar.getProgress() - progress) <= 2) {
