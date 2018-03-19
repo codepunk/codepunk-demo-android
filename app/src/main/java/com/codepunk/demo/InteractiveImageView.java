@@ -22,6 +22,7 @@ import android.support.v4.widget.EdgeEffectCompat;
 import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
@@ -34,6 +35,8 @@ import android.widget.OverScroller;
 import com.codepunk.demo.support.DisplayCompat;
 import com.codepunk.demo.support.ImageViewCompat;
 
+import java.util.Locale;
+
 import static android.graphics.Matrix.MSCALE_X;
 import static android.graphics.Matrix.MSCALE_Y;
 import static android.graphics.Matrix.MTRANS_X;
@@ -45,6 +48,52 @@ public class InteractiveImageView extends AppCompatImageView
         ScaleGestureDetector.OnScaleGestureListener {
 
     //region Nested classes
+
+    private static class EdgeEffectCustom extends EdgeEffect {
+        private boolean mEngaged = false;
+
+        public EdgeEffectCustom(Context context) {
+            super(context);
+        }
+
+        @Override
+        public void onAbsorb(int velocity) {
+            super.onAbsorb(velocity);
+            mEngaged = true;
+        }
+
+        @Override
+        public void onPull(float deltaDistance) {
+            super.onPull(deltaDistance);
+            mEngaged = true;
+        }
+
+        @Override
+        public void onPull(float deltaDistance, float displacement) {
+            super.onPull(deltaDistance, displacement);
+            mEngaged = true;
+        }
+
+        public boolean onAbsorbIfAvailable(int velocity) {
+            if (!isFinished()) {
+                setEngaged(true);
+                return false;
+            } else if (!isEngaged()) {
+                onAbsorb(velocity);
+                return true;
+            } else {
+                return false;
+            }
+        }
+
+        public boolean isEngaged() {
+            return mEngaged;
+        }
+
+        public void setEngaged(boolean engaged) {
+            mEngaged = engaged;
+        }
+    }
 
     private static class Initializer {
         final GestureDetectorCompat gestureDetector;
@@ -511,6 +560,11 @@ public class InteractiveImageView extends AppCompatImageView
     private static final float MAX_SCALE_LENGTH_MULTIPLIER = 6.0f;
     private static final float SCALE_PIVOT_EPSILON = 0.2f;
 
+    private static final int EDGE_EFFECT_LEFT = 0;
+    private static final int EDGE_EFFECT_TOP = 1;
+    private static final int EDGE_EFFECT_RIGHT = 2;
+    private static final int EDGE_EFFECT_BOTTOM = 3;
+
     private static final int INVALID_FLAG_CONTENT_RECT = 0x00000001;
     private static final int INVALID_FLAG_DRAWABLE_RECT = 0x00000002;
     private static final int INVALID_FLAG_BASELINE_IMAGE_MATRIX = 0x00000004;
@@ -579,15 +633,7 @@ public class InteractiveImageView extends AppCompatImageView
     private int mInvalidFlags;
 
     // Edge effect / over scroll tracking objects.
-    private EdgeEffect mEdgeEffectLeft;
-    private EdgeEffect mEdgeEffectTop;
-    private EdgeEffect mEdgeEffectRight;
-    private EdgeEffect mEdgeEffectBottom;
-
-    private boolean mEdgeEffectLeftActive;
-    private boolean mEdgeEffectTopActive;
-    private boolean mEdgeEffectRightActive;
-    private boolean mEdgeEffectBottomActive;
+    private EdgeEffectCustom[] mEdgeEffects;
 
     //endregion Fields
 
@@ -639,9 +685,19 @@ public class InteractiveImageView extends AppCompatImageView
 
         boolean needsInvalidate = false;
 
+        // TODO Maybe kill the overscroll if image stops transforming
+
         if (mOverScroller.computeScrollOffset()) {
             final int currX = mOverScroller.getCurrX();
             final int currY = mOverScroller.getCurrY();
+
+            /*
+            Log.d(LOG_TAG, String.format(
+                    Locale.ENGLISH,
+                    "computeScroll: isOverScrolled=%b, isFinished=%b, currX=%d, currY=%d",
+                    mOverScroller.isOverScrolled(), mOverScroller.isFinished(), currX, currY));
+            */
+
             mTransformInfo.set(
                     CURRENT_SCALE,
                     CURRENT_SCALE,
@@ -654,47 +710,36 @@ public class InteractiveImageView extends AppCompatImageView
 
             if (getOverScrollMode() != OVER_SCROLL_NEVER) {
                 if (canScrollX() && mOverScroller.isOverScrolled()) {
+                    final EdgeEffectCustom edgeEffect;
                     final int diff = (currX - Math.round(mTransformInfo.x));
                     if (diff > 0) {
-                        if (!mEdgeEffectLeft.isFinished()) {
-                            mEdgeEffectLeftActive = true;
-                        } else if (!mEdgeEffectLeftActive) {
-                            mEdgeEffectLeft.onAbsorb(
-                                    (int) OverScrollerCompat.getCurrVelocity(mOverScroller));
-                            mEdgeEffectLeftActive = true;
-                            needsInvalidate = true;
-                        }
+                        edgeEffect = mEdgeEffects[EDGE_EFFECT_LEFT];
                     } else if (diff < 0) {
-                        if (!mEdgeEffectRight.isFinished()) {
-                            mEdgeEffectRightActive = true;
-                        } else if (!mEdgeEffectRightActive) {
-                            mEdgeEffectRight.onAbsorb
-                                    ((int) OverScrollerCompat.getCurrVelocity(mOverScroller));
-                            mEdgeEffectRightActive = true;
-                            needsInvalidate = true;
-                        }
+                        edgeEffect = mEdgeEffects[EDGE_EFFECT_RIGHT];
+                    } else {
+                        edgeEffect = null;
+                    }
+
+                    if (edgeEffect != null && edgeEffect.onAbsorbIfAvailable(
+                            (int) OverScrollerCompat.getCurrVelocity(mOverScroller))) {
+                        needsInvalidate = true;
                     }
                 }
 
                 if (canScrollY() && mOverScroller.isOverScrolled()) {
+                    final EdgeEffectCustom edgeEffect;
                     final int diff = (currY - Math.round(mTransformInfo.y));
                     if (diff > 0) {
-                        if (!mEdgeEffectTop.isFinished()) {
-                            mEdgeEffectTopActive = true;
-                        } else if (!mEdgeEffectTopActive) {
-                            mEdgeEffectTop.onAbsorb(
-                                    (int) OverScrollerCompat.getCurrVelocity(mOverScroller));
-                            mEdgeEffectTopActive = true;
-                            needsInvalidate = true;
-                        }
+                        edgeEffect = mEdgeEffects[EDGE_EFFECT_TOP];
                     } else if (diff < 0) {
-                        if (!mEdgeEffectBottom.isFinished()) {
-                            mEdgeEffectBottomActive = true;
-                        } else if (!mEdgeEffectBottomActive) {
-                            mEdgeEffectBottom.onAbsorb
-                                    ((int) OverScrollerCompat.getCurrVelocity(mOverScroller));
-                            mEdgeEffectBottomActive = true;
-                        }
+                        edgeEffect = mEdgeEffects[EDGE_EFFECT_BOTTOM];
+                    } else {
+                        edgeEffect = null;
+                    }
+
+                    if (edgeEffect != null && edgeEffect.onAbsorbIfAvailable(
+                            (int) OverScrollerCompat.getCurrVelocity(mOverScroller))) {
+                        needsInvalidate = true;
                     }
                 }
             }
@@ -735,7 +780,7 @@ public class InteractiveImageView extends AppCompatImageView
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
 
-        if (mEdgeEffectLeft != null) {
+        if (mEdgeEffects != null) {
             // The methods below rotate and translate the canvas as needed before drawing the glow,
             // since EdgeEffectCompat always draws a top-glow at 0,0.
             boolean needsInvalidate = false;
@@ -749,56 +794,56 @@ public class InteractiveImageView extends AppCompatImageView
             final int glowAreaWidth = (int) (rectWidth * EDGE_EFFECT_SIZE_FACTOR);
             final int glowAreaHeight = (int) (rectHeight * EDGE_EFFECT_SIZE_FACTOR);
 
-            if (!mEdgeEffectTop.isFinished()) {
+            if (!mEdgeEffects[EDGE_EFFECT_TOP].isFinished()) {
                 final int restoreCount = canvas.save();
                 canvas.clipRect(mRectF);
                 final float dx = mRectF.left - (glowAreaWidth - rectWidth) * 0.5f;
                 final float dy = mRectF.top;
                 canvas.translate(dx, dy);
-                mEdgeEffectTop.setSize(glowAreaWidth, glowAreaHeight);
-                if (mEdgeEffectTop.draw(canvas)) {
+                mEdgeEffects[EDGE_EFFECT_TOP].setSize(glowAreaWidth, glowAreaHeight);
+                if (mEdgeEffects[EDGE_EFFECT_TOP].draw(canvas)) {
                     needsInvalidate = true;
                 }
                 canvas.restoreToCount(restoreCount);
             }
 
-            if (!mEdgeEffectBottom.isFinished()) {
+            if (!mEdgeEffects[EDGE_EFFECT_BOTTOM].isFinished()) {
                 final int restoreCount = canvas.save();
                 canvas.clipRect(mRectF);
                 final float dx = mRectF.left - (glowAreaWidth - rectWidth) * 0.5f;
                 final float dy = mRectF.bottom;
                 canvas.translate(-glowAreaWidth + dx, dy);
                 canvas.rotate(180.0f, glowAreaWidth, 0.0f);
-                mEdgeEffectBottom.setSize(glowAreaWidth, glowAreaHeight);
-                if (mEdgeEffectBottom.draw(canvas)) {
+                mEdgeEffects[EDGE_EFFECT_BOTTOM].setSize(glowAreaWidth, glowAreaHeight);
+                if (mEdgeEffects[EDGE_EFFECT_BOTTOM].draw(canvas)) {
                     needsInvalidate = true;
                 }
                 canvas.restoreToCount(restoreCount);
             }
 
-            if (!mEdgeEffectLeft.isFinished()) {
+            if (!mEdgeEffects[EDGE_EFFECT_LEFT].isFinished()) {
                 final int restoreCount = canvas.save();
                 canvas.clipRect(mRectF);
                 final float dx = mRectF.left;
                 final float dy = mRectF.bottom + (glowAreaHeight - rectHeight) * 0.5f;
                 canvas.translate(dx, dy);
                 canvas.rotate(-90.0f, 0.0f, 0.0f);
-                mEdgeEffectLeft.setSize(glowAreaHeight, glowAreaWidth);
-                if (mEdgeEffectLeft.draw(canvas)) {
+                mEdgeEffects[EDGE_EFFECT_LEFT].setSize(glowAreaHeight, glowAreaWidth);
+                if (mEdgeEffects[EDGE_EFFECT_LEFT].draw(canvas)) {
                     needsInvalidate = true;
                 }
                 canvas.restoreToCount(restoreCount);
             }
 
-            if (!mEdgeEffectRight.isFinished()) {
+            if (!mEdgeEffects[EDGE_EFFECT_RIGHT].isFinished()) {
                 final int restoreCount = canvas.save();
                 canvas.clipRect(mRectF);
                 final float dx = mRectF.right;
                 final float dy = mRectF.top - (glowAreaHeight - rectHeight) * 0.5f;
                 canvas.translate(dx, dy);
                 canvas.rotate(90.0f, 0.0f, 0.0f);
-                mEdgeEffectRight.setSize(glowAreaHeight, glowAreaWidth);
-                if (mEdgeEffectRight.draw(canvas)) {
+                mEdgeEffects[EDGE_EFFECT_RIGHT].setSize(glowAreaHeight, glowAreaWidth);
+                if (mEdgeEffects[EDGE_EFFECT_RIGHT].draw(canvas)) {
                     needsInvalidate = true;
                 }
                 canvas.restoreToCount(restoreCount);
@@ -864,19 +909,14 @@ public class InteractiveImageView extends AppCompatImageView
     @Override
     public void setOverScrollMode(int mode) {
         super.setOverScrollMode(mode);
-        if (mode != OVER_SCROLL_NEVER) {
-            if (mEdgeEffectLeft == null) {
-                Context context = getContext();
-                mEdgeEffectLeft = new EdgeEffect(context);
-                mEdgeEffectTop = new EdgeEffect(context);
-                mEdgeEffectRight = new EdgeEffect(context);
-                mEdgeEffectBottom = new EdgeEffect(context);
+        if (mode == OVER_SCROLL_NEVER) {
+            mEdgeEffects = null;
+        } else if (mEdgeEffects == null) {
+            Context context = getContext();
+            mEdgeEffects = new EdgeEffectCustom[4];
+            for (int i = 0; i < 4; i++) {
+                mEdgeEffects[i] = new EdgeEffectCustom(context);
             }
-        } else {
-            mEdgeEffectLeft = null;
-            mEdgeEffectTop = null;
-            mEdgeEffectRight = null;
-            mEdgeEffectBottom = null;
         }
     }
 
@@ -943,50 +983,52 @@ public class InteractiveImageView extends AppCompatImageView
         if (mOptions.outConstrained) {
             getTouchPoint(x, y);
         }
-        final Rect contentRect = getContentRect();
-        final int overScrollMode = getOverScrollMode();
-        final boolean canOverScrollX = (overScrollMode == OVER_SCROLL_ALWAYS ||
-                (overScrollMode == OVER_SCROLL_IF_CONTENT_SCROLLS && canScrollX()));
 
-        if (canOverScrollX) {
-            final float constrainedDiff = mTransformInfo.x - x;
-            if (constrainedDiff < 0.0f) {
-                mEdgeEffectLeftActive = true;
-                EdgeEffectCompat.onPull(
-                        mEdgeEffectLeft,
-                        constrainedDiff / getContentRect().width(),
-                        1.0f - y / getHeight());
-                needsInvalidate = true;
-            } else if (constrainedDiff > 0.0f) {
-                mEdgeEffectRightActive = true;
-                EdgeEffectCompat.onPull(
-                        mEdgeEffectRight,
-                        constrainedDiff / getContentRect().width(),
-                        y / getHeight());
-                needsInvalidate = true;
+        if (mEdgeEffects != null) {
+            final Rect contentRect = getContentRect();
+            final int overScrollMode = getOverScrollMode();
+            final boolean canOverScrollX = (overScrollMode == OVER_SCROLL_ALWAYS ||
+                    (overScrollMode == OVER_SCROLL_IF_CONTENT_SCROLLS && canScrollX()));
+
+            if (canOverScrollX) {
+                final float constrainedDiff = mTransformInfo.x - x;
+                final int compare = Float.compare(constrainedDiff, 0.0f);
+                if (compare < 0) {
+                    EdgeEffectCompat.onPull(
+                            mEdgeEffects[EDGE_EFFECT_LEFT],
+                            constrainedDiff / getContentRect().width(),
+                            1.0f - y / getHeight());
+                    needsInvalidate = true;
+                } else if (compare > 0) {
+                    EdgeEffectCompat.onPull(
+                            mEdgeEffects[EDGE_EFFECT_RIGHT],
+                            constrainedDiff / getContentRect().width(),
+                            y / getHeight());
+                    needsInvalidate = true;
+                }
+            }
+
+            final boolean canOverScrollY = (overScrollMode == OVER_SCROLL_ALWAYS ||
+                    (overScrollMode == OVER_SCROLL_IF_CONTENT_SCROLLS && canScrollY()));
+            if (canOverScrollY) {
+                final float constrainedDiff = mTransformInfo.y - y;
+                final int compare = Float.compare(constrainedDiff, 0.0f);
+                if (compare < 0) {
+                    EdgeEffectCompat.onPull(
+                            mEdgeEffects[EDGE_EFFECT_TOP],
+                            constrainedDiff / contentRect.height(),
+                            x / getWidth());
+                    needsInvalidate = true;
+                } else if (compare > 0) {
+                    EdgeEffectCompat.onPull(
+                            mEdgeEffects[EDGE_EFFECT_BOTTOM],
+                            constrainedDiff / contentRect.height(),
+                            1.0f - x / getWidth());
+                    needsInvalidate = true;
+                }
             }
         }
 
-        final boolean canOverScrollY = (overScrollMode == OVER_SCROLL_ALWAYS ||
-                (overScrollMode == OVER_SCROLL_IF_CONTENT_SCROLLS && canScrollY()));
-        if (canOverScrollY) {
-            final float constrainedDiff = mTransformInfo.y - y;
-            if (constrainedDiff < 0.0f) {
-                EdgeEffectCompat.onPull(
-                        mEdgeEffectTop,
-                        constrainedDiff / contentRect.height(),
-                        x / getWidth());
-                mEdgeEffectTopActive = true;
-                needsInvalidate = true;
-            } else if (constrainedDiff > 0.0f) {
-                EdgeEffectCompat.onPull(
-                        mEdgeEffectBottom,
-                        constrainedDiff / contentRect.height(),
-                        1.0f - x / getWidth());
-                mEdgeEffectBottomActive = true;
-                needsInvalidate = true;
-            }
-        }
         if (needsInvalidate) {
             ViewCompat.postInvalidateOnAnimation(this);
         }
@@ -1018,15 +1060,26 @@ public class InteractiveImageView extends AppCompatImageView
         final Rect contentRect = getContentRect();
         final float startX = e2.getX();
         final float startY = e2.getY();
-        final float scrollableX = Math.max(mRectF.width() - contentRect.width(), 0);
-        final float scrollableY = Math.max(mRectF.height() - contentRect.height(), 0);
-        final float scrolledX = -Math.min(mValues[MTRANS_X], 0);
-        final float scrolledY = -Math.min(mValues[MTRANS_Y], 0);
+
+        final float scrollableX = Math.max(mRectF.width() - contentRect.width(), 0.0f);
+        final float scrollableY = Math.max(mRectF.height() - contentRect.height(), 0.0f);
+        final float scrolledX = -Math.min(mValues[MTRANS_X], 0.0f);
+        final float scrolledY = -Math.min(mValues[MTRANS_Y], 0.0f);
         final int overScrollMode = getOverScrollMode();
         final boolean canOverScrollX = (overScrollMode == OVER_SCROLL_ALWAYS ||
                 (overScrollMode == OVER_SCROLL_IF_CONTENT_SCROLLS && scrollableX > 0));
         final boolean canOverScrollY = (overScrollMode == OVER_SCROLL_ALWAYS ||
                 (overScrollMode == OVER_SCROLL_IF_CONTENT_SCROLLS && scrollableY > 0));
+
+        // TODO TEMP
+        final int minX = (int) (startX - scrollableX + scrolledX);
+        final int maxX = (int) (startX + scrolledX);
+        Log.d(LOG_TAG, String.format(
+                Locale.ENGLISH,
+                "onFling: e1.getX=%.0f, startX=%.0f, scrollableX=%.0f, scrolledX=%.0f, minX=%d, maxX=%d, velocityX=%.0f",
+                e1.getX(), startX, scrollableX, scrolledX, minX, maxX, velocityX));
+        // END TEMP
+
         final int overX = (canOverScrollX ? contentRect.width() / 2 : 0);
         final int overY = (canOverScrollY ? contentRect.height() / 2 : 0);
         mOverScroller.fling(
@@ -1034,9 +1087,9 @@ public class InteractiveImageView extends AppCompatImageView
                 (int) startY,
                 (int) velocityX,
                 (int) velocityY,
-                (int) (startX - scrollableX + scrolledX),
+                (int) (startX + scrolledX - scrollableX),
                 (int) (startX + scrolledX),
-                (int) (startY - scrollableY + scrolledY),
+                (int) (startY + scrolledY - scrollableY),
                 (int) (startY + scrolledY),
                 overX,
                 overY);
@@ -1322,6 +1375,15 @@ public class InteractiveImageView extends AppCompatImageView
                 if (super.getScaleType() != ScaleType.MATRIX) {
                     super.setScaleType(ScaleType.MATRIX);
                 }
+
+                // TODO TEMP
+                mMatrix.getValues(mValues);
+                Log.d(LOG_TAG, String.format(
+                        Locale.ENGLISH,
+                        "transformImage: MTRANS_X=%.0f",
+                        mValues[MTRANS_X]));
+                // END TEMP
+
                 super.setImageMatrix(mMatrix);
             }
         }
@@ -1835,16 +1897,11 @@ public class InteractiveImageView extends AppCompatImageView
     }
 
     private void releaseEdgeEffects() {
-        mEdgeEffectLeftActive
-                = mEdgeEffectTopActive
-                = mEdgeEffectRightActive
-                = mEdgeEffectBottomActive
-                = false;
-        if (mEdgeEffectLeft != null) {
-            mEdgeEffectLeft.onRelease();
-            mEdgeEffectTop.onRelease();
-            mEdgeEffectRight.onRelease();
-            mEdgeEffectBottom.onRelease();
+        if (mEdgeEffects != null) {
+            for (int i = 0; i < mEdgeEffects.length; i++) {
+                mEdgeEffects[i].setEngaged(false);
+                mEdgeEffects[i].onRelease();
+            }
         }
     }
 

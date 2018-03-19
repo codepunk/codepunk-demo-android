@@ -7,3 +7,72 @@ Reconsider all of my null checks. Can I just allow crash? What does google do?
 * Bug - sometimes at end of fling, image shifts
 
 Bug - Wonkiness with seek bars in Controls Fragment
+
+
+onFling bug:
+Why does this happen towards the end of onFling?
+
+03-19 12:15:51.505 24103-24103/com.codepunk.demo D/InteractiveImageView: transformImage: MTRANS_X=-721, MTRANS_Y=0
+03-19 13:15:44.540 15498-15498/com.codepunk.demo D/InteractiveImageView: onFling: e1.getX=194, e2.getX=1438.00, startX=1438, scrollableX=3708, scrolledX=1293, minX=-976, maxX=2731, velocityX=28000
+03-19 13:15:44.550 15498-15498/com.codepunk.demo D/InteractiveImageView: transformImage: MTRANS_X=-1119
+03-19 13:15:44.566 15498-15498/com.codepunk.demo D/InteractiveImageView: transformImage: MTRANS_X=-643
+03-19 13:15:44.582 15498-15498/com.codepunk.demo D/InteractiveImageView: transformImage: MTRANS_X=-168
+03-19 13:15:44.599 15498-15498/com.codepunk.demo D/InteractiveImageView: transformImage: MTRANS_X=0
+03-19 13:15:45.401 15498-15498/com.codepunk.demo D/InteractiveImageView: transformImage: MTRANS_X=-1
+03-19 13:15:45.417 15498-15498/com.codepunk.demo D/InteractiveImageView: transformImage: MTRANS_X=-8
+03-19 13:15:45.434 15498-15498/com.codepunk.demo D/InteractiveImageView: transformImage: MTRANS_X=-14
+03-19 13:15:45.450 15498-15498/com.codepunk.demo D/InteractiveImageView: transformImage: MTRANS_X=-18
+03-19 13:15:45.467 15498-15498/com.codepunk.demo D/InteractiveImageView: transformImage: MTRANS_X=-21
+03-19 13:15:45.484 15498-15498/com.codepunk.demo D/InteractiveImageView: transformImage: MTRANS_X=-22
+minX - e1.getX =
+
+
+Thoughts:
+In onFling:
+scrollableX is the total amount the image can be scrolled horizontally. Always >= 0
+scrolledX is the current amount the image is scrolled horizontally. Always >= 0* (Unless we're portraying overScroll)
+startX is the X-coordinate of the touch event
+startX + scrolledX is how far to the right of startX you would be able to scroll.
+startX + scrolledX - scrollableX is how far to the left of startX you would be able to scroll.
+In other words, scrolledX is the amount you could scroll to the right, and scrolledX - scrollableX is the amount you could scroll to the left.
+If the image bounces back towards the left a little bit at the end of flinging to show the left-hand side of the image (i.e. flinging in the right-hand direction), that would mean ... our max isn't big enough.
+If the image bounces back towards the right a little bit at the end of flinging to show the right-hand side of the image (i.e. flinging in the left-hand direction), that would mean our min is too big.
+
+In the above example we ended up 22 pixels off.
+scrollableX is 3708
+scrolledX (i.e. amount we can scroll TO THE RIGHT) is 1293
+scrolledX - scrollableX (i.e. amount we can scroll TO THE LEFT) is -2415
+
+Happened again:
+03-19 13:35:22.664 15498-15498/com.codepunk.demo D/InteractiveImageView: onFling: e1.getX=218, e2.getX=1187.00, startX=1187, scrollableX=3708, scrolledX=2593, minX=71, maxX=3779, velocityX=28000
+03-19 13:35:22.667 15498-15498/com.codepunk.demo D/InteractiveImageView: transformImage: MTRANS_X=-2739
+03-19 13:35:22.677 15498-15498/com.codepunk.demo D/InteractiveImageView: transformImage: MTRANS_X=-2291
+03-19 13:35:22.693 15498-15498/com.codepunk.demo D/InteractiveImageView: transformImage: MTRANS_X=-1816
+03-19 13:35:22.710 15498-15498/com.codepunk.demo D/InteractiveImageView: transformImage: MTRANS_X=-1341
+03-19 13:35:22.727 15498-15498/com.codepunk.demo D/InteractiveImageView: transformImage: MTRANS_X=-868
+03-19 13:35:22.743 15498-15498/com.codepunk.demo D/InteractiveImageView: transformImage: MTRANS_X=-425
+03-19 13:35:22.760 15498-15498/com.codepunk.demo D/InteractiveImageView: transformImage: MTRANS_X=0
+03-19 13:35:23.412 15498-15498/com.codepunk.demo D/InteractiveImageView: transformImage: MTRANS_X=-5
+03-19 13:35:23.428 15498-15498/com.codepunk.demo D/InteractiveImageView: transformImage: MTRANS_X=-22
+03-19 13:35:23.445 15498-15498/com.codepunk.demo D/InteractiveImageView: transformImage: MTRANS_X=-37
+03-19 13:35:23.462 15498-15498/com.codepunk.demo D/InteractiveImageView: transformImage: MTRANS_X=-53
+03-19 13:35:23.478 15498-15498/com.codepunk.demo D/InteractiveImageView: transformImage: MTRANS_X=-68
+03-19 13:35:23.495 15498-15498/com.codepunk.demo D/InteractiveImageView: transformImage: MTRANS_X=-81
+03-19 13:35:23.512 15498-15498/com.codepunk.demo D/InteractiveImageView: transformImage: MTRANS_X=-93
+03-19 13:35:23.528 15498-15498/com.codepunk.demo D/InteractiveImageView: transformImage: MTRANS_X=-105
+03-19 13:35:23.545 15498-15498/com.codepunk.demo D/InteractiveImageView: transformImage: MTRANS_X=-114
+03-19 13:35:23.562 15498-15498/com.codepunk.demo D/InteractiveImageView: transformImage: MTRANS_X=-123
+03-19 13:35:23.578 15498-15498/com.codepunk.demo D/InteractiveImageView: transformImage: MTRANS_X=-131
+03-19 13:35:23.595 15498-15498/com.codepunk.demo D/InteractiveImageView: transformImage: MTRANS_X=-137
+03-19 13:35:23.612 15498-15498/com.codepunk.demo D/InteractiveImageView: transformImage: MTRANS_X=-142
+03-19 13:35:23.629 15498-15498/com.codepunk.demo D/InteractiveImageView: transformImage: MTRANS_X=-145
+03-19 13:35:23.645 15498-15498/com.codepunk.demo D/InteractiveImageView: transformImage: MTRANS_X=-147
+In this case the amount we were "off" was minX - e1.getX() ***
+
+onFling: e1.getX=269, startX=1429, scrollableX=3708, scrolledX=2445, minX=165, maxX=3873, velocityX=28000
+-- went to MTRANS_X = -104 --
+-- minX - e1.getX() --
+
+onFling: e1.getX=294, startX=1195, scrollableX=3708, scrolledX=2786, minX=272, maxX=3980, velocityX=21526
+minX - e1.getX() = -22
+
