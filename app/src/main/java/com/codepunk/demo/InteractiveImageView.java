@@ -22,7 +22,6 @@ import android.support.v4.widget.EdgeEffectCompat;
 import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
-import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
@@ -35,8 +34,6 @@ import android.widget.OverScroller;
 
 import com.codepunk.demo.support.DisplayCompat;
 import com.codepunk.demo.support.ImageViewCompat;
-
-import java.util.Locale;
 
 import static android.graphics.Matrix.MSCALE_X;
 import static android.graphics.Matrix.MSCALE_Y;
@@ -564,6 +561,7 @@ public class InteractiveImageView extends AppCompatImageView
     private static final float MAX_SCALE_LENGTH_MULTIPLIER = 6.0f;
     private static final float SCALE_PIVOT_EPSILON = 0.2f;
     private static final float FLING_THRESHOLD = 750.0f;
+    private static final float ALMOST_EQUALS_THRESHOLD = 8;
 
     private static final int EDGE_EFFECT_LEFT = 0;
     private static final int EDGE_EFFECT_TOP = 1;
@@ -700,11 +698,6 @@ public class InteractiveImageView extends AppCompatImageView
         if (mOverScroller.computeScrollOffset()) {
             final int currX = mOverScroller.getCurrX();
             final int currY = mOverScroller.getCurrY();
-
-            Log.d(LOG_TAG, String.format(
-                    Locale.ENGLISH,
-                    "computeScroll: isOverScrolled=%b, currX=%d, finalX=%d",
-                    mOverScroller.isOverScrolled(), currX, mOverScroller.getFinalX()));
 
             mTransformInfo.set(
                     CURRENT_SCALE,
@@ -1079,6 +1072,8 @@ public class InteractiveImageView extends AppCompatImageView
             return false;
         }
 
+        getTouchPoint(startX, startY);
+
         final float scrolledX = -Math.min(mValues[MTRANS_X], 0.0f);
         final float scrolledY = -Math.min(mValues[MTRANS_Y], 0.0f);
         final int overScrollMode = getOverScrollMode();
@@ -1086,17 +1081,6 @@ public class InteractiveImageView extends AppCompatImageView
                 (overScrollMode == OVER_SCROLL_IF_CONTENT_SCROLLS && scrollableX > 0));
         final boolean canOverScrollY = (overScrollMode == OVER_SCROLL_ALWAYS ||
                 (overScrollMode == OVER_SCROLL_IF_CONTENT_SCROLLS && scrollableY > 0));
-
-        // TODO TEMP
-        final int minX = (int) (startX + scrolledX - scrollableX);
-        final int maxX = (int) (startX + scrolledX);
-        final boolean maxedVx = (Float.compare(Math.abs(velocityX), mMaximumFlingVelocity) >= 0);
-        final boolean maxedVy = (Float.compare(Math.abs(velocityY), mMaximumFlingVelocity) >= 0);
-        Log.d(LOG_TAG, String.format(
-                Locale.ENGLISH,
-                "onFling: e1.getX=%.0f, startX=%.0f, scrollableX=%.0f, scrolledX=%.0f, minX=%d, maxX=%d, velocityX=%.0f, maxedVx=%b",
-                e1.getX(), startX, scrollableX, scrolledX, minX, maxX, velocityX, maxedVx));
-        // END TEMP
 
         final int overX = (canOverScrollX ? contentRect.width() / 2 : 0);
         final int overY = (canOverScrollY ? contentRect.height() / 2 : 0);
@@ -1111,6 +1095,8 @@ public class InteractiveImageView extends AppCompatImageView
                 (int) (startY + scrolledY),
                 overX,
                 overY);
+
+        ViewCompat.postInvalidateOnAnimation(this);
         return true;
     }
 
@@ -1393,15 +1379,6 @@ public class InteractiveImageView extends AppCompatImageView
                 if (super.getScaleType() != ScaleType.MATRIX) {
                     super.setScaleType(ScaleType.MATRIX);
                 }
-
-                // TODO TEMP
-                mMatrix.getValues(mValues);
-                Log.d(LOG_TAG, String.format(
-                        Locale.ENGLISH,
-                        "transformImage: MTRANS_X=%.0f",
-                        mValues[MTRANS_X]));
-                // END TEMP
-
                 super.setImageMatrix(mMatrix);
             }
         }
@@ -1769,7 +1746,14 @@ public class InteractiveImageView extends AppCompatImageView
     //region Private methods
 
     private boolean almostEquals(float a, float b) {
-        return Math.abs(Float.floatToIntBits(a) - Float.floatToIntBits(b)) <= 1;
+//        final int diff = Math.abs(Float.floatToIntBits(a) - Float.floatToIntBits(b));
+//        if (diff > ALMOST_EQUALS_THRESHOLD) {
+//            Log.d(LOG_TAG, String.format(
+//                    Locale.ENGLISH,
+//                    "almostEquals: ********** diff=%d, a=%f, b=%f", diff, a, b));
+//        }
+        return Math.abs(Float.floatToIntBits(a) - Float.floatToIntBits(b)) <=
+                ALMOST_EQUALS_THRESHOLD;
     }
 
     private void getMappedImageRect(@NonNull Matrix matrix, @NonNull RectF outRect) {
