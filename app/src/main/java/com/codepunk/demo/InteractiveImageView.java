@@ -26,6 +26,7 @@ import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
+import android.view.ViewConfiguration;
 import android.view.WindowManager;
 import android.view.animation.DecelerateInterpolator;
 import android.view.animation.Interpolator;
@@ -96,6 +97,7 @@ public class InteractiveImageView extends AppCompatImageView
     }
 
     private static class Initializer {
+        final int maximumFlingVelocity;
         final GestureDetectorCompat gestureDetector;
         final ScaleGestureDetector scaleGestureDetector;
         final OverScroller overScroller;
@@ -103,6 +105,8 @@ public class InteractiveImageView extends AppCompatImageView
 
         Initializer(InteractiveImageView view) {
             final Context context = view.getContext();
+            final ViewConfiguration configuration = ViewConfiguration.get(context);
+            maximumFlingVelocity = configuration.getScaledMaximumFlingVelocity();
             gestureDetector = new GestureDetectorCompat(context, view);
             gestureDetector.setIsLongpressEnabled(false);
             gestureDetector.setOnDoubleTapListener(view);
@@ -559,6 +563,7 @@ public class InteractiveImageView extends AppCompatImageView
     private static final float MAX_SCALE_BREADTH_MULTIPLIER = 4.0f;
     private static final float MAX_SCALE_LENGTH_MULTIPLIER = 6.0f;
     private static final float SCALE_PIVOT_EPSILON = 0.2f;
+    private static final float FLING_THRESHOLD = 750.0f;
 
     private static final int EDGE_EFFECT_LEFT = 0;
     private static final int EDGE_EFFECT_TOP = 1;
@@ -587,6 +592,8 @@ public class InteractiveImageView extends AppCompatImageView
     //endregion Constants
 
     //region Fields
+
+    private final int mMaximumFlingVelocity;
 
     @NonNull
     private final GestureDetectorCompat mGestureDetector;
@@ -646,6 +653,7 @@ public class InteractiveImageView extends AppCompatImageView
                 null,
                 R.attr.interactiveImageViewStyle,
                 0);
+        mMaximumFlingVelocity = initializer.maximumFlingVelocity;
         mGestureDetector = initializer.gestureDetector;
         mScaleGestureDetector = initializer.scaleGestureDetector;
         mOverScroller = initializer.overScroller;
@@ -659,6 +667,7 @@ public class InteractiveImageView extends AppCompatImageView
                 attrs,
                 R.attr.interactiveImageViewStyle,
                 0);
+        mMaximumFlingVelocity = initializer.maximumFlingVelocity;
         mGestureDetector = initializer.gestureDetector;
         mScaleGestureDetector = initializer.scaleGestureDetector;
         mOverScroller = initializer.overScroller;
@@ -669,6 +678,7 @@ public class InteractiveImageView extends AppCompatImageView
         super(context, attrs, defStyleAttr);
         final Initializer initializer =
                 initializeInteractiveImageView(context, attrs, defStyleAttr, 0);
+        mMaximumFlingVelocity = initializer.maximumFlingVelocity;
         mGestureDetector = initializer.gestureDetector;
         mScaleGestureDetector = initializer.scaleGestureDetector;
         mOverScroller = initializer.overScroller;
@@ -691,12 +701,10 @@ public class InteractiveImageView extends AppCompatImageView
             final int currX = mOverScroller.getCurrX();
             final int currY = mOverScroller.getCurrY();
 
-            /*
             Log.d(LOG_TAG, String.format(
                     Locale.ENGLISH,
-                    "computeScroll: isOverScrolled=%b, isFinished=%b, currX=%d, currY=%d",
-                    mOverScroller.isOverScrolled(), mOverScroller.isFinished(), currX, currY));
-            */
+                    "computeScroll: isOverScrolled=%b, currX=%d, finalX=%d",
+                    mOverScroller.isOverScrolled(), currX, mOverScroller.getFinalX()));
 
             mTransformInfo.set(
                     CURRENT_SCALE,
@@ -1063,6 +1071,14 @@ public class InteractiveImageView extends AppCompatImageView
 
         final float scrollableX = Math.max(mRectF.width() - contentRect.width(), 0.0f);
         final float scrollableY = Math.max(mRectF.height() - contentRect.height(), 0.0f);
+        final boolean flungX = (Float.compare(scrollableX, 0.0f) > 0 &&
+                Float.compare(Math.abs(velocityX), FLING_THRESHOLD) > 0);
+        final boolean flungY = (Float.compare(scrollableY, 0.0f) > 0 ||
+                Float.compare(Math.abs(velocityY), FLING_THRESHOLD) > 0);
+        if (!flungX && !flungY) {
+            return false;
+        }
+
         final float scrolledX = -Math.min(mValues[MTRANS_X], 0.0f);
         final float scrolledY = -Math.min(mValues[MTRANS_Y], 0.0f);
         final int overScrollMode = getOverScrollMode();
@@ -1072,12 +1088,14 @@ public class InteractiveImageView extends AppCompatImageView
                 (overScrollMode == OVER_SCROLL_IF_CONTENT_SCROLLS && scrollableY > 0));
 
         // TODO TEMP
-        final int minX = (int) (startX - scrollableX + scrolledX);
+        final int minX = (int) (startX + scrolledX - scrollableX);
         final int maxX = (int) (startX + scrolledX);
+        final boolean maxedVx = (Float.compare(Math.abs(velocityX), mMaximumFlingVelocity) >= 0);
+        final boolean maxedVy = (Float.compare(Math.abs(velocityY), mMaximumFlingVelocity) >= 0);
         Log.d(LOG_TAG, String.format(
                 Locale.ENGLISH,
-                "onFling: e1.getX=%.0f, startX=%.0f, scrollableX=%.0f, scrolledX=%.0f, minX=%d, maxX=%d, velocityX=%.0f",
-                e1.getX(), startX, scrollableX, scrolledX, minX, maxX, velocityX));
+                "onFling: e1.getX=%.0f, startX=%.0f, scrollableX=%.0f, scrolledX=%.0f, minX=%d, maxX=%d, velocityX=%.0f, maxedVx=%b",
+                e1.getX(), startX, scrollableX, scrolledX, minX, maxX, velocityX, maxedVx));
         // END TEMP
 
         final int overX = (canOverScrollX ? contentRect.width() / 2 : 0);
