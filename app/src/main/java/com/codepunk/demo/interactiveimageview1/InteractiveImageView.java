@@ -871,7 +871,6 @@ public class InteractiveImageView extends AppCompatImageView
         final int action = event.getActionMasked();
         if (drawableHasIntrinsicSize()) {
             // If we're going from 1 pointer to 2 or vice versa, mark the pivot point dirty
-            // TODO BUG :'(
             if ((action == MotionEvent.ACTION_POINTER_DOWN ||
                     action == MotionEvent.ACTION_POINTER_UP)
                     && event.getPointerCount() == 2) {
@@ -1842,21 +1841,21 @@ public class InteractiveImageView extends AppCompatImageView
             int defStyleRes) {
         TypedArray a = context.obtainStyledAttributes(
                 attrs,
-                R.styleable.InteractiveImageView,
+                R.styleable.ImageViewInteractinator,
                 defStyleAttr,
                 defStyleRes);
 
         setDoubleTapToScaleEnabled(a.getBoolean(
-                R.styleable.InteractiveImageView_doubleTapToScaleEnabled,
+                R.styleable.ImageViewInteractinator_doubleTapToScaleEnabled,
                 true));
         setFlingEnabled(a.getBoolean(
-                R.styleable.InteractiveImageView_flingEnabled,
+                R.styleable.ImageViewInteractinator_flingEnabled,
                 true));
         setScaleEnabled(a.getBoolean(
-                R.styleable.InteractiveImageView_scaleEnabled,
+                R.styleable.ImageViewInteractinator_scaleEnabled,
                 true));
         final @ArrayRes int resId = a.getResourceId(
-                R.styleable.InteractiveImageView_scalePresets,
+                R.styleable.ImageViewInteractinator_scalePresets,
                 -1);
         if (resId != -1) {
             TypedArray ta = getResources().obtainTypedArray(resId);
@@ -1869,7 +1868,7 @@ public class InteractiveImageView extends AppCompatImageView
             ta.recycle();
         }
         setScrollEnabled(a.getBoolean(
-                R.styleable.InteractiveImageView_scrollEnabled,
+                R.styleable.ImageViewInteractinator_scrollEnabled,
                 true));
 
         a.recycle();

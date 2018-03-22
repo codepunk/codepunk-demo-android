@@ -5,3 +5,7 @@ Think about when to test for drawable has intrinsic size
 Reconsider all of my null checks. Can I just allow crash? What does google do?
 
 Remove TODOs and revisit warnings
+
+When pinch scaling, always send adjusted scale in case one direction gets clamped and the other doesn't
+
+Add isTouchEvent to ImageViewInteractinator?

@@ -5,14 +5,14 @@ import android.graphics.Canvas;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 
-public class DemoInteractiveImageView extends InteractiveImageView {
+public class DemoInteractiveImageView extends ImageViewInteractinator {
 
     //region Nested classes
 
     public interface DemoInteractiveImageViewListener {
-        void onDraw(InteractiveImageView view, Canvas canvas);
-        void onInteractionBegin(InteractiveImageView view);
-        void onInteractionEnd(InteractiveImageView view);
+        void onDraw(ImageViewInteractinator view, Canvas canvas);
+        void onInteractionBegin(ImageViewInteractinator view);
+        void onInteractionEnd(ImageViewInteractinator view);
     }
 
     //endregion Nested classes

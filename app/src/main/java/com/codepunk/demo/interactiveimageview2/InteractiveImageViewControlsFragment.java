@@ -279,7 +279,7 @@ public class InteractiveImageViewControlsFragment extends Fragment
     }
 
     @Override // DemoInteractiveImageView.DemoInteractiveImageViewListener
-    public void onDraw(InteractiveImageView view, Canvas canvas) {
+    public void onDraw(ImageViewInteractinator view, Canvas canvas) {
         final int position = mScaleTypeEntryValues.indexOf(mImageView.getScaleType().name());
         if (position != mScaleTypeSpinner.getSelectedItemPosition()) {
             mScaleTypeSpinner.setSelection(position, false);
@@ -330,7 +330,7 @@ public class InteractiveImageViewControlsFragment extends Fragment
     }
 
     @Override // DemoInteractiveImageView.DemoInteractiveImageViewListener
-    public void onInteractionBegin(InteractiveImageView view) {
+    public void onInteractionBegin(ImageViewInteractinator view) {
         final View mainView = getView();
         if (mainView != null) {
             mainView.setAlpha(0.5f);
@@ -338,7 +338,7 @@ public class InteractiveImageViewControlsFragment extends Fragment
     }
 
     @Override // DemoInteractiveImageView.DemoInteractiveImageViewListener
-    public void onInteractionEnd(InteractiveImageView view) {
+    public void onInteractionEnd(ImageViewInteractinator view) {
         final View mainView = getView();
         if (mainView != null) {
             mainView.setAlpha(1.0f);

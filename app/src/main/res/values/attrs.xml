@@ -21,7 +21,7 @@
         <attr name="clampedMin" />
     </declare-styleable>
 
-    <declare-styleable name="InteractiveImageView">
+    <declare-styleable name="ImageViewInteractinator">
         <attr name="compatCropToPadding" />
         <attr name="doubleTapToScaleEnabled" />
         <attr name="flingEnabled" />
