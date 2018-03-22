@@ -8,7 +8,7 @@
     android:padding="@dimen/large_margin"
     android:background="@color/color_interactive_image_view_demo_drawer_color"
     android:clickable="true"
-    tools:context="com.codepunk.demo.InteractiveImageViewControlsFragment"
+    tools:context="com.codepunk.demo.interactiveimageview2.InteractiveImageViewControlsFragment"
     tools:ignore="KeyboardInaccessibleWidget">
 
     <TextView
@@ -38,6 +38,22 @@
         android:layout_marginTop="@dimen/small_margin"
         android:entries="@array/scale_types" />
 
+    <com.codepunk.demo.FloatSeekBarLayout
+        android:id="@+id/layout_seek_bar_image_pivot_x"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/standard_margin"
+        android:label="@string/label_image_pivot_x"
+        android:format="0" />
+
+    <com.codepunk.demo.FloatSeekBarLayout
+        android:id="@+id/layout_seek_bar_image_pivot_y"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/standard_margin"
+        android:label="@string/label_image_pivot_y"
+        android:format="0" />
+
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -58,7 +74,7 @@
             android:checked="true" />
 
         <com.codepunk.demo.FloatSeekBarLayout
-            android:id="@+id/layout_seek_bar_scale_x"
+            android:id="@+id/layout_seek_bar_image_scale_x"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginRight="@dimen/standard_margin"
@@ -68,11 +84,11 @@
             android:layout_alignParentTop="true"
             android:layout_toLeftOf="@id/btn_lock"
             android:layout_toStartOf="@id/btn_lock"
-            android:label="@string/label_scale_x"
+            android:label="@string/label_image_scale_x"
             android:format="0.00" />
 
         <com.codepunk.demo.FloatSeekBarLayout
-            android:id="@+id/layout_seek_bar_scale_y"
+            android:id="@+id/layout_seek_bar_image_scale_y"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginRight="@dimen/standard_margin"
@@ -80,28 +96,12 @@
             android:layout_marginTop="@dimen/standard_margin"
             android:layout_alignParentLeft="true"
             android:layout_alignParentStart="true"
-            android:layout_below="@id/layout_seek_bar_scale_x"
+            android:layout_below="@id/layout_seek_bar_image_scale_x"
             android:layout_toLeftOf="@id/btn_lock"
             android:layout_toStartOf="@id/btn_lock"
-            android:label="@string/label_scale_y"
+            android:label="@string/label_image_scale_y"
             android:format="0.00" />
 
     </RelativeLayout>
-
-    <com.codepunk.demo.FloatSeekBarLayout
-        android:id="@+id/layout_seek_bar_center_x"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/standard_margin"
-        android:label="@string/label_pivot_x"
-        android:format="0" />
-
-    <com.codepunk.demo.FloatSeekBarLayout
-        android:id="@+id/layout_seek_bar_center_y"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/standard_margin"
-        android:label="@string/label_pivot_y"
-        android:format="0" />
 
 </LinearLayout>

@@ -1,4 +1,4 @@
-package com.codepunk.demo;
+package com.codepunk.demo.interactiveimageview1;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
@@ -32,6 +32,8 @@ import android.view.animation.Interpolator;
 import android.widget.EdgeEffect;
 import android.widget.OverScroller;
 
+import com.codepunk.demo.OverScrollerCompat;
+import com.codepunk.demo.R;
 import com.codepunk.demo.support.DisplayCompat;
 import com.codepunk.demo.support.ImageViewCompat;
 
@@ -1746,12 +1748,6 @@ public class InteractiveImageView extends AppCompatImageView
     //region Private methods
 
     private boolean almostEquals(float a, float b) {
-//        final int diff = Math.abs(Float.floatToIntBits(a) - Float.floatToIntBits(b));
-//        if (diff > ALMOST_EQUALS_THRESHOLD) {
-//            Log.d(LOG_TAG, String.format(
-//                    Locale.ENGLISH,
-//                    "almostEquals: ********** diff=%d, a=%f, b=%f", diff, a, b));
-//        }
         return Math.abs(Float.floatToIntBits(a) - Float.floatToIntBits(b)) <=
                 ALMOST_EQUALS_THRESHOLD;
     }
@@ -1860,7 +1856,7 @@ public class InteractiveImageView extends AppCompatImageView
                 R.styleable.InteractiveImageView_scaleEnabled,
                 true));
         final @ArrayRes int resId = a.getResourceId(
-                R.styleable.InteractiveImageView_scalePivots,
+                R.styleable.InteractiveImageView_scalePresets,
                 -1);
         if (resId != -1) {
             TypedArray ta = getResources().obtainTypedArray(resId);

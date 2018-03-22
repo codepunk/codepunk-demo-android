@@ -6,12 +6,12 @@
     <string name="label_drawable">Drawable:</string>
     <string name="label_image">Image:</string>
     <string name="label_scale_type">Scale Type:</string>
-    <string name="label_pivot">Pivot:</string>
-    <string name="label_scale">Scale:</string>
-    <string name="label_pivot_x">Pivot X:</string>
-    <string name="label_pivot_y">Pivot Y:</string>
-    <string name="label_scale_x">Scale X:</string>
-    <string name="label_scale_y">Scale Y:</string>
+    <string name="label_image_pivot">Image Pivot:</string>
+    <string name="label_image_scale">Image Scale:</string>
+    <string name="label_image_pivot_x">Image Pivot X:</string>
+    <string name="label_image_pivot_y">Image Pivot Y:</string>
+    <string name="label_image_scale_x">Image Scale X:</string>
+    <string name="label_image_scale_y">Image Scale Y:</string>
     <string name="label_reset">Reset</string>
     <string name="label_scale_2">Scale x2</string>
 

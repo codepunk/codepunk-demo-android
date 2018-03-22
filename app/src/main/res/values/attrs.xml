@@ -8,10 +8,11 @@
         <attr name="clampedMax" format="integer" />
         <attr name="clampedMin" format="integer" />
 
-        <attr name="doubleTapToScaleEnabled" />
+        <attr name="compatCropToPadding" format="boolean" />
+        <attr name="doubleTapToScaleEnabled" format="boolean" />
         <attr name="flingEnabled" format="boolean" />
         <attr name="scaleEnabled" format="boolean" />
-        <attr name="scalePivots" format="reference" />
+        <attr name="scalePresets" format="reference" />
         <attr name="scrollEnabled" format="boolean" />
     </declare-styleable>
 
@@ -21,10 +22,11 @@
     </declare-styleable>
 
     <declare-styleable name="InteractiveImageView">
+        <attr name="compatCropToPadding" />
         <attr name="doubleTapToScaleEnabled" />
         <attr name="flingEnabled" />
         <attr name="scaleEnabled" />
-        <attr name="scalePivots" />
+        <attr name="scalePresets" />
         <attr name="scrollEnabled" />
     </declare-styleable>
 

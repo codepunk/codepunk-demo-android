@@ -1,22 +1,20 @@
-package com.codepunk.demo;
+package com.codepunk.demo.interactiveimageview2;
 
 import android.content.Context;
 import android.graphics.Canvas;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
-import android.view.ScaleGestureDetector;
 
 public class DemoInteractiveImageView extends InteractiveImageView {
+
     //region Nested classes
+
     public interface DemoInteractiveImageViewListener {
         void onDraw(InteractiveImageView view, Canvas canvas);
         void onInteractionBegin(InteractiveImageView view);
         void onInteractionEnd(InteractiveImageView view);
     }
 
-    public interface SingleTapConfirmedListener {
-        void onSingleTapConfirmed(DemoInteractiveImageView view);
-    }
     //endregion Nested classes
 
     //region Constants
@@ -24,12 +22,14 @@ public class DemoInteractiveImageView extends InteractiveImageView {
     //endregion Constants
 
     //region Fields
+
     private DemoInteractiveImageViewListener mDemoInteractiveImageViewListener;
-    private SingleTapConfirmedListener mSingleTapConfirmedListener;
     private boolean mInteracting = false;
+
     //endregion Fields
 
     //region Constructors
+
     public DemoInteractiveImageView(Context context) {
         super(context);
     }
@@ -41,9 +41,11 @@ public class DemoInteractiveImageView extends InteractiveImageView {
     public DemoInteractiveImageView(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
     }
+
     //endregion Constructors
 
     //region Inherited methods
+
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
@@ -53,50 +55,24 @@ public class DemoInteractiveImageView extends InteractiveImageView {
     }
 
     @Override
-    public void onLongPress(MotionEvent e) {
-        super.onLongPress(e);
-        if (!mInteracting) {
-            onInteractionBegin();
-        }
-    }
-
-    @Override
-    public boolean onScaleBegin(ScaleGestureDetector detector) {
-        final boolean retVal = super.onScaleBegin(detector);
-        if (!mInteracting) {
-            onInteractionBegin();
+    public boolean onTouchEvent(MotionEvent event) {
+        final boolean retVal = super.onTouchEvent(event);
+        final int action = event.getAction();
+        switch (action) {
+            case MotionEvent.ACTION_DOWN:
+                onInteractionBegin();
+                break;
+            case MotionEvent.ACTION_UP:
+                onInteractionEnd();
+                break;
         }
         return retVal;
     }
 
-    @Override
-    public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
-        final boolean retVal = super.onScroll(e1, e2, distanceX, distanceY);
-        if (!mInteracting) {
-            onInteractionBegin();
-        }
-        return retVal;
-    }
-
-    @Override
-    public boolean onSingleTapConfirmed(MotionEvent e) {
-        final boolean retVal = super.onSingleTapConfirmed(e);
-        if (mSingleTapConfirmedListener != null) {
-            mSingleTapConfirmedListener.onSingleTapConfirmed(this);
-        }
-        return retVal;
-    }
-
-    @Override
-    public boolean onUp(MotionEvent e) {
-        final boolean retVal = super.onUp(e);
-        // TODO At end of fling?
-        onInteractionEnd();
-        return retVal;
-    }
     //endregion Inherited methods
 
     //region Methods
+
     public boolean isInteracting() {
         return mInteracting;
     }
@@ -105,12 +81,10 @@ public class DemoInteractiveImageView extends InteractiveImageView {
         mDemoInteractiveImageViewListener = listener;
     }
 
-    public void setSingleTapConfirmedListener(SingleTapConfirmedListener listener) {
-        mSingleTapConfirmedListener = listener;
-    }
     //endregion Methods
 
     //region Private methods
+
     private void onInteractionBegin() {
         mInteracting = true;
         if (mDemoInteractiveImageViewListener != null) {
@@ -124,5 +98,6 @@ public class DemoInteractiveImageView extends InteractiveImageView {
             mDemoInteractiveImageViewListener.onInteractionEnd(this);
         }
     }
+
     //endregion Private methods
 }

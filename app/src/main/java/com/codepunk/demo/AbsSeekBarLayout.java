@@ -10,6 +10,7 @@ import android.support.constraint.ConstraintSet;
 import android.support.v4.view.GravityCompat;
 import android.support.v7.widget.AppCompatTextView;
 import android.util.AttributeSet;
+import android.view.View;
 import android.widget.SeekBar;
 
 import com.codepunk.demo.support.ProgressBarCompat;
@@ -74,6 +75,7 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
     //endregion Constructors
 
     //region Inherited methods
+
     @Override
     protected void dispatchDraw(Canvas canvas) {
         if (mUiDirty) {
@@ -85,6 +87,22 @@ public abstract class AbsSeekBarLayout<T extends Number> extends ConstraintLayou
         }
         super.dispatchDraw(canvas);
     }
+
+    @Override
+    public void setEnabled(boolean enabled) {
+        super.setEnabled(enabled);
+        mSeekBar.setEnabled(enabled);
+        if (enabled) {
+            mValueText.setVisibility(View.VISIBLE);
+            mMaxValueText.setVisibility(View.VISIBLE);
+            mMinValueText.setVisibility(View.VISIBLE);
+        } else {
+            mValueText.setVisibility(View.INVISIBLE);
+            mMaxValueText.setVisibility(View.INVISIBLE);
+            mMinValueText.setVisibility(View.INVISIBLE);
+        }
+    }
+
     //endregion Inherited methods
 
     //region Implemented methods

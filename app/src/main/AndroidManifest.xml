@@ -2,9 +2,17 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     package="com.codepunk.demo"
-    tools:ignore="                 AllowBackup,                 GoogleAppIndexingWarning">
+    tools:ignore="AllowBackup, GoogleAppIndexingWarning">
 
-    <uses-sdk tools:overrideLibrary="             android.support.compat,             android.support.coreui,             android.support.coreutils,             android.support.fragment,             android.support.graphics.drawable,             android.support.mediacompat,             android.support.v4,             android.support.v7.appcompat" />
+    <uses-sdk tools:overrideLibrary="
+                 android.support.compat,
+                 android.support.coreui,
+                 android.support.coreutils,
+                 android.support.fragment,
+                 android.support.graphics.drawable,
+                 android.support.mediacompat,
+                 android.support.v4,
+                 android.support.v7.appcompat" />
 
     <application
         android:allowBackup="true"
@@ -22,20 +30,12 @@
         </activity>
 
         <activity
-            android:name=".interactiveimageview.version4.InteractiveImageViewActivity"
-            android:label="@string/title_activity_interactive_image_view"></activity>
+            android:name=".interactiveimageview1.InteractiveImageViewActivity"
+            android:label="@string/title_activity_interactive_image_view"/>
 
         <activity
-            android:name=".interactiveimageview.version5.InteractiveImageViewActivity"
-            android:label="@string/title_activity_interactive_image_view"></activity>
-
-        <activity
-            android:name=".interactiveimageview.version6.InteractiveImageViewActivity"
-            android:label="@string/title_activity_interactive_image_view"></activity>
-
-        <activity
-            android:name=".InteractiveImageViewActivity"
-            android:label="@string/title_activity_interactive_image_view"></activity>
+            android:name=".interactiveimageview2.InteractiveImageViewActivity"
+            android:label="@string/title_activity_interactive_image_view"/>
 
     </application>
 

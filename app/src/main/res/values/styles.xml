@@ -3,10 +3,11 @@
     </style>
 
     <style name="InteractiveImageView" parent="@android:style/Widget">
+        <item name="compatCropToPadding">false</item>
         <item name="doubleTapToScaleEnabled">true</item>
         <item name="flingEnabled">true</item>
         <item name="scaleEnabled">true</item>
-        <item name="scalePivots">@array/scale_pivots</item>
+        <item name="scalePresets">@array/scale_presets</item>
         <item name="scrollEnabled">true</item>
     </style>
 

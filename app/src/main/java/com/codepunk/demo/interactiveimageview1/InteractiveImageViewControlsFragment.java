@@ -1,4 +1,4 @@
-package com.codepunk.demo;
+package com.codepunk.demo.interactiveimageview1;
 
 import android.annotation.SuppressLint;
 import android.content.res.Resources;
@@ -17,11 +17,15 @@ import android.widget.ImageView.ScaleType;
 import android.widget.Spinner;
 import android.widget.ToggleButton;
 
+import com.codepunk.demo.AbsSeekBarLayout;
+import com.codepunk.demo.FloatSeekBarLayout;
+import com.codepunk.demo.R;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import static com.codepunk.demo.InteractiveImageView.VIEW_CENTER;
+import static com.codepunk.demo.interactiveimageview1.InteractiveImageView.VIEW_CENTER;
 
 public class InteractiveImageViewControlsFragment extends Fragment
         implements AbsSeekBarLayout.OnSeekBarChangeListener<Float>,
@@ -95,7 +99,7 @@ public class InteractiveImageViewControlsFragment extends Fragment
                              Bundle savedInstanceState) {
         // Inflate the layout for this fragment
         return inflater.inflate(
-                R.layout.fragment_interactive_image_view_controls,
+                R.layout.fragment_interactive_image_view_controls_1,
                 container,
                 false);
     }
@@ -105,11 +109,11 @@ public class InteractiveImageViewControlsFragment extends Fragment
         super.onViewCreated(view, savedInstanceState);
         mImageSpinner = view.findViewById(R.id.spinner_image);
         mScaleTypeSpinner = view.findViewById(R.id.spinner_scale_type);
-        mScaleXSeekBarLayout = view.findViewById(R.id.layout_seek_bar_scale_x);
-        mScaleYSeekBarLayout = view.findViewById(R.id.layout_seek_bar_scale_y);
+        mScaleXSeekBarLayout = view.findViewById(R.id.layout_seek_bar_image_scale_x);
+        mScaleYSeekBarLayout = view.findViewById(R.id.layout_seek_bar_image_scale_y);
         mLockButton = view.findViewById(R.id.btn_lock);
-        mPivotXSeekBarLayout = view.findViewById(R.id.layout_seek_bar_center_x);
-        mPivotYSeekBarLayout = view.findViewById(R.id.layout_seek_bar_center_y);
+        mPivotXSeekBarLayout = view.findViewById(R.id.layout_seek_bar_image_pivot_x);
+        mPivotYSeekBarLayout = view.findViewById(R.id.layout_seek_bar_image_pivot_y);
 
         mScaleXSeekBarLayout.setOnSeekBarChangeListener(this);
         mScaleYSeekBarLayout.setOnSeekBarChangeListener(this);
@@ -196,17 +200,17 @@ public class InteractiveImageViewControlsFragment extends Fragment
             float px = mPivotXSeekBarLayout.getValue();
             float py = mPivotYSeekBarLayout.getValue();
             switch (id) {
-                case R.id.layout_seek_bar_center_x: {
+                case R.id.layout_seek_bar_image_pivot_x: {
                     px = value;
                     transformImage = true;
                     break;
                 }
-                case R.id.layout_seek_bar_center_y: {
+                case R.id.layout_seek_bar_image_pivot_y: {
                     py = value;
                     transformImage = true;
                     break;
                 }
-                case R.id.layout_seek_bar_scale_x: {
+                case R.id.layout_seek_bar_image_scale_x: {
                     sx = value;
                     if (mLockButton.isChecked()) {
                         final int width = mImageView.getDrawableIntrinsicWidth();
@@ -219,7 +223,7 @@ public class InteractiveImageViewControlsFragment extends Fragment
                     transformImage = true;
                     break;
                 }
-                case R.id.layout_seek_bar_scale_y: {
+                case R.id.layout_seek_bar_image_scale_y: {
                     sy = value;
                     if (mLockButton.isChecked()) {
                         final int width = mImageView.getDrawableIntrinsicWidth();

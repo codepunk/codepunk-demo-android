@@ -1,4 +1,4 @@
-package com.codepunk.demo;
+package com.codepunk.demo.interactiveimageview1;
 
 import android.graphics.Color;
 import android.graphics.Rect;
@@ -9,6 +9,9 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
+
+import com.codepunk.demo.DemoDrawerLayout;
+import com.codepunk.demo.R;
 
 public class InteractiveImageViewActivity extends AppCompatActivity
         implements DemoDrawerLayout.DemoDrawerLayoutListener,
@@ -28,7 +31,7 @@ public class InteractiveImageViewActivity extends AppCompatActivity
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_interactive_image_view);
+        setContentView(R.layout.activity_interactive_image_view_1);
 
         mDrawerLayout = findViewById(R.id.layout_drawer);
         mDrawerLayout.setScrimColor(Color.TRANSPARENT);
