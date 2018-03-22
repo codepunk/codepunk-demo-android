@@ -9,3 +9,10 @@ Remove TODOs and revisit warnings
 When pinch scaling, always send adjusted scale in case one direction gets clamped and the other doesn't
 
 Add isTouchEvent to ImageViewInteractinator?
+
+1. onScale
+2. onDoubleTapUp
+3. EdgeEffects
+
+Think about onSingleTapUp. If I don't set doubleTapEnabled, can I remove the listener from the GestureDetector?
+(That way I'd get a quicker single tap event)

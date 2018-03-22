@@ -198,6 +198,9 @@ public class ImageViewInteractinator extends AppCompatImageView {
                     y,
                     true);
 
+            mTouchPivotPoint.set(e2.getX(), e2.getY());
+            viewPointToImagePoint(getImageMatrixInternal(), mTouchPivotPoint);
+
             // TODO Edge effects
 
             if (needsInvalidate) {
