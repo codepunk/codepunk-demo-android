@@ -26,6 +26,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import com.codepunk.demo.interactiveimageview2.ImageViewInteractinator.Transform;
+
 public class InteractiveImageViewControlsFragment extends Fragment
         implements AbsSeekBarLayout.OnSeekBarChangeListener<Float>,
                 AdapterView.OnItemSelectedListener,
@@ -42,10 +44,7 @@ public class InteractiveImageViewControlsFragment extends Fragment
     private static final String CLASS_NAME = InteractiveImageViewControlsFragment.class.getName();
     private static final String KEY_SCALE_LOCKED = CLASS_NAME + ".scaleLocked";
     private static final String KEY_IS_TRANSFORMED = CLASS_NAME + ".isTransformed";
-    private static final String KEY_IMAGE_PIVOT_X = CLASS_NAME + ".imagePivotX";
-    private static final String KEY_IMAGE_PIVOT_Y = CLASS_NAME + ".imagePivotY";
-    private static final String KEY_IMAGE_SCALE_X = CLASS_NAME + ".imageScaleX";
-    private static final String KEY_IMAGE_SCALE_Y = CLASS_NAME + ".imageScaleY";
+    private static final String KEY_TRANSFORM = CLASS_NAME + ".transform";
 
     //endregion Constants
 
@@ -62,6 +61,7 @@ public class InteractiveImageViewControlsFragment extends Fragment
     private FloatSeekBarLayout mImagePivotXSeekBarLayout;
     private FloatSeekBarLayout mImagePivotYSeekBarLayout;
     private DemoInteractiveImageView mImageView;
+    private final Transform mTransform = new Transform();
 
     private boolean mDisallowUpdatingSeekBars = false;
 
@@ -96,7 +96,6 @@ public class InteractiveImageViewControlsFragment extends Fragment
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        // Inflate the layout for this fragment
         return inflater.inflate(
                 R.layout.fragment_interactive_image_view_controls_2,
                 container,
@@ -149,20 +148,14 @@ public class InteractiveImageViewControlsFragment extends Fragment
                     savedInstanceState.getBoolean(KEY_SCALE_LOCKED,false));
 
             setImageResourceByPosition(position);
+
             if (savedInstanceState.getBoolean(KEY_IS_TRANSFORMED, false)) {
-                final float imagePivotX =
-                        savedInstanceState.getFloat(KEY_IMAGE_PIVOT_X, 0.0f);
-                final float imagePivotY =
-                        savedInstanceState.getFloat(KEY_IMAGE_PIVOT_Y, 0.0f);
-                final float imageScaleX =
-                        savedInstanceState.getFloat(KEY_IMAGE_SCALE_X, 1.0f);
-                final float imageScaleY =
-                        savedInstanceState.getFloat(KEY_IMAGE_SCALE_Y, 1.0f);
-                mImagePivotXSeekBarLayout.setValue(imagePivotX);
-                mImagePivotYSeekBarLayout.setValue(imagePivotY);
-                mImageScaleXSeekBarLayout.setValue(imageScaleX);
-                mImageScaleYSeekBarLayout.setValue(imageScaleY);
-                mImageView.transformTo(imagePivotX, imagePivotY, imageScaleX, imageScaleY);
+                mTransform.set((Transform) savedInstanceState.getParcelable(KEY_TRANSFORM));
+                mImagePivotXSeekBarLayout.setValue(mTransform.getPx());
+                mImagePivotYSeekBarLayout.setValue(mTransform.getPy());
+                mImageScaleXSeekBarLayout.setValue(mTransform.getSx());
+                mImageScaleYSeekBarLayout.setValue(mTransform.getSy());
+                mImageView.transform(mTransform);
             }
         }
 
@@ -175,10 +168,8 @@ public class InteractiveImageViewControlsFragment extends Fragment
         outState.putBoolean(KEY_SCALE_LOCKED, mLockButton.isChecked());
         if (mImageView.isTransformed()) {
             outState.putBoolean(KEY_IS_TRANSFORMED, true);
-            outState.putFloat(KEY_IMAGE_SCALE_X, mImageView.getImageScaleX());
-            outState.putFloat(KEY_IMAGE_SCALE_Y, mImageView.getImageScaleY());
-            outState.putFloat(KEY_IMAGE_PIVOT_X, mImageView.getImagePivotX());
-            outState.putFloat(KEY_IMAGE_PIVOT_Y, mImageView.getImagePivotY());
+            mImageView.getTransform(mTransform);
+            outState.putParcelable(KEY_TRANSFORM, mTransform);
         } else {
             outState.putBoolean(KEY_IS_TRANSFORMED, false);
         }
@@ -244,7 +235,10 @@ public class InteractiveImageViewControlsFragment extends Fragment
                     transformImage = false;
             }
             if (transformImage) {
-                mImageView.transformTo(px, py, sx, sy);
+                mTransform.begin()
+                        .pivot(px, py)
+                        .scale(sx, sy)
+                        .transform(mImageView);
             }
         }
     }

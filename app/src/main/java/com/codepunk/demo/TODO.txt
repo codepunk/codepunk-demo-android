@@ -21,5 +21,4 @@ xxx (That way I'd get a quicker single tap event)
 xxx Bug:
 xxx If scaling, and then remove 1st finger but keep 2nd down, image jumps. What do I need to do?
 
-Pull resolve/clamp out of private version of transform?
-all public versions would have to
+xxx Pull resolve/clamp out of private version of transform?
