@@ -107,8 +107,10 @@ public class ImageViewInteractinator extends AppCompatImageView {
             mOverScroller.forceFinished(true);
             releaseEdgeGlows();
 
+            /*
             mTouchPivotPoint.set(e.getX(), e.getY());
             viewPointToImagePoint(getImageMatrixInternal(), mTouchPivotPoint);
+            */
 
             return true;
         }
@@ -182,6 +184,7 @@ public class ImageViewInteractinator extends AppCompatImageView {
                     y,
                     true);
 
+            // TODO Only do this if we got constrained ?
             mTouchPivotPoint.set(e2.getX(), e2.getY());
             viewPointToImagePoint(getImageMatrixInternal(), mTouchPivotPoint);
 
@@ -195,12 +198,12 @@ public class ImageViewInteractinator extends AppCompatImageView {
 
         @Override
         public boolean onSingleTapConfirmed(MotionEvent e) {
-            return performClick();
+            return (mDoubleTapToScaleEnabled && performClick());
         }
 
         @Override
         public boolean onSingleTapUp(MotionEvent e) {
-            return super.onSingleTapUp(e); // TODO ?
+            return (!mDoubleTapToScaleEnabled && performClick());
         }
     }
 
@@ -288,7 +291,9 @@ public class ImageViewInteractinator extends AppCompatImageView {
     private final Transforminator mTransforminator;
 
     private GestureDetectorCompat mGestureDetector;
+    private OnGestureListener mOnGestureListener;
     private ScaleGestureDetector mScaleGestureDetector;
+    private OnScaleGestureListener mOnScaleGestureListener;
 
     protected boolean mDoubleTapToScaleEnabled;
     protected boolean mFlingEnabled;
@@ -423,20 +428,16 @@ public class ImageViewInteractinator extends AppCompatImageView {
         boolean retVal = false;
         // final int action = event.getActionMasked();
         if (drawableHasFunctionalDimensions()) {
-            // When going from one to two pointers (or vice versa),
-            // reset the touch pivot point to be the first "down" pointer
+            // When # of pointers changes, reset the touch pivot point to the "primary" pointer
             final int action = event.getActionMasked();
-            final int count = event.getPointerCount();
-            if ((action == MotionEvent.ACTION_POINTER_UP ||
-                    action == MotionEvent.ACTION_POINTER_DOWN) &&
-                    count == 2) {
-                final int actionIndex = event.getActionIndex();
-                for (int i = 0; i < count; i++) {
-                    if (action == MotionEvent.ACTION_POINTER_DOWN || i != actionIndex) {
-                        mTouchPivotPoint.set(event.getX(i), event.getY(i));
-                        viewPointToImagePoint(getImageMatrixInternal(), mTouchPivotPoint);
-                        break;
-                    }
+            if (action == MotionEvent.ACTION_DOWN ||
+                    action == MotionEvent.ACTION_POINTER_DOWN ||
+                    action == MotionEvent.ACTION_UP ||
+                    action == MotionEvent.ACTION_POINTER_UP) {
+                final int primaryIndex = getPrimaryPointerIndex(event);
+                if (primaryIndex >= 0) {
+                    mTouchPivotPoint.set(event.getX(primaryIndex), event.getY(primaryIndex));
+                    viewPointToImagePoint(getImageMatrixInternal(), mTouchPivotPoint);
                 }
             }
 
@@ -598,7 +599,12 @@ public class ImageViewInteractinator extends AppCompatImageView {
 
     public void setScaleEnabled(boolean scaleEnabled) {
         mScaleEnabled = scaleEnabled;
-        updateScaleGestureDetector();
+        if (!mScaleEnabled) {
+            mScaleGestureDetector = null;
+        } else if (mScaleGestureDetector == null) {
+            mOnScaleGestureListener = new OnScaleGestureListener();
+            mScaleGestureDetector = new ScaleGestureDetector(getContext(), mOnScaleGestureListener);
+        }
     }
 
     public void setScalePresets(float[] scalePresets) {
@@ -1004,6 +1010,28 @@ public class ImageViewInteractinator extends AppCompatImageView {
         return getWidth() - getPaddingLeft() - getPaddingRight();
     }
 
+    /**
+     * Returns the index of the first pointer in a MotionEvent that is currently down.
+     * @param event A MotionEvent
+     * @return The index of the first pointer in {@code event} that is currently down, or
+     * -1 if no pointers are down
+     */
+    private int getPrimaryPointerIndex(MotionEvent event) {
+        final int count = event.getPointerCount();
+        if (count > 0) {
+            final int action = event.getActionMasked();
+            if ((action == MotionEvent.ACTION_UP ||
+                    action == MotionEvent.ACTION_POINTER_UP) &&
+                    event.getActionIndex() == 0) {
+                return (count > 1 ? 1 : -1);
+            } else {
+                return 0;
+            }
+        } else {
+            return -1;
+        }
+    }
+
     /*
      * TODO Mention how if inX or inY < 0, it's the minimum translation allowed.
      * If > 0, then it's a set translation and is not scrollable.
@@ -1277,20 +1305,14 @@ public class ImageViewInteractinator extends AppCompatImageView {
     private void updateGestureDetector() {
         if (!mScrollEnabled && !mFlingEnabled && !mDoubleTapToScaleEnabled) {
             mGestureDetector = null;
-        } else if (mGestureDetector == null) {
-            final OnGestureListener listener = new OnGestureListener();
-            mGestureDetector = new GestureDetectorCompat(getContext(), listener);
-            mGestureDetector.setIsLongpressEnabled(false);
-            mGestureDetector.setOnDoubleTapListener(listener);
-        }
-    }
-
-    private void updateScaleGestureDetector() {
-        if (!mScaleEnabled) {
-            mScaleGestureDetector = null;
-        } else if (mScaleGestureDetector == null) {
-            mScaleGestureDetector =
-                    new ScaleGestureDetector(getContext(), new OnScaleGestureListener());
+        } else {
+            if (mGestureDetector == null) {
+                mOnGestureListener = new OnGestureListener();
+                mGestureDetector = new GestureDetectorCompat(getContext(), mOnGestureListener);
+                mGestureDetector.setIsLongpressEnabled(false);
+            }
+            mGestureDetector.setOnDoubleTapListener(
+                    mDoubleTapToScaleEnabled ? mOnGestureListener : null);
         }
     }
 
