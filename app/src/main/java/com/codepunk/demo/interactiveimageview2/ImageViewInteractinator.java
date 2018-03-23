@@ -231,11 +231,6 @@ public class ImageViewInteractinator extends AppCompatImageView {
             mLastSpan = currentSpan;
             return true;
         }
-
-        @Override
-        public void onScaleEnd(ScaleGestureDetector detector) {
-            super.onScaleEnd(detector);
-        }
     }
 
     private static class Transforminator {
