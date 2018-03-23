@@ -119,26 +119,12 @@ public class ImageViewInteractinator extends AppCompatImageView {
                 return false;
             }
 
-            /* TODO ??
-            if ((mInvalidFlags & INVALID_FLAG_TOUCH_POINT) != 0) {
-                // This catches an outlier case where user removes all fingers simultaneously.
-                // Depending on the timing, mPivotDirty may be set to true but is not caught by
-                // an onScroll or onScale before onFling is called. In that case, ignore the gesture.
-                mInvalidFlags &= ~INVALID_FLAG_TOUCH_POINT;
-                return false;
-            }
-            */
-
             releaseEdgeGlows();
             final Matrix matrix = getImageMatrixInternal();
             matrix.getValues(mTempValues);
 
             final Drawable d = getDrawable();
-            mTempRectSrc.set(
-                    0.0f,
-                    0.0f,
-                    d.getIntrinsicWidth(),
-                    d.getIntrinsicHeight());
+            mTempRectSrc.set(0.0f, 0.0f, d.getIntrinsicWidth(), d.getIntrinsicHeight());
             matrix.mapRect(mTempRectDst, mTempRectSrc);
 
             final float startX = e2.getX();
@@ -185,8 +171,6 @@ public class ImageViewInteractinator extends AppCompatImageView {
 
             final float x = e2.getX();
             final float y = e2.getY();
-            //mTempPoint.set(x + distanceX, y + distanceY);
-            //viewPointToImagePoint(getImageMatrixInternal(), mTempPoint);
             boolean needsInvalidate = transform(
                     false,
                     false,
@@ -213,10 +197,45 @@ public class ImageViewInteractinator extends AppCompatImageView {
         public boolean onSingleTapConfirmed(MotionEvent e) {
             return performClick();
         }
+
+        @Override
+        public boolean onSingleTapUp(MotionEvent e) {
+            return super.onSingleTapUp(e); // TODO ?
+        }
     }
 
     private class OnScaleGestureListener extends SimpleOnScaleGestureListener {
+        @Override
+        public boolean onScaleBegin(ScaleGestureDetector detector) {
+            mLastSpan = detector.getCurrentSpan();
+            return true;
+        }
 
+        @Override
+        public boolean onScale(ScaleGestureDetector detector) {
+            mTempPoint.set(detector.getFocusX(), detector.getFocusY());
+            viewPointToImagePoint(getImageMatrixInternal(), mTempPoint);
+            final float px = mTempPoint.x;
+            final float py = mTempPoint.y;
+
+            final float currentSpan = detector.getCurrentSpan();
+            final float spanDelta = (currentSpan / mLastSpan);
+
+            final boolean transformed =
+                    transformBy(px, py, spanDelta, spanDelta, 0.0f, 0.0f);
+
+            if (transformed) {
+                ViewCompat.postInvalidateOnAnimation(ImageViewInteractinator.this);
+            }
+
+            mLastSpan = currentSpan;
+            return true;
+        }
+
+        @Override
+        public void onScaleEnd(ScaleGestureDetector detector) {
+            super.onScaleEnd(detector);
+        }
     }
 
     private static class Transforminator {
@@ -409,15 +428,23 @@ public class ImageViewInteractinator extends AppCompatImageView {
         boolean retVal = false;
         // final int action = event.getActionMasked();
         if (drawableHasFunctionalDimensions()) {
-            // TODO Let's see how this plays out after new logic
-            /*
-            // If we're going from 1 pointer to 2 or vice versa, mark the pivot point dirty
-            if ((action == MotionEvent.ACTION_POINTER_DOWN ||
-                    action == MotionEvent.ACTION_POINTER_UP)
-                    && event.getPointerCount() == 2) {
-                mInvalidFlags |= INVALID_FLAG_TOUCH_POINT;
+            // When going from one to two pointers (or vice versa),
+            // reset the touch pivot point to be the first "down" pointer
+            final int action = event.getActionMasked();
+            final int count = event.getPointerCount();
+            if ((action == MotionEvent.ACTION_POINTER_UP ||
+                    action == MotionEvent.ACTION_POINTER_DOWN) &&
+                    count == 2) {
+                final int actionIndex = event.getActionIndex();
+                for (int i = 0; i < count; i++) {
+                    if (action == MotionEvent.ACTION_POINTER_DOWN || i != actionIndex) {
+                        mTouchPivotPoint.set(event.getX(i), event.getY(i));
+                        viewPointToImagePoint(getImageMatrixInternal(), mTouchPivotPoint);
+                        break;
+                    }
+                }
             }
-            */
+
             if (mScaleGestureDetector != null) {
                 retVal = mScaleGestureDetector.onTouchEvent(event);
             }
@@ -588,48 +615,52 @@ public class ImageViewInteractinator extends AppCompatImageView {
         updateGestureDetector();
     }
 
-    public void smoothTransformBy(
+    public boolean smoothTransformBy(
+            float px,
+            float py,
             float sxBy,
             float syBy,
             float xBy,
             float yBy) {
-        transform(true, true, 0.0f, 0.0f, sxBy, syBy, xBy, yBy, true);
+        return transform(true, true, px, py, sxBy, syBy, xBy, yBy, true);
     }
 
     public void smoothTransformTo(float px, float py, float sx, float sy) {
         smoothTransformTo(px, py, sx, sy, USE_DEFAULT, USE_DEFAULT);
     }
 
-    public void smoothTransformTo(
+    public boolean smoothTransformTo(
             float px,
             float py,
             float sx,
             float sy,
             float x,
             float y) {
-        transform(true, false, px, py, sx, sy, x, y, true);
+        return transform(true, false, px, py, sx, sy, x, y, true);
     }
 
-    public void transformBy(
+    public boolean transformBy(
+            float px,
+            float py,
             float sxBy,
             float syBy,
             float xBy,
             float yBy) {
-        transform(false, true, 0.0f, 0.0f, sxBy, syBy, xBy, yBy, true);
+        return transform(false, true, px, py, sxBy, syBy, xBy, yBy, true);
     }
 
-    public void transformTo(float px, float py, float sx, float sy) {
-        transformTo(px, py, sx, sy, USE_DEFAULT, USE_DEFAULT);
+    public boolean transformTo(float px, float py, float sx, float sy) {
+        return transformTo(px, py, sx, sy, USE_DEFAULT, USE_DEFAULT);
     }
 
-    public void transformTo(
+    public boolean transformTo(
             float px,
             float py,
             float sx,
             float sy,
             float x,
             float y) {
-        transform(false, false, px, py, sx, sy, x, y, true);
+        return transform(false, false, px, py, sx, sy, x, y, true);
     }
 
     //endregion Methods
