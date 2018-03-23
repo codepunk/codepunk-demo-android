@@ -118,7 +118,7 @@ public class InteractiveImageView extends AppCompatImageView
     @SuppressWarnings("WeakerAccess")
     protected static class Transformer {
         /**
-         * The interpolator, used for making zooms animate 'naturally.'
+         * The interpolator, used for making transforms animate 'naturally.'
          */
         private Interpolator mInterpolator;
 

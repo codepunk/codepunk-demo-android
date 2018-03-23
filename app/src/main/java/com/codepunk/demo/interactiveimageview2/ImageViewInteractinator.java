@@ -11,6 +11,7 @@ import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.support.annotation.ArrayRes;
 import android.support.annotation.Nullable;
 import android.support.v4.math.MathUtils;
@@ -26,6 +27,8 @@ import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.ScaleGestureDetector.SimpleOnScaleGestureListener;
 import android.view.WindowManager;
+import android.view.animation.DecelerateInterpolator;
+import android.view.animation.Interpolator;
 import android.widget.EdgeEffect;
 import android.widget.OverScroller;
 
@@ -106,12 +109,6 @@ public class ImageViewInteractinator extends AppCompatImageView {
         public boolean onDown(MotionEvent e) {
             mOverScroller.forceFinished(true);
             releaseEdgeGlows();
-
-            /*
-            mTouchPivotPoint.set(e.getX(), e.getY());
-            viewPointToImagePoint(getImageMatrixInternal(), mTouchPivotPoint);
-            */
-
             return true;
         }
 
@@ -176,13 +173,14 @@ public class ImageViewInteractinator extends AppCompatImageView {
             boolean needsInvalidate = transform(
                     false,
                     false,
+                    true,
+                    true,
                     mTouchPivotPoint.x,
                     mTouchPivotPoint.y,
                     USE_DEFAULT,
                     USE_DEFAULT,
                     x,
-                    y,
-                    true);
+                    y);
 
             // TODO Only do this if we got constrained ?
             mTouchPivotPoint.set(e2.getX(), e2.getY());
@@ -197,13 +195,39 @@ public class ImageViewInteractinator extends AppCompatImageView {
         }
 
         @Override
+        public boolean onSingleTapUp(MotionEvent e) {
+            return (!mDoubleTapToScaleEnabled && performClick());
+        }
+
+        @Override
         public boolean onSingleTapConfirmed(MotionEvent e) {
             return (mDoubleTapToScaleEnabled && performClick());
         }
 
         @Override
-        public boolean onSingleTapUp(MotionEvent e) {
-            return (!mDoubleTapToScaleEnabled && performClick());
+        public boolean onDoubleTap(MotionEvent e) {
+            if (!mDoubleTapToScaleEnabled) {
+                return false;
+            }
+
+            mTransforminator.forceFinished(true);
+
+            final float next = getNextScalePreset();
+            final float sx = getImageMinScaleX() * (1.0f - next) + getImageMaxScaleX() * next;
+            final float sy = getImageMinScaleY() * (1.0f - next) + getImageMaxScaleY() * next;
+            transform(
+                    true,
+                    false,
+                    true,
+                    true,
+                    mTouchPivotPoint.x,
+                    mTouchPivotPoint.y,
+                    sx,
+                    sy,
+                    USE_DEFAULT,
+                    USE_DEFAULT);
+
+            return true;
         }
     }
 
@@ -237,14 +261,170 @@ public class ImageViewInteractinator extends AppCompatImageView {
     }
 
     private static class Transforminator {
-        final Context mContext;
+        /**
+         * The interpolator, used for making transforms animate 'naturally.'
+         */
+        private Interpolator mInterpolator;
+
+        /**
+         * The total animation duration for a zoom.
+         */
+        private int mAnimationDurationMillis;
+
+        /**
+         * Whether or not the current zoom has finished.
+         */
+        private boolean mFinished = true;
+
+        /**
+         * The X value of the pivot point.
+         */
+        private float mPx;
+
+        /**
+         * The Y value of the pivot point.
+         */
+        private float mPy;
+
+        /**
+         * The current scale X value; computed by {@link #computeScroll()}.
+         */
+        private float mCurrentSx;
+
+        /**
+         * The current scale Y value; computed by {@link #computeScroll()}.
+         */
+        private float mCurrentSy;
+
+        /**
+         * The current X location of the pivot point; computed by {@link #computeScroll()}.
+         */
+        private float mCurrentX;
+
+        /**
+         * The current Y location of the pivot point; computed by {@link #computeScroll()}.
+         */
+        private float mCurrentY;
+
+        /**
+         * The time the zoom started, computed using {@link SystemClock#elapsedRealtime()}.
+         */
+        private long mStartRTC;
+
+        private float mStartSx;
+
+        private float mStartSy;
+
+        private float mStartX;
+
+        private float mStartY;
+
+        /**
+         * The destination scale X.
+         */
+        private float mEndSx;
+
+        /**
+         * The destination scale Y.
+         */
+        private float mEndSy;
+
+        /**
+         * The destination X location of the pivot point.
+         */
+        private float mEndX;
+
+        /**
+         * The destination Y location of the pivot point.
+         */
+        private float mEndY;
 
         public Transforminator(Context context) {
-            mContext = context;
+            mInterpolator = new DecelerateInterpolator();
+            mAnimationDurationMillis =
+                    context.getResources().getInteger(android.R.integer.config_mediumAnimTime);
         }
 
+        /**
+         * Aborts the animation, setting the current values to the ending value.
+         *
+         * @see android.widget.Scroller#abortAnimation()
+         */
+        void abortAnimation() {
+            mFinished = true;
+            mCurrentSx = mEndSx;
+            mCurrentSy = mEndSy;
+            mCurrentX = mEndX;
+            mCurrentY = mEndY;
+        }
+
+        /**
+         * Forces the transform finished state to the given value. Unlike {@link #abortAnimation()}, the
+         * current zoom value isn't set to the ending value.
+         *
+         * @see android.widget.Scroller#forceFinished(boolean)
+         */
+        void forceFinished(boolean finished) {
+            mFinished = finished;
+        }
+
+        /**
+         * Starts a transform from the supplied start values to the supplied end values.
+         *
+         * @see android.widget.Scroller#startScroll(int, int, int, int)
+         */
+        void startTransform(
+                float px,
+                float py,
+                float startSx,
+                float startSy,
+                float startX,
+                float startY,
+                float endSx,
+                float endSy,
+                float endX,
+                float endY) {
+            mStartRTC = SystemClock.elapsedRealtime();
+            mPx = px;
+            mPy = py;
+            mCurrentSx = mStartSx = startSx;
+            mCurrentSy = mStartSy = startSy;
+            mCurrentX = mStartX = startX;
+            mCurrentY = mStartY = startY;
+            mEndSx = endSx;
+            mEndSy = endSy;
+            mEndX = endX;
+            mEndY = endY;
+            mFinished = false;
+        }
+
+        /**
+         * Computes the current scroll, returning true if the zoom is still active and false if the
+         * scroll has finished.
+         *
+         * @see android.widget.Scroller#computeScrollOffset()
+         */
         boolean computeTransform() {
-            return false; // TODO
+            if (mFinished) {
+                return false;
+            }
+
+            long tRTC = SystemClock.elapsedRealtime() - mStartRTC;
+            if (tRTC >= mAnimationDurationMillis) {
+                mCurrentSx = mEndSx;
+                mCurrentSy = mEndSy;
+                mCurrentX = mEndX;
+                mCurrentY = mEndY;
+                mFinished = true;
+            } else {
+                float t = tRTC * 1f / mAnimationDurationMillis;
+                float interpolation = mInterpolator.getInterpolation(t);
+                mCurrentSx = mStartSx + (mEndSx - mStartSx) * interpolation;
+                mCurrentSy = mStartSy + (mEndSy - mStartSy) * interpolation;
+                mCurrentX = mStartX + (mEndX - mStartX) * interpolation;
+                mCurrentY = mStartY + (mEndY - mStartY) * interpolation;
+            }
+            return true;
         }
     }
 
@@ -378,15 +558,26 @@ public class ImageViewInteractinator extends AppCompatImageView {
             needsInvalidate = transform(
                     false,
                     false,
+                    true,
+                    false,
                     mTouchPivotPoint.x,
                     mTouchPivotPoint.y,
                     USE_DEFAULT,
                     USE_DEFAULT,
                     currX,
-                    currY,
-                    true);
+                    currY);
         } else if (mTransforminator.computeTransform()) {
-
+            needsInvalidate = transform(
+                    false,
+                    false,
+                    false,
+                    false,
+                    mTransforminator.mPx,
+                    mTransforminator.mPy,
+                    mTransforminator.mCurrentSx,
+                    mTransforminator.mCurrentSy,
+                    mTransforminator.mCurrentX,
+                    mTransforminator.mCurrentY);
         }
 
         if (getOverScrollMode() != OVER_SCROLL_NEVER) {
@@ -426,13 +617,11 @@ public class ImageViewInteractinator extends AppCompatImageView {
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         boolean retVal = false;
-        // final int action = event.getActionMasked();
         if (drawableHasFunctionalDimensions()) {
             // When # of pointers changes, reset the touch pivot point to the "primary" pointer
             final int action = event.getActionMasked();
             if (action == MotionEvent.ACTION_DOWN ||
                     action == MotionEvent.ACTION_POINTER_DOWN ||
-                    action == MotionEvent.ACTION_UP ||
                     action == MotionEvent.ACTION_POINTER_UP) {
                 final int primaryIndex = getPrimaryPointerIndex(event);
                 if (primaryIndex >= 0) {
@@ -623,7 +812,17 @@ public class ImageViewInteractinator extends AppCompatImageView {
             float syBy,
             float xBy,
             float yBy) {
-        return transform(true, true, px, py, sxBy, syBy, xBy, yBy, true);
+        return transform(
+                true,
+                true,
+                true,
+                false,
+                px,
+                py,
+                sxBy,
+                syBy,
+                xBy,
+                yBy);
     }
 
     public void smoothTransformTo(float px, float py, float sx, float sy) {
@@ -637,7 +836,17 @@ public class ImageViewInteractinator extends AppCompatImageView {
             float sy,
             float x,
             float y) {
-        return transform(true, false, px, py, sx, sy, x, y, true);
+        return transform(
+                true,
+                false,
+                true,
+                false,
+                px,
+                py,
+                sx,
+                sy,
+                x,
+                y);
     }
 
     public boolean transformBy(
@@ -647,7 +856,17 @@ public class ImageViewInteractinator extends AppCompatImageView {
             float syBy,
             float xBy,
             float yBy) {
-        return transform(false, true, px, py, sxBy, syBy, xBy, yBy, true);
+        return transform(
+                false,
+                true,
+                true,
+                false,
+                px,
+                py,
+                sxBy,
+                syBy,
+                xBy,
+                yBy);
     }
 
     public boolean transformTo(float px, float py, float sx, float sy) {
@@ -661,7 +880,17 @@ public class ImageViewInteractinator extends AppCompatImageView {
             float sy,
             float x,
             float y) {
-        return transform(false, false, px, py, sx, sy, x, y, true);
+        return transform(
+                false,
+                false,
+                true,
+                false,
+                px,
+                py,
+                sx,
+                sy,
+                x,
+                y);
     }
 
     //endregion Methods
@@ -669,6 +898,7 @@ public class ImageViewInteractinator extends AppCompatImageView {
     //region Protected methods
 
     protected boolean clampTransform(
+            boolean isTouchEvent,
             float px,
             float py,
             float sx,
@@ -1139,36 +1369,36 @@ public class ImageViewInteractinator extends AppCompatImageView {
     private void restoreTransform(Bundle bundle) {
         final boolean smooth = bundle.getBoolean(KEY_SMOOTH, false);
         final boolean by = bundle.getBoolean(KEY_BY, false);
+        final boolean clamp = bundle.getBoolean(KEY_CLAMP, true);
         final float px = bundle.getFloat(KEY_PX, USE_DEFAULT);
         final float py = bundle.getFloat(KEY_PY, USE_DEFAULT);
         final float sx = bundle.getFloat(KEY_SX, USE_DEFAULT);
         final float sy = bundle.getFloat(KEY_SY, USE_DEFAULT);
         final float x = bundle.getFloat(KEY_X, USE_DEFAULT);
         final float y = bundle.getFloat(KEY_Y, USE_DEFAULT);
-        final boolean clamp = bundle.getBoolean(KEY_CLAMP, true);
-        transform(smooth, by, px, py, sx, sy, x, y, clamp);
+        transform(smooth, by, clamp, false, px, py, sx, sy, x, y);
     }
 
     private Bundle saveTransform(
             boolean smooth,
             boolean by,
+            boolean clamp,
             float px,
             float py,
             float sx,
             float sy,
             float x,
-            float y,
-            boolean clamp) {
+            float y) {
         final Bundle bundle = new Bundle(9);
         bundle.putBoolean(KEY_SMOOTH, smooth);
         bundle.putBoolean(KEY_BY, by);
+        bundle.putBoolean(KEY_CLAMP, clamp);
         bundle.putFloat(KEY_PX, px);
         bundle.putFloat(KEY_PY, py);
         bundle.putFloat(KEY_SX, sx);
         bundle.putFloat(KEY_SY, sy);
         bundle.putFloat(KEY_X, x);
         bundle.putFloat(KEY_Y, y);
-        bundle.putBoolean(KEY_CLAMP, clamp);
         return bundle;
     }
 
@@ -1192,15 +1422,16 @@ public class ImageViewInteractinator extends AppCompatImageView {
     private boolean transform(
             boolean smooth,
             boolean by,
+            boolean clamp,
+            boolean isTouchEvent,
             float px,
             float py,
             float sx,
             float sy,
             float x,
-            float y,
-            boolean clamp) {
+            float y) {
         if (!ViewCompat.isLaidOut(this)) {
-            mPendingTransform = saveTransform(smooth, by, px, py, sx, sy, x, y, clamp);
+            mPendingTransform = saveTransform(smooth, by, clamp, px, py, sx, sy, x, y);
             return false;
         }
 
@@ -1239,6 +1470,7 @@ public class ImageViewInteractinator extends AppCompatImageView {
         final float clampedY;
         if (clamp) {
             clamped = clampTransform(
+                    isTouchEvent,
                     resolvedPx,
                     resolvedPy,
                     resolvedSx,
@@ -1275,22 +1507,23 @@ public class ImageViewInteractinator extends AppCompatImageView {
         final boolean transformed = !matrix.equals(mTempMatrix);
         if (transformed) {
             if (smooth) {
-                /* TODO
-                mPts[0] = info.px;
-                mPts[1] = info.py;
-                mapDrawablePtsToViewPts(getImageMatrixInternal(), mPts);
+                final float startSx = getImageScaleX();
+                final float startSy = getImageScaleY();
+                mTempPoint.set(resolvedPx, resolvedPy);
+                imagePointToViewPoint(getImageMatrixInternal(), mTempPoint);
+                final float startX = mTempPoint.x;
+                final float startY = mTempPoint.y;
                 mTransforminator.startTransform(
-                        outInfo.px,
-                        outInfo.py,
-                        getImageScaleX(),
-                        getImageScaleY(),
-                        mPts[0],
-                        mPts[1],
-                        outInfo.sx,
-                        outInfo.sy,
-                        outInfo.x,
-                        outInfo.y);
-                */
+                        resolvedPx,
+                        resolvedPy,
+                        startSx,
+                        startSy,
+                        startX,
+                        startY,
+                        clampedSx,
+                        clampedSy,
+                        clampedX,
+                        clampedY);
                 ViewCompat.postInvalidateOnAnimation(this);
             } else {
                 if (super.getScaleType() != ScaleType.MATRIX) {
