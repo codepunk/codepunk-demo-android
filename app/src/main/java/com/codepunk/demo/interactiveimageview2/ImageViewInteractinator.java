@@ -10,7 +10,6 @@ import android.graphics.PointF;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
-import android.os.Bundle;
 import android.os.SystemClock;
 import android.support.annotation.ArrayRes;
 import android.support.annotation.Nullable;
@@ -168,23 +167,16 @@ public class ImageViewInteractinator extends AppCompatImageView {
                 return false;
             }
 
-            final float x = e2.getX();
-            final float y = e2.getY();
-            boolean needsInvalidate = transform(
-                    false,
-                    false,
-                    true,
-                    true,
-                    mTouchPivotPoint.x,
-                    mTouchPivotPoint.y,
-                    USE_DEFAULT,
-                    USE_DEFAULT,
-                    x,
-                    y);
+            final Transform t = getTransform();
+            boolean needsInvalidate = t.pivot(mTouchPivotPoint.x, mTouchPivotPoint.y)
+                    .moveTo(e2.getX(), e2.getY())
+                    .clamp(true)
+                    .transform();
 
-            // TODO Only do this if we got constrained ?
-            mTouchPivotPoint.set(e2.getX(), e2.getY());
-            viewPointToImagePoint(getImageMatrixInternal(), mTouchPivotPoint);
+            if (t.mClamped) {
+                mTouchPivotPoint.set(e2.getX(), e2.getY());
+                viewPointToImagePoint(getImageMatrixInternal(), mTouchPivotPoint);
+            }
 
             // TODO Edge effects
 
@@ -211,22 +203,16 @@ public class ImageViewInteractinator extends AppCompatImageView {
             }
 
             mTransforminator.forceFinished(true);
-
             final float next = getNextScalePreset();
             final float sx = getImageMinScaleX() * (1.0f - next) + getImageMaxScaleX() * next;
             final float sy = getImageMinScaleY() * (1.0f - next) + getImageMaxScaleY() * next;
-            transform(
-                    true,
-                    false,
-                    true,
-                    true,
-                    mTouchPivotPoint.x,
-                    mTouchPivotPoint.y,
-                    sx,
-                    sy,
-                    USE_DEFAULT,
-                    USE_DEFAULT);
-
+            getTransform()
+                    .reset()
+                    .smooth(true)
+                    .pivot(mTouchPivotPoint.x, mTouchPivotPoint.y)
+                    .scale(sx, sy)
+                    .clamp(true)
+                    .transform();
             return true;
         }
     }
@@ -257,6 +243,190 @@ public class ImageViewInteractinator extends AppCompatImageView {
 
             mLastSpan = currentSpan;
             return true;
+        }
+    }
+
+    // TODO Make Parcelable
+    public class Transform {
+        private float mPx;
+        private float mPy;
+        private float mSx;
+        private float mSy;
+        private float mX;
+        private float mY;
+        private boolean mClamped;
+        private boolean mMoveBy;
+        private boolean mScaleBy;
+        private boolean mSmooth;
+        private boolean mResolved;
+
+        public Transform() {
+            reset();
+        }
+
+        public Transform(Transform src) {
+            set(src);
+        }
+
+        public Transform clamp(boolean isTouchEvent) {
+            if (!mResolved) {
+                resolveDefaults();
+            }
+
+            mClamped = false;
+            float clamp = MathUtils.clamp(mSx, getImageMinScaleX(), getImageMaxScaleX());
+            if (Float.compare(mSx, clamp) != 0) {
+                mSx = clamp;
+                mClamped = true;
+            }
+            clamp = MathUtils.clamp(mSy, getImageMinScaleY(), getImageMaxScaleY());
+            if (Float.compare(mSy, clamp) != 0) {
+                mSy = clamp;
+                mClamped = true;
+            }
+
+            mImageMatrix.set(getImageMatrixInternal());
+            mImageMatrix.getValues(mTempValues);
+            if (Float.compare(mSx, mTempValues[Matrix.MSCALE_X]) != 0 ||
+                    Float.compare(mSx, mTempValues[Matrix.MSCALE_Y]) != 0) {
+                final float deltaSx = mSx / mTempValues[Matrix.MSCALE_X];
+                final float deltaSy = mSy / mTempValues[Matrix.MSCALE_Y];
+                mImageMatrix.preScale(deltaSx, deltaSy);
+                mImageMatrix.getValues(mTempValues);
+            }
+
+            mTempPoint.set(mPx, mPy);
+            imagePointToViewPoint(mImageMatrix, mTempPoint);
+            final float mappedPx = mTempPoint.x - mTempValues[Matrix.MTRANS_X];
+            final float mappedPy = mTempPoint.y - mTempValues[Matrix.MTRANS_Y];
+
+            getTranslationCoefficient(mImageMatrix, mTempPoint);
+            if (Float.compare(mTempPoint.x, 0.0f) < 0) {
+                final float minX = Math.min(mTempPoint.x, 0.0f);
+                final float clampedDx = MathUtils.clamp(mX - mappedPx, minX, 0.0f);
+                clamp = mappedPx + clampedDx;
+            } else {
+                clamp = mTempPoint.x + mappedPx;
+            }
+            if (Float.compare(mX, clamp) != 0) {
+                mX = clamp;
+                mClamped = true;
+            }
+
+            if (Float.compare(mTempPoint.y, 0.0f) < 0) {
+                final float minY = Math.min(mTempPoint.y, 0.0f);
+                final float clampedDy = MathUtils.clamp(mY - mappedPy, minY, 0.0f);
+                clamp = mappedPy + clampedDy;
+            } else {
+                clamp = mTempPoint.y + mappedPy;
+            }
+            if (Float.compare(mY, clamp) != 0) {
+                mY = clamp;
+                mClamped = true;
+            }
+
+            return this;
+        }
+
+        public Transform moveBy(float dx, float dy) {
+            mMoveBy = true;
+            mX = dx;
+            mY = dy;
+            mResolved = false;
+            return this;
+        }
+
+        public Transform moveTo(float x, float y) {
+            mMoveBy = false;
+            mX = x;
+            mY = y;
+            mResolved = false;
+            return this;
+        }
+
+        public Transform pivot(float px, float py) {
+            mPx = px;
+            mPy = py;
+            mResolved = false;
+            return this;
+        }
+
+        public Transform reset() {
+            mPx = mPy = mSx = mSy = mX = mY = USE_DEFAULT;
+            mClamped = mMoveBy = mScaleBy = mSmooth = mResolved = false;
+            return this;
+        }
+
+        protected void resolveDefaults() {
+            if (Float.compare(mPx, USE_DEFAULT) == 0) {
+                mPx = getDrawableFunctionalWidth() * 0.5f;
+            }
+            if (Float.compare(mPy, USE_DEFAULT) == 0) {
+                mPy = getDrawableFunctionalHeight() * 0.5f;
+            }
+            if (Float.compare(mSx, USE_DEFAULT) == 0) {
+                mSx = getImageScaleX();
+            } else if (mScaleBy) {
+                mSx = getImageScaleX() * mSx;
+            }
+            if (Float.compare(mSy, USE_DEFAULT) == 0) {
+                mSy = getImageScaleY();
+            } else if (mScaleBy) {
+                mSy = getImageScaleY() * mSy;
+            }
+            if (mMoveBy) {
+                mTempPoint.set(mPx, mPy);
+                imagePointToViewPoint(getImageMatrixInternal(), mTempPoint);
+                mX = mTempPoint.x + (Float.compare(mX, USE_DEFAULT) == 0 ? 0.0f : mX);
+                mY = mTempPoint.y + (Float.compare(mY, USE_DEFAULT) == 0 ? 0.0f : mY);
+            } else {
+                if (Float.compare(mX, USE_DEFAULT) == 0) {
+                    mX = getContentCenterX();
+                }
+                if (Float.compare(mY, USE_DEFAULT) == 0) {
+                    mY = getContentCenterY();
+                }
+            }
+            mResolved = true;
+        }
+
+        public Transform scaleBy(float dSx, float dSy) {
+            mScaleBy = true;
+            mSx = dSx;
+            mSy = dSy;
+            mResolved = false;
+            return this;
+        }
+
+        public Transform scale(float sx, float sy) {
+            mScaleBy = false;
+            mSx = sx;
+            mSy = sy;
+            mResolved = false;
+            return this;
+        }
+
+        public void set(Transform src) {
+            mPx = src.mPx;
+            mPy = src.mPy;
+            mSx = src.mSx;
+            mSy = src.mSy;
+            mX = src.mX;
+            mY = src.mY;
+            mClamped = src.mClamped;
+            mMoveBy = src.mMoveBy;
+            mScaleBy = src.mScaleBy;
+            mSmooth = src.mSmooth;
+            mResolved = src.mResolved;
+        }
+
+        public Transform smooth(boolean smooth) {
+            mSmooth = smooth;
+            return this;
+        }
+
+        public boolean transform() {
+            return ImageViewInteractinator.this.transform(this);
         }
     }
 
@@ -449,17 +619,6 @@ public class ImageViewInteractinator extends AppCompatImageView {
                     INVALID_FLAG_IMAGE_MAX_SCALE |
                     INVALID_FLAG_IMAGE_MIN_SCALE;
 
-    private static final String CLASS_NAME = ImageViewInteractinator.class.getName();
-    private static final String KEY_BY = CLASS_NAME + ".by";
-    private static final String KEY_CLAMP = CLASS_NAME + ".clamp";
-    private static final String KEY_PX = CLASS_NAME + ".px";
-    private static final String KEY_PY = CLASS_NAME + ".py";
-    private static final String KEY_SX = CLASS_NAME + ".sx";
-    private static final String KEY_SY = CLASS_NAME + ".sy";
-    private static final String KEY_SMOOTH = CLASS_NAME + ".smooth";
-    private static final String KEY_X = CLASS_NAME + ".x";
-    private static final String KEY_Y = CLASS_NAME + ".y";
-
     public static final float USE_DEFAULT = Float.NaN;
 
     //endregion Constants
@@ -473,7 +632,6 @@ public class ImageViewInteractinator extends AppCompatImageView {
     private GestureDetectorCompat mGestureDetector;
     private OnGestureListener mOnGestureListener;
     private ScaleGestureDetector mScaleGestureDetector;
-    private OnScaleGestureListener mOnScaleGestureListener;
 
     protected boolean mDoubleTapToScaleEnabled;
     protected boolean mFlingEnabled;
@@ -495,11 +653,11 @@ public class ImageViewInteractinator extends AppCompatImageView {
     private float[] mTempValues = new float[9];
     private Matrix mTempMatrix = new Matrix();
     private PointF mTempPoint = new PointF();
-    private PointF mTempScale = new PointF();
     private RectF mTempRectSrc = new RectF();
     private RectF mTempRectDst = new RectF();
+    private Transform mTransform = new Transform();
 
-    private Bundle mPendingTransform = null;
+    private Transform mPendingTransform = null;
 
     private SparseArray<EdgeEffect> mEdgeGlow = null;
 
@@ -555,29 +713,19 @@ public class ImageViewInteractinator extends AppCompatImageView {
         if (mOverScroller.computeScrollOffset()) {
             final int currX = mOverScroller.getCurrX();
             final int currY = mOverScroller.getCurrY();
-            needsInvalidate = transform(
-                    false,
-                    false,
-                    true,
-                    false,
-                    mTouchPivotPoint.x,
-                    mTouchPivotPoint.y,
-                    USE_DEFAULT,
-                    USE_DEFAULT,
-                    currX,
-                    currY);
+            needsInvalidate = getTransform()
+                    .pivot(mTouchPivotPoint.x, mTouchPivotPoint.y)
+                    .moveTo(currX, currY)
+                    .clamp(false)
+                    .transform();
+            needsInvalidate = needsInvalidate || !mOverScroller.isFinished();
         } else if (mTransforminator.computeTransform()) {
-            needsInvalidate = transform(
-                    false,
-                    false,
-                    false,
-                    false,
-                    mTransforminator.mPx,
-                    mTransforminator.mPy,
-                    mTransforminator.mCurrentSx,
-                    mTransforminator.mCurrentSy,
-                    mTransforminator.mCurrentX,
-                    mTransforminator.mCurrentY);
+            needsInvalidate = getTransform()
+                    .pivot(mTransforminator.mPx, mTransforminator.mPy)
+                    .scale(mTransforminator.mCurrentSx, mTransforminator.mCurrentSy)
+                    .moveTo(mTransforminator.mCurrentX, mTransforminator.mCurrentY)
+                    .transform();
+            needsInvalidate = needsInvalidate || !mTransforminator.mFinished;
         }
 
         if (getOverScrollMode() != OVER_SCROLL_NEVER) {
@@ -603,7 +751,7 @@ public class ImageViewInteractinator extends AppCompatImageView {
     public void layout(int l, int t, int r, int b) {
         super.layout(l, t, r, b);
         if (mPendingTransform != null) {
-            restoreTransform(mPendingTransform);
+            mPendingTransform.transform();
             mPendingTransform = null;
         }
     }
@@ -791,8 +939,8 @@ public class ImageViewInteractinator extends AppCompatImageView {
         if (!mScaleEnabled) {
             mScaleGestureDetector = null;
         } else if (mScaleGestureDetector == null) {
-            mOnScaleGestureListener = new OnScaleGestureListener();
-            mScaleGestureDetector = new ScaleGestureDetector(getContext(), mOnScaleGestureListener);
+            mScaleGestureDetector =
+                    new ScaleGestureDetector(getContext(), new OnScaleGestureListener());
         }
     }
 
@@ -805,72 +953,50 @@ public class ImageViewInteractinator extends AppCompatImageView {
         updateGestureDetector();
     }
 
-    public boolean smoothTransformBy(
-            float px,
-            float py,
-            float sxBy,
-            float syBy,
-            float xBy,
-            float yBy) {
-        return transform(
-                true,
-                true,
-                true,
-                false,
-                px,
-                py,
-                sxBy,
-                syBy,
-                xBy,
-                yBy);
+    public boolean smoothTransformBy(float px, float py, float dSx, float dSy, float dx, float dy) {
+        return getTransform()
+                .smooth(true)
+                .pivot(px, py)
+                .scaleBy(dSx, dSy)
+                .moveBy(dx, dy)
+                .clamp(false)
+                .transform();
     }
 
-    public void smoothTransformTo(float px, float py, float sx, float sy) {
-        smoothTransformTo(px, py, sx, sy, USE_DEFAULT, USE_DEFAULT);
+    public boolean smoothTransformTo(float px, float py, float sx, float sy) {
+        return getTransform()
+                .smooth(true)
+                .pivot(px, py)
+                .scale(sx, sy)
+                .clamp(false)
+                .transform();
     }
 
-    public boolean smoothTransformTo(
-            float px,
-            float py,
-            float sx,
-            float sy,
-            float x,
-            float y) {
-        return transform(
-                true,
-                false,
-                true,
-                false,
-                px,
-                py,
-                sx,
-                sy,
-                x,
-                y);
+    public boolean smoothTransformTo(float px, float py, float sx, float sy, float x, float y) {
+        return getTransform()
+                .smooth(true)
+                .pivot(px, py)
+                .scale(sx, sy)
+                .moveTo(x, y)
+                .clamp(false)
+                .transform();
     }
 
-    public boolean transformBy(
-            float px,
-            float py,
-            float sxBy,
-            float syBy,
-            float xBy,
-            float yBy) {
-        return transform(
-                false,
-                true,
-                true,
-                false,
-                px,
-                py,
-                sxBy,
-                syBy,
-                xBy,
-                yBy);
+    public boolean transformBy(float px, float py, float dSx, float dSy, float dx, float dy) {
+        return getTransform()
+                .pivot(px, py)
+                .scaleBy(dSx, dSy)
+                .moveBy(dx, dy)
+                .clamp(false)
+                .transform();
     }
 
     public boolean transformTo(float px, float py, float sx, float sy) {
-        return transformTo(px, py, sx, sy, USE_DEFAULT, USE_DEFAULT);
+        return getTransform()
+                .pivot(px, py)
+                .scale(sx, sy)
+                .clamp(false)
+                .transform();
     }
 
     public boolean transformTo(
@@ -880,77 +1006,17 @@ public class ImageViewInteractinator extends AppCompatImageView {
             float sy,
             float x,
             float y) {
-        return transform(
-                false,
-                false,
-                true,
-                false,
-                px,
-                py,
-                sx,
-                sy,
-                x,
-                y);
+        return getTransform()
+                .pivot(px, py)
+                .scale(sx, sy)
+                .moveTo(x, y)
+                .clamp(false)
+                .transform();
     }
 
     //endregion Methods
 
     //region Protected methods
-
-    protected boolean clampTransform(
-            boolean isTouchEvent,
-            float px,
-            float py,
-            float sx,
-            float sy,
-            float x,
-            float y,
-            PointF outScale,
-            PointF outPoint) {
-        // Clamp scale
-        outScale.set(
-                MathUtils.clamp(sx, getImageMinScaleX(), getImageMaxScaleX()),
-                MathUtils.clamp(sy, getImageMinScaleY(), getImageMaxScaleY()));
-
-        // Clamp view point
-        mImageMatrix.set(getImageMatrixInternal());
-        mImageMatrix.getValues(mTempValues);
-
-        // Pre-scale the matrix to the clamped scale
-        if (Float.compare(outScale.x, mTempValues[Matrix.MSCALE_X]) != 0 ||
-                Float.compare(outScale.y, mTempValues[Matrix.MSCALE_Y]) != 0) {
-            final float deltaSx = outScale.x / mTempValues[Matrix.MSCALE_X];
-            final float deltaSy = outScale.y / mTempValues[Matrix.MSCALE_Y];
-            mImageMatrix.preScale(deltaSx, deltaSy);
-            mImageMatrix.getValues(mTempValues);
-        }
-
-        mTempPoint.set(px, py);
-        imagePointToViewPoint(mImageMatrix, mTempPoint);
-        final float mappedPx = mTempPoint.x - mTempValues[Matrix.MTRANS_X];
-        final float mappedPy = mTempPoint.y - mTempValues[Matrix.MTRANS_Y];
-
-        getTranslationCoefficient(mImageMatrix, mTempPoint);
-        if (mTempPoint.x >= 0) {
-            outPoint.x = mTempPoint.x + mappedPx;
-        } else {
-            final float minX = Math.min(mTempPoint.x, 0.0f);
-            final float clampedDx = MathUtils.clamp(x - mappedPx, minX, 0.0f);
-            outPoint.x = mappedPx + clampedDx;
-        }
-        if (mTempPoint.y >= 0) {
-            outPoint.y = mTempPoint.y + mappedPy;
-        } else {
-            final float minY = Math.min(mTempPoint.y, 0.0f);
-            final float clampedDy = MathUtils.clamp(y - mappedPy, minY, 0.0f);
-            outPoint.y = mappedPy + clampedDy;
-        }
-
-        return (!almostEquals(sx, outScale.x) ||
-                !almostEquals(sy, outScale.y) ||
-                !almostEquals(x, outPoint.x) ||
-                !almostEquals(y, outPoint.y));
-    }
 
     protected boolean drawableHasFunctionalDimensions() {
         final Drawable d = getDrawable();
@@ -1262,6 +1328,11 @@ public class ImageViewInteractinator extends AppCompatImageView {
         }
     }
 
+    private Transform getTransform() {
+        mTransform.reset();
+        return mTransform;
+    }
+
     /*
      * TODO Mention how if inX or inY < 0, it's the minimum translation allowed.
      * If > 0, then it's a set translation and is not scrollable.
@@ -1366,42 +1437,6 @@ public class ImageViewInteractinator extends AppCompatImageView {
         }
     }
 
-    private void restoreTransform(Bundle bundle) {
-        final boolean smooth = bundle.getBoolean(KEY_SMOOTH, false);
-        final boolean by = bundle.getBoolean(KEY_BY, false);
-        final boolean clamp = bundle.getBoolean(KEY_CLAMP, true);
-        final float px = bundle.getFloat(KEY_PX, USE_DEFAULT);
-        final float py = bundle.getFloat(KEY_PY, USE_DEFAULT);
-        final float sx = bundle.getFloat(KEY_SX, USE_DEFAULT);
-        final float sy = bundle.getFloat(KEY_SY, USE_DEFAULT);
-        final float x = bundle.getFloat(KEY_X, USE_DEFAULT);
-        final float y = bundle.getFloat(KEY_Y, USE_DEFAULT);
-        transform(smooth, by, clamp, false, px, py, sx, sy, x, y);
-    }
-
-    private Bundle saveTransform(
-            boolean smooth,
-            boolean by,
-            boolean clamp,
-            float px,
-            float py,
-            float sx,
-            float sy,
-            float x,
-            float y) {
-        final Bundle bundle = new Bundle(9);
-        bundle.putBoolean(KEY_SMOOTH, smooth);
-        bundle.putBoolean(KEY_BY, by);
-        bundle.putBoolean(KEY_CLAMP, clamp);
-        bundle.putFloat(KEY_PX, px);
-        bundle.putFloat(KEY_PY, py);
-        bundle.putFloat(KEY_SX, sx);
-        bundle.putFloat(KEY_SY, sy);
-        bundle.putFloat(KEY_X, x);
-        bundle.putFloat(KEY_Y, y);
-        return bundle;
-    }
-
     private static Matrix.ScaleToFit scaleTypeToScaleToFit(ScaleType scaleType) {
         if (scaleType == null) {
             return null;
@@ -1419,111 +1454,50 @@ public class ImageViewInteractinator extends AppCompatImageView {
         }
     }
 
-    private boolean transform(
-            boolean smooth,
-            boolean by,
-            boolean clamp,
-            boolean isTouchEvent,
-            float px,
-            float py,
-            float sx,
-            float sy,
-            float x,
-            float y) {
+    private boolean transform(Transform t) {
         if (!ViewCompat.isLaidOut(this)) {
-            mPendingTransform = saveTransform(smooth, by, clamp, px, py, sx, sy, x, y);
+            mPendingTransform = new Transform(t);
             return false;
         }
 
-        // Resolve all values
-        final boolean pxIsDefault = (Float.compare(px, USE_DEFAULT) == 0);
-        final boolean pyIsDefault = (Float.compare(py, USE_DEFAULT) == 0);
-        final boolean sxIsDefault = (Float.compare(sx, USE_DEFAULT) == 0);
-        final boolean syIsDefault = (Float.compare(sy, USE_DEFAULT) == 0);
-        final boolean xIsDefault = (Float.compare(x, USE_DEFAULT) == 0);
-        final boolean yIsDefault = (Float.compare(y, USE_DEFAULT) == 0);
-        final float resolvedPx = (pxIsDefault ? getDrawableFunctionalWidth() * 0.5f : px);
-        final float resolvedPy = (pyIsDefault ? getDrawableFunctionalHeight() * 0.5f : py);
-        final float resolvedSx;
-        final float resolvedSy;
-        final float resolvedX;
-        final float resolvedY;
-        if (by) {
-            resolvedSx = (sxIsDefault ? getImageScaleX() : getImageScaleX() * sx);
-            resolvedSy = (syIsDefault ? getImageScaleY() : getImageScaleY() * sy);
-            mTempPoint.set(resolvedPx, resolvedPy);
-            imagePointToViewPoint(getImageMatrixInternal(), mTempPoint);
-            resolvedX = (xIsDefault ? mTempPoint.x : mTempPoint.x + x);
-            resolvedY = (yIsDefault ? mTempPoint.y : mTempPoint.y + y);
-        } else {
-            resolvedSx = (sxIsDefault ? getImageScaleX() : sx);
-            resolvedSy = (syIsDefault ? getImageScaleY() : sy);
-            resolvedX = (xIsDefault ? getContentCenterX() : x);
-            resolvedY = (yIsDefault ? getContentCenterY() : y);
-        }
-
-        // Optionally clamp values
-        final boolean clamped; // TODO Might not need
-        final float clampedSx;
-        final float clampedSy;
-        final float clampedX;
-        final float clampedY;
-        if (clamp) {
-            clamped = clampTransform(
-                    isTouchEvent,
-                    resolvedPx,
-                    resolvedPy,
-                    resolvedSx,
-                    resolvedSy,
-                    resolvedX,
-                    resolvedY,
-                    mTempScale,
-                    mTempPoint);
-            clampedSx = mTempScale.x;
-            clampedSy = mTempScale.y;
-            clampedX = mTempPoint.x;
-            clampedY = mTempPoint.y;
-        } else {
-            clamped = false;
-            clampedSx = resolvedSx;
-            clampedSy = resolvedSy;
-            clampedX = resolvedX;
-            clampedY = resolvedY;
+        if (!t.mResolved) {
+            t.resolveDefaults();
         }
 
         // Convert transform to matrix
         final Matrix matrix = getImageMatrixInternal();
         mTempMatrix.set(matrix);
         mTempMatrix.getValues(mTempValues);
-        final float deltaSx = clampedSx / mTempValues[Matrix.MSCALE_X];
-        final float deltaSy = clampedSy / mTempValues[Matrix.MSCALE_Y];
-        mTempMatrix.preScale(deltaSx, deltaSy, resolvedPx, resolvedPy);
-        mTempPoint.set(resolvedPx, resolvedPy);
+        final float deltaSx = t.mSx / mTempValues[Matrix.MSCALE_X];
+        final float deltaSy = t.mSy / mTempValues[Matrix.MSCALE_Y];
+        mTempMatrix.preScale(deltaSx, deltaSy, t.mPx, t.mPy);
+        mTempPoint.set(t.mPx, t.mPy);
         imagePointToViewPoint(mTempMatrix, mTempPoint);
-        final float deltaTx = clampedX - mTempPoint.x;
-        final float deltaTy = clampedY - mTempPoint.y;
+        final float deltaTx = t.mX - mTempPoint.x;
+        final float deltaTy = t.mY - mTempPoint.y;
         mTempMatrix.postTranslate(deltaTx, deltaTy);
 
+        // Set the matrix or kick off the Transforminator
         final boolean transformed = !matrix.equals(mTempMatrix);
         if (transformed) {
-            if (smooth) {
+            if (t.mSmooth) {
                 final float startSx = getImageScaleX();
                 final float startSy = getImageScaleY();
-                mTempPoint.set(resolvedPx, resolvedPy);
+                mTempPoint.set(t.mPx, t.mPy);
                 imagePointToViewPoint(getImageMatrixInternal(), mTempPoint);
                 final float startX = mTempPoint.x;
                 final float startY = mTempPoint.y;
                 mTransforminator.startTransform(
-                        resolvedPx,
-                        resolvedPy,
+                        t.mPx,
+                        t.mPy,
                         startSx,
                         startSy,
                         startX,
                         startY,
-                        clampedSx,
-                        clampedSy,
-                        clampedX,
-                        clampedY);
+                        t.mSx,
+                        t.mSy,
+                        t.mX,
+                        t.mY);
                 ViewCompat.postInvalidateOnAnimation(this);
             } else {
                 if (super.getScaleType() != ScaleType.MATRIX) {
