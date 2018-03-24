@@ -151,10 +151,12 @@ public class InteractiveImageViewControlsFragment extends Fragment
 
             if (savedInstanceState.getBoolean(KEY_IS_TRANSFORMED, false)) {
                 mTransform.set((Transform) savedInstanceState.getParcelable(KEY_TRANSFORM));
+                /*
                 mImagePivotXSeekBarLayout.setValue(mTransform.getPx());
                 mImagePivotYSeekBarLayout.setValue(mTransform.getPy());
                 mImageScaleXSeekBarLayout.setValue(mTransform.getSx());
                 mImageScaleYSeekBarLayout.setValue(mTransform.getSy());
+                */
                 mImageView.transform(mTransform);
             }
         }
@@ -235,7 +237,7 @@ public class InteractiveImageViewControlsFragment extends Fragment
                     transformImage = false;
             }
             if (transformImage) {
-                mTransform.begin()
+                mTransform.reset()
                         .pivot(px, py)
                         .scale(sx, sy)
                         .transform(mImageView);
