@@ -35,6 +35,7 @@ import android.view.animation.Interpolator;
 import android.widget.EdgeEffect;
 import android.widget.OverScroller;
 
+import com.codepunk.demo.OverScrollerCompat;
 import com.codepunk.demo.R;
 import com.codepunk.demo.support.DisplayCompat;
 
@@ -815,6 +816,42 @@ public class ImageViewInteractinator extends AppCompatImageView {
                     .moveTo(currX, currY)
                     .transform();
             needsInvalidate = true;
+
+            if (getOverScrollMode() != OVER_SCROLL_NEVER) {
+                if (canScrollX() && mOverScroller.isOverScrolled()) {
+                    EdgeEffect glowEffect = null;
+                    final int diff = (currX - Math.round(mTempTransform.mX));
+                    if (diff > 0) {
+                        glowEffect = mEdgeGlow.get(Gravity.LEFT);
+                    } else if (diff < 0) {
+                        glowEffect = mEdgeGlow.get(Gravity.RIGHT);
+                    }
+                    if (glowEffect != null) {
+                        if (glowEffect.isFinished()) {
+                            glowEffect.onAbsorb(
+                                    (int) OverScrollerCompat.getCurrVelocity(mOverScroller));
+                        }
+                        needsInvalidate = true;
+                    }
+                }
+
+                if (canScrollY() && mOverScroller.isOverScrolled()) {
+                    EdgeEffect glowEffect = null;
+                    final int diff = (currY - Math.round(mTempTransform.mY));
+                    if (diff > 0) {
+                        glowEffect = mEdgeGlow.get(Gravity.TOP);
+                    } else if (diff < 0) {
+                        glowEffect = mEdgeGlow.get(Gravity.BOTTOM);
+                    }
+                    if (glowEffect != null) {
+                        if (glowEffect.isFinished()) {
+                            glowEffect.onAbsorb(
+                                    (int) OverScrollerCompat.getCurrVelocity(mOverScroller));
+                        }
+                        needsInvalidate = true;
+                    }
+                }
+            }
         } else if (mTransforminator.computeTransform()) {
             mTempTransform.reset()
                     .pivot(mTransforminator.mPx, mTransforminator.mPy)
@@ -823,10 +860,6 @@ public class ImageViewInteractinator extends AppCompatImageView {
                     .verify(false)
                     .transform();
             needsInvalidate = true;
-        }
-
-        if (getOverScrollMode() != OVER_SCROLL_NEVER) {
-            // TODO GLOWS
         }
 
         if (needsInvalidate) {
