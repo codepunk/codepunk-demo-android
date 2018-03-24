@@ -28,7 +28,7 @@ import java.util.List;
 
 import com.codepunk.demo.interactiveimageview2.ImageViewInteractinator.Transform;
 
-public class InteractiveImageViewControlsFragment extends Fragment
+public class InteractinatorControlsFragment extends Fragment
         implements AbsSeekBarLayout.OnSeekBarChangeListener<Float>,
                 AdapterView.OnItemSelectedListener,
                 DemoInteractiveImageView.DemoInteractiveImageViewListener,
@@ -37,11 +37,10 @@ public class InteractiveImageViewControlsFragment extends Fragment
 
     //region Constants
 
-    private static final String LOG_TAG =
-            InteractiveImageViewControlsFragment.class.getSimpleName();
+    private static final String LOG_TAG = InteractinatorControlsFragment.class.getSimpleName();
     private static final @DrawableRes int DEFAULT_DRAWABLE_RES_ID = R.drawable.wilderness_lodge;
 
-    private static final String CLASS_NAME = InteractiveImageViewControlsFragment.class.getName();
+    private static final String CLASS_NAME = InteractinatorControlsFragment.class.getName();
     private static final String KEY_SCALE_LOCKED = CLASS_NAME + ".scaleLocked";
     private static final String KEY_IS_TRANSFORMED = CLASS_NAME + ".isTransformed";
     private static final String KEY_TRANSFORM = CLASS_NAME + ".transform";
@@ -71,7 +70,7 @@ public class InteractiveImageViewControlsFragment extends Fragment
 
     //region Constructors
 
-    public InteractiveImageViewControlsFragment() {
+    public InteractinatorControlsFragment() {
     }
 
     //endregion Constructors
@@ -151,18 +150,12 @@ public class InteractiveImageViewControlsFragment extends Fragment
 
             if (savedInstanceState.getBoolean(KEY_IS_TRANSFORMED, false)) {
                 mTransform.set((Transform) savedInstanceState.getParcelable(KEY_TRANSFORM));
-                /*
-                mImagePivotXSeekBarLayout.setValue(mTransform.getPx());
-                mImagePivotYSeekBarLayout.setValue(mTransform.getPy());
-                mImageScaleXSeekBarLayout.setValue(mTransform.getSx());
-                mImageScaleYSeekBarLayout.setValue(mTransform.getSy());
-                */
                 mImageView.transform(mTransform);
             }
         }
 
-        mImageSpinner.setOnItemSelectedListener(InteractiveImageViewControlsFragment.this);
-        mScaleTypeSpinner.setOnItemSelectedListener(InteractiveImageViewControlsFragment.this);
+        mImageSpinner.setOnItemSelectedListener(InteractinatorControlsFragment.this);
+        mScaleTypeSpinner.setOnItemSelectedListener(InteractinatorControlsFragment.this);
     }
 
     @Override

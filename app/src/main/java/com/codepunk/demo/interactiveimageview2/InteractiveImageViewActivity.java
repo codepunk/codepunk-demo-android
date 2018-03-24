@@ -44,8 +44,8 @@ public class InteractiveImageViewActivity extends AppCompatActivity
 
         mControlsDrawer = findViewById(R.id.layout_controls);
 
-        final InteractiveImageViewControlsFragment fragment =
-                (InteractiveImageViewControlsFragment) getSupportFragmentManager()
+        final InteractinatorControlsFragment fragment =
+                (InteractinatorControlsFragment) getSupportFragmentManager()
                         .findFragmentById(R.id.fragment_controls);
         mImageView = findViewById(R.id.image);
         mImageView.setOnClickListener(this);

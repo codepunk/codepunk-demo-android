@@ -37,7 +37,7 @@
             android:id="@+id/fragment_controls"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:name="com.codepunk.demo.interactiveimageview2.InteractiveImageViewControlsFragment" />
+            android:name="com.codepunk.demo.interactiveimageview2.InteractinatorControlsFragment" />
 
     </FrameLayout>
 
