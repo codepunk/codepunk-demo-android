@@ -13,12 +13,12 @@ import android.view.View;
 import com.codepunk.demo.DemoDrawerLayout;
 import com.codepunk.demo.R;
 
-public class InteractiveImageViewActivity extends AppCompatActivity
+public class ImageViewInteractinatorActivity extends AppCompatActivity
         implements DemoDrawerLayout.DemoDrawerLayoutListener,
         View.OnClickListener {
     //region Constants
 
-    private static final String LOG_TAG = InteractiveImageViewActivity.class.getSimpleName();
+    private static final String LOG_TAG = ImageViewInteractinatorActivity.class.getSimpleName();
 
     //endregion Constants
 
@@ -26,7 +26,7 @@ public class InteractiveImageViewActivity extends AppCompatActivity
 
     private DemoDrawerLayout mDrawerLayout;
     private View mControlsDrawer;
-    private DemoInteractiveImageView mImageView;
+    private DemoImageViewInteractinator mImageView;
     private final Rect mHitRect = new Rect();
 
     //endregion Fields

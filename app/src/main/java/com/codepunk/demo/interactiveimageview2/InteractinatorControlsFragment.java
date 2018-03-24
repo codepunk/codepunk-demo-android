@@ -21,17 +21,16 @@ import android.widget.ToggleButton;
 import com.codepunk.demo.AbsSeekBarLayout;
 import com.codepunk.demo.FloatSeekBarLayout;
 import com.codepunk.demo.R;
+import com.codepunk.demo.interactiveimageview2.ImageViewInteractinator.Transform;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import com.codepunk.demo.interactiveimageview2.ImageViewInteractinator.Transform;
-
 public class InteractinatorControlsFragment extends Fragment
         implements AbsSeekBarLayout.OnSeekBarChangeListener<Float>,
                 AdapterView.OnItemSelectedListener,
-                DemoInteractiveImageView.DemoInteractiveImageViewListener,
+                DemoImageViewInteractinator.DemoInteractiveImageViewListener,
                 View.OnClickListener,
                 View.OnTouchListener {
 
@@ -59,7 +58,7 @@ public class InteractinatorControlsFragment extends Fragment
     private FloatSeekBarLayout mImageScaleYSeekBarLayout;
     private FloatSeekBarLayout mImagePivotXSeekBarLayout;
     private FloatSeekBarLayout mImagePivotYSeekBarLayout;
-    private DemoInteractiveImageView mImageView;
+    private DemoImageViewInteractinator mImageView;
     private final Transform mTransform = new Transform();
 
     private boolean mDisallowUpdatingSeekBars = false;
@@ -357,7 +356,7 @@ public class InteractinatorControlsFragment extends Fragment
 
     //region Methods
 
-    public void setImageView(DemoInteractiveImageView imageView) {
+    public void setImageView(DemoImageViewInteractinator imageView) {
         mImageView = imageView;
         mImageView.setDemoInteractiveImageViewListener(this);
     }

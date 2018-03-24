@@ -34,7 +34,7 @@
             android:label="@string/title_activity_interactive_image_view"/>
 
         <activity
-            android:name=".interactiveimageview2.InteractiveImageViewActivity"
+            android:name=".interactiveimageview2.ImageViewInteractinatorActivity"
             android:label="@string/title_activity_interactive_image_view"/>
 
     </application>

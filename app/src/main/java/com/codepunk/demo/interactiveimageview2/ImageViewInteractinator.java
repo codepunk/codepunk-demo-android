@@ -18,9 +18,11 @@ import android.support.annotation.Nullable;
 import android.support.v4.math.MathUtils;
 import android.support.v4.view.GestureDetectorCompat;
 import android.support.v4.view.ViewCompat;
+import android.support.v4.widget.EdgeEffectCompat;
 import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.util.SparseArray;
 import android.view.GestureDetector.SimpleOnGestureListener;
 import android.view.Gravity;
@@ -35,6 +37,8 @@ import android.widget.OverScroller;
 
 import com.codepunk.demo.R;
 import com.codepunk.demo.support.DisplayCompat;
+
+import java.util.Locale;
 
 public class ImageViewInteractinator extends AppCompatImageView {
 
@@ -169,18 +173,66 @@ public class ImageViewInteractinator extends AppCompatImageView {
                 return false;
             }
 
+            final float x = e2.getX();
+            final float y = e2.getY();
             boolean needsInvalidate = mTempTransform.reset()
                     .pivot(mTouchPivotPoint.x, mTouchPivotPoint.y)
-                    .moveTo(e2.getX(), e2.getY())
+                    .moveTo(x, y)
                     .touchEvent(true)
-                    .transform(ImageViewInteractinator.this);
+                    .transform();
 
             if (mTempTransform.mClamped) {
-                mTouchPivotPoint.set(e2.getX(), e2.getY());
+                if (mEdgeGlow != null) {
+                    final int overScrollMode = getOverScrollMode();
+                    final boolean canOverScrollX = (overScrollMode == OVER_SCROLL_ALWAYS ||
+                            (overScrollMode == OVER_SCROLL_IF_CONTENT_SCROLLS && canScrollX()));
+                    if (canOverScrollX) {
+                        final int compare = Float.compare(x, mTempTransform.mX);
+                        EdgeEffect edgeGlow = null;
+                        float deltaDistance = (mTempTransform.mX - x) / getWidth();
+                        float displacement = y / getHeight();
+                        switch (compare) {
+                            case 1:
+                                edgeGlow = mEdgeGlow.get(Gravity.LEFT);
+                                displacement = 1.0f - displacement;
+                                break;
+                            case -1:
+                                edgeGlow = mEdgeGlow.get(Gravity.RIGHT);
+                                break;
+                        }
+                        if (edgeGlow != null) {
+                            EdgeEffectCompat.onPull(edgeGlow, deltaDistance, displacement);
+                            needsInvalidate = true;
+                        }
+                    }
+
+                    final boolean canOverScrollY = (overScrollMode == OVER_SCROLL_ALWAYS ||
+                            (overScrollMode == OVER_SCROLL_IF_CONTENT_SCROLLS && canScrollY()));
+                    if (canOverScrollY) {
+                        final int compare = Float.compare(y, mTempTransform.mY);
+                        EdgeEffect edgeGlow = null;
+                        float deltaDistance = (mTempTransform.mY - y) / getHeight();
+                        float displacement = x / getWidth();
+                        Log.d(LOG_TAG, "onScroll: compare=" + compare);
+                        switch (compare) {
+                            case 1:
+                                edgeGlow = mEdgeGlow.get(Gravity.TOP);
+                                break;
+                            case -1:
+                                edgeGlow = mEdgeGlow.get(Gravity.BOTTOM);
+                                displacement = 1.0f - displacement;
+                                break;
+                        }
+                        if (edgeGlow != null) {
+                            EdgeEffectCompat.onPull(edgeGlow, deltaDistance, displacement);
+                            needsInvalidate = true;
+                        }
+                    }
+                }
+
+                mTouchPivotPoint.set(x, y);
                 viewPointToImagePoint(getImageMatrixInternal(), mTouchPivotPoint);
             }
-
-            // TODO Edge effects
 
             if (needsInvalidate) {
                 ViewCompat.postInvalidateOnAnimation(ImageViewInteractinator.this);
@@ -653,7 +705,7 @@ public class ImageViewInteractinator extends AppCompatImageView {
     private static final float MAX_SCALE_BREADTH_MULTIPLIER = 4.0f;
     private static final float MAX_SCALE_LENGTH_MULTIPLIER = 6.0f;
     private static final float SCALE_PRESET_THRESHOLD = 0.2f;
-    private static final float ALMOST_EQUALS_EPSILON = 0.002f;
+    private static final float FLOAT_EPSILON = 0.00025f;
     private static final float EDGE_GLOW_SIZE_FACTOR = 1.25f;
 
     private static final int INVALID_FLAG_BASELINE_IMAGE_MATRIX = 0x00000001;
@@ -704,7 +756,7 @@ public class ImageViewInteractinator extends AppCompatImageView {
 
     private Transform mPendingTransform = null;
 
-    private SparseArray<EdgeEffect> mEdgeGlow = null;
+    private SparseArray<EdgeEffect> mEdgeGlow;
 
     private float mLastSpan;
 
@@ -785,6 +837,82 @@ public class ImageViewInteractinator extends AppCompatImageView {
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
+
+        if (mEdgeGlow != null) {
+            // The methods below rotate and translate the canvas as needed before drawing the glow,
+            // since EdgeEffect always draws a top-glow at 0,0.
+            boolean needsInvalidate = false;
+            if (getCompatCropToPadding()) {
+                mTempRectSrc.set(
+                        getPaddingLeft(),
+                        getPaddingTop(),
+                        getWidth() - getPaddingRight(),
+                        getHeight() - getPaddingBottom());
+            } else {
+                mTempRectSrc.set(0.0f, 0.0f, getWidth(), getHeight());
+            }
+            final float rectWidth = mTempRectSrc.width();
+            final float rectHeight = mTempRectSrc.height();
+            final int glowAreaWidth = (int) (rectWidth * EDGE_GLOW_SIZE_FACTOR);
+            final int glowAreaHeight = (int) (rectHeight * EDGE_GLOW_SIZE_FACTOR);
+
+            final int size = mEdgeGlow.size();
+            for (int i = 0; i < size; i++) {
+                final EdgeEffect edgeGlow = mEdgeGlow.valueAt(i);
+                if (!edgeGlow.isFinished()) {
+                    final int gravity = mEdgeGlow.keyAt(i);
+                    final int restoreCount = canvas.save();
+                    canvas.clipRect(mTempRectSrc);
+                    float dx = 0.0f;
+                    float dy = 0.0f;
+                    float degrees = 0.0f;
+                    float px = 0.0f;
+                    float py = 0.0f;
+                    int width = glowAreaWidth;
+                    int height = glowAreaHeight;
+                    switch (gravity) {
+                        case Gravity.LEFT:
+                            dx = mTempRectSrc.left;
+                            dy = mTempRectSrc.bottom + (glowAreaHeight - rectHeight) * 0.5f;
+                            degrees = -90.0f;
+                            width = glowAreaHeight;
+                            height = glowAreaWidth;
+                            break;
+                        case Gravity.TOP:
+                            dx = mTempRectSrc.left - (glowAreaWidth - rectWidth) * 0.5f;
+                            dy = mTempRectSrc.top;
+                            break;
+                        case Gravity.RIGHT:
+                            dx = mTempRectSrc.right;
+                            dy = mTempRectSrc.top - (glowAreaHeight - rectHeight) * 0.5f;
+                            degrees = 90.0f;
+                            width = glowAreaHeight;
+                            height = glowAreaWidth;
+                            break;
+                        case Gravity.BOTTOM:
+                            dx = mTempRectSrc.left - glowAreaWidth -
+                                    (glowAreaWidth - rectWidth) * 0.5f;
+                            dy = mTempRectSrc.bottom;
+                            degrees = 180.0f;
+                            px = glowAreaWidth;
+                            break;
+                    }
+                    canvas.translate(dx, dy);
+                    if (Float.compare(degrees, 0.0f) != 0) {
+                        canvas.rotate(degrees, px, py);
+                    }
+                    edgeGlow.setSize(width, height);
+                    if (edgeGlow.draw(canvas)) {
+                        needsInvalidate = true;
+                    }
+                    canvas.restoreToCount(restoreCount);
+                }
+            }
+
+            if (needsInvalidate) {
+                ViewCompat.postInvalidateOnAnimation(this);
+            }
+        }
     }
 
     @Override
@@ -888,6 +1016,60 @@ public class ImageViewInteractinator extends AppCompatImageView {
 
     //region Methods
 
+    public boolean canScrollDown() {
+        final Matrix matrix = getImageMatrixInternal();
+        getTranslationCoefficient(matrix, mTempPoint);
+        if (mTempPoint.y < 0) {
+            matrix.getValues(mTempValues);
+            return (Math.round(mTempValues[Matrix.MTRANS_Y]) < getPaddingTop());
+        } else {
+            return false;
+        }
+    }
+
+    public boolean canScrollLeft() {
+        final Matrix matrix = getImageMatrixInternal();
+        getTranslationCoefficient(matrix, mTempPoint);
+        if (mTempPoint.x < 0) {
+            matrix.getValues(mTempValues);
+            return (Math.round(mTempValues[Matrix.MTRANS_X]) > mTempPoint.x);
+        } else {
+            return false;
+        }
+    }
+
+    public boolean canScrollRight() {
+        final Matrix matrix = getImageMatrixInternal();
+        getTranslationCoefficient(matrix, mTempPoint);
+        if (mTempPoint.x < 0) {
+            matrix.getValues(mTempValues);
+            return (Math.round(mTempValues[Matrix.MTRANS_X]) < getPaddingLeft());
+        } else {
+            return false;
+        }
+    }
+
+    public boolean canScrollUp() {
+        final Matrix matrix = getImageMatrixInternal();
+        getTranslationCoefficient(matrix, mTempPoint);
+        if (mTempPoint.y < 0) {
+            matrix.getValues(mTempValues);
+            return (Math.round(mTempValues[Matrix.MTRANS_Y]) > mTempPoint.y);
+        } else {
+            return false;
+        }
+    }
+
+    public boolean canScrollX() {
+        getTranslationCoefficient(getImageMatrixInternal(), mTempPoint);
+        return (Math.round(mTempPoint.x) < 0);
+    }
+
+    public boolean canScrollY() {
+        getTranslationCoefficient(getImageMatrixInternal(), mTempPoint);
+        return (Math.round(mTempPoint.y) < 0);
+    }
+
     public boolean getCompatCropToPadding() {
         return mImpl.getCropToPadding();
     }
@@ -967,7 +1149,7 @@ public class ImageViewInteractinator extends AppCompatImageView {
         getBaselineImageMatrix().getValues(vb);
         for (int i = 0; i < 9; i++) {
             float floatDiff = Math.abs(va[i] - vb[i]);
-            if (Float.compare(floatDiff, ALMOST_EQUALS_EPSILON) > 0) {
+            if (!almostEqual(va[i], vb[i])) {
                 return true;
             }
         }
@@ -1119,20 +1301,20 @@ public class ImageViewInteractinator extends AppCompatImageView {
 
         boolean clamped = false;
         float clampedValue = MathUtils.clamp(t.mSx, getImageMinScaleX(), getImageMaxScaleX());
-        if (Float.compare(t.mSx, clampedValue) != 0) {
+        if (!almostEqual(t.mSx, clampedValue)) {
             t.mSx = clampedValue;
             clamped = true;
         }
         clampedValue = MathUtils.clamp(t.mSy, getImageMinScaleY(), getImageMaxScaleY());
-        if (Float.compare(t.mSy, clampedValue) != 0) {
+        if (!almostEqual(t.mSy, clampedValue)) {
             t.mSy = clampedValue;
             clamped = true;
         }
 
         mImageMatrix.set(getImageMatrixInternal());
         mImageMatrix.getValues(mTempValues);
-        if (Float.compare(t.mSx, mTempValues[Matrix.MSCALE_X]) != 0 ||
-                Float.compare(t.mSx, mTempValues[Matrix.MSCALE_Y]) != 0) {
+        if (!almostEqual(t.mSx, mTempValues[Matrix.MSCALE_X]) ||
+                !almostEqual(t.mSx, mTempValues[Matrix.MSCALE_Y])) {
             final float deltaSx = t.mSx / mTempValues[Matrix.MSCALE_X];
             final float deltaSy = t.mSy / mTempValues[Matrix.MSCALE_Y];
             mImageMatrix.preScale(deltaSx, deltaSy);
@@ -1152,7 +1334,7 @@ public class ImageViewInteractinator extends AppCompatImageView {
         } else {
             clampedValue = mTempPoint.x + mappedPx;
         }
-        if (Float.compare(t.mX, clampedValue) != 0) {
+        if (!almostEqual(t.mX, clampedValue)) {
             t.mX = clampedValue;
             clamped = true;
         }
@@ -1164,7 +1346,7 @@ public class ImageViewInteractinator extends AppCompatImageView {
         } else {
             clampedValue = mTempPoint.y + mappedPy;
         }
-        if (Float.compare(t.mY, clampedValue) != 0) {
+        if (!almostEqual(t.mY, clampedValue)) {
             t.mY = clampedValue;
             clamped = true;
         }
@@ -1469,6 +1651,10 @@ public class ImageViewInteractinator extends AppCompatImageView {
     //endregion Protected methods
 
     //region Private methods
+
+    private boolean almostEqual(float a, float b) {
+        return Math.abs(a - b) < FLOAT_EPSILON;
+    }
 
     private float getContentCenterX() {
         return (getPaddingLeft() + getWidth() - getPaddingRight()) * 0.5f;

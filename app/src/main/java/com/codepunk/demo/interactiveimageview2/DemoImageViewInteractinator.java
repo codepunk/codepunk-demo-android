@@ -5,7 +5,7 @@ import android.graphics.Canvas;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 
-public class DemoInteractiveImageView extends ImageViewInteractinator {
+public class DemoImageViewInteractinator extends ImageViewInteractinator {
 
     //region Nested classes
 
@@ -18,7 +18,7 @@ public class DemoInteractiveImageView extends ImageViewInteractinator {
     //endregion Nested classes
 
     //region Constants
-    public static final String LOG_TAG = DemoInteractiveImageView.class.getSimpleName();
+    public static final String LOG_TAG = DemoImageViewInteractinator.class.getSimpleName();
     //endregion Constants
 
     //region Fields
@@ -30,15 +30,15 @@ public class DemoInteractiveImageView extends ImageViewInteractinator {
 
     //region Constructors
 
-    public DemoInteractiveImageView(Context context) {
+    public DemoImageViewInteractinator(Context context) {
         super(context);
     }
 
-    public DemoInteractiveImageView(Context context, AttributeSet attrs) {
+    public DemoImageViewInteractinator(Context context, AttributeSet attrs) {
         super(context, attrs);
     }
 
-    public DemoInteractiveImageView(Context context, AttributeSet attrs, int defStyleAttr) {
+    public DemoImageViewInteractinator(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
     }
 
