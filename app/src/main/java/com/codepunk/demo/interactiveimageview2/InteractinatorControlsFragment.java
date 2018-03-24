@@ -151,6 +151,8 @@ public class InteractinatorControlsFragment extends Fragment
             if (savedInstanceState.getBoolean(KEY_IS_TRANSFORMED, false)) {
                 mTransform.set((Transform) savedInstanceState.getParcelable(KEY_TRANSFORM));
                 mImageView.transform(mTransform);
+            } else {
+                mImageView.setScaleType(mImageView.getScaleType());
             }
         }
 

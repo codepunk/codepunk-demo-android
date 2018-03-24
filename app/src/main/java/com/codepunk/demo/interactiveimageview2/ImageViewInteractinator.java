@@ -650,11 +650,10 @@ public class ImageViewInteractinator extends AppCompatImageView {
 
     private static final String LOG_TAG = ImageViewInteractinator.class.getSimpleName();
 
-    private static final float ALMOST_EQUALS_THRESHOLD = 8;
-
     private static final float MAX_SCALE_BREADTH_MULTIPLIER = 4.0f;
     private static final float MAX_SCALE_LENGTH_MULTIPLIER = 6.0f;
     private static final float SCALE_PRESET_THRESHOLD = 0.2f;
+    private static final float ALMOST_EQUALS_EPSILON = 0.002f;
     private static final float EDGE_GLOW_SIZE_FACTOR = 1.25f;
 
     private static final int INVALID_FLAG_BASELINE_IMAGE_MATRIX = 0x00000001;
@@ -938,13 +937,11 @@ public class ImageViewInteractinator extends AppCompatImageView {
     }
 
     public void getTransform(Transform outTransform) {
-        outTransform.reset();
-        if (isTransformed()) {
-            mTempPoint.set(getContentCenterX(), getContentCenterY());
-            viewPointToImagePoint(getImageMatrixInternal(), mTempPoint);
-            outTransform.pivot(mTempPoint.x, mTempPoint.y)
-                    .scale(getImageScaleX(), getImageScaleY());
-        }
+        mTempPoint.set(getContentCenterX(), getContentCenterY());
+        viewPointToImagePoint(getImageMatrixInternal(), mTempPoint);
+        outTransform.reset()
+                .pivot(mTempPoint.x, mTempPoint.y)
+                .scale(getImageScaleX(), getImageScaleY());
     }
 
     public boolean isDoubleTapToScaleEnabled() {
@@ -964,12 +961,13 @@ public class ImageViewInteractinator extends AppCompatImageView {
     }
 
     public boolean isTransformed() {
-        final float imageMatrixValues[] = new float[9];
-        final float baselineImageMatrixValues[] = new float[9];
-        getImageMatrixInternal().getValues(imageMatrixValues);
-        getBaselineImageMatrix().getValues(baselineImageMatrixValues);
+        final float[] va = new float[9];
+        final float[] vb = new float[9];
+        getImageMatrixInternal().getValues(va);
+        getBaselineImageMatrix().getValues(vb);
         for (int i = 0; i < 9; i++) {
-            if (!almostEquals(imageMatrixValues[i], baselineImageMatrixValues[i])) {
+            float floatDiff = Math.abs(va[i] - vb[i]);
+            if (Float.compare(floatDiff, ALMOST_EQUALS_EPSILON) > 0) {
                 return true;
             }
         }
@@ -1471,11 +1469,6 @@ public class ImageViewInteractinator extends AppCompatImageView {
     //endregion Protected methods
 
     //region Private methods
-
-    private boolean almostEquals(float a, float b) {
-        final int diff = Math.abs(Float.floatToIntBits(a) - Float.floatToIntBits(b));
-        return diff <= ALMOST_EQUALS_THRESHOLD;
-    }
 
     private float getContentCenterX() {
         return (getPaddingLeft() + getWidth() - getPaddingRight()) * 0.5f;
