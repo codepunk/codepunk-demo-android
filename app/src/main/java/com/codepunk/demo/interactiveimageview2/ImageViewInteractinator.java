@@ -39,7 +39,8 @@ import com.codepunk.demo.OverScrollerCompat;
 import com.codepunk.demo.R;
 import com.codepunk.demo.support.DisplayCompat;
 
-import java.util.Locale;
+import java.util.HashSet;
+import java.util.Set;
 
 public class ImageViewInteractinator extends AppCompatImageView {
 
@@ -758,6 +759,7 @@ public class ImageViewInteractinator extends AppCompatImageView {
     private Transform mPendingTransform = null;
 
     private SparseArray<EdgeEffect> mEdgeGlow;
+    private Set<EdgeEffect> mAvailableGlows;
 
     private float mLastSpan;
 
@@ -826,11 +828,12 @@ public class ImageViewInteractinator extends AppCompatImageView {
                     } else if (diff < 0) {
                         glowEffect = mEdgeGlow.get(Gravity.RIGHT);
                     }
-                    if (glowEffect != null) {
-                        if (glowEffect.isFinished()) {
-                            glowEffect.onAbsorb(
-                                    (int) OverScrollerCompat.getCurrVelocity(mOverScroller));
-                        }
+                    if (glowEffect != null &&
+                            mAvailableGlows.contains(glowEffect) &&
+                            glowEffect.isFinished()) {
+                        glowEffect.onAbsorb(
+                                (int) OverScrollerCompat.getCurrVelocity(mOverScroller));
+                        mAvailableGlows.remove(glowEffect);
                         needsInvalidate = true;
                     }
                 }
@@ -843,11 +846,12 @@ public class ImageViewInteractinator extends AppCompatImageView {
                     } else if (diff < 0) {
                         glowEffect = mEdgeGlow.get(Gravity.BOTTOM);
                     }
-                    if (glowEffect != null) {
-                        if (glowEffect.isFinished()) {
-                            glowEffect.onAbsorb(
-                                    (int) OverScrollerCompat.getCurrVelocity(mOverScroller));
-                        }
+                    if (glowEffect != null &&
+                            mAvailableGlows.contains(glowEffect) &&
+                            glowEffect.isFinished()) {
+                        glowEffect.onAbsorb(
+                                (int) OverScrollerCompat.getCurrVelocity(mOverScroller));
+                        mAvailableGlows.remove(glowEffect);
                         needsInvalidate = true;
                     }
                 }
@@ -1016,6 +1020,7 @@ public class ImageViewInteractinator extends AppCompatImageView {
         super.setOverScrollMode(mode);
         if (mode == OVER_SCROLL_NEVER) {
             mEdgeGlow = null;
+            mAvailableGlows = null;
         } else {
             final Context context = getContext();
             mEdgeGlow = new SparseArray<>(4);
@@ -1023,6 +1028,7 @@ public class ImageViewInteractinator extends AppCompatImageView {
             mEdgeGlow.put(Gravity.TOP, new EdgeEffect(context));
             mEdgeGlow.put(Gravity.RIGHT, new EdgeEffect(context));
             mEdgeGlow.put(Gravity.BOTTOM, new EdgeEffect(context));
+            mAvailableGlows = new HashSet<>(4);
         }
     }
 
@@ -1825,8 +1831,13 @@ public class ImageViewInteractinator extends AppCompatImageView {
 
     private void releaseEdgeGlows() {
         if (mEdgeGlow != null) {
+            mAvailableGlows.clear();
             for (int i = 0; i < mEdgeGlow.size(); i++) {
-                mEdgeGlow.valueAt(i).onRelease();
+                EdgeEffect edgeGlow = mEdgeGlow.valueAt(i);
+                if (edgeGlow.isFinished()) {
+                    mAvailableGlows.add(edgeGlow);
+                }
+                edgeGlow.onRelease();
             }
         }
     }
