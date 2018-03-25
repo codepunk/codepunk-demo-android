@@ -1,4 +1,4 @@
-package com.codepunk.demo.interactiveimageview1;
+package com.codepunk.demo;
 
 import android.graphics.Color;
 import android.graphics.Rect;
@@ -10,28 +10,30 @@ import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 
-import com.codepunk.demo.DemoDrawerLayout;
-import com.codepunk.demo.R;
-
-public class InteractiveImageViewActivity extends AppCompatActivity
+public class ImageViewInteractinatorActivity extends AppCompatActivity
         implements DemoDrawerLayout.DemoDrawerLayoutListener,
-        DemoInteractiveImageView.SingleTapConfirmedListener {
+        View.OnClickListener {
     //region Constants
-    private static final String LOG_TAG = InteractiveImageViewActivity.class.getSimpleName();
+
+    private static final String LOG_TAG = ImageViewInteractinatorActivity.class.getSimpleName();
+
     //endregion Constants
 
     //region Fields
+
     private DemoDrawerLayout mDrawerLayout;
     private View mControlsDrawer;
-    private DemoInteractiveImageView mImageView;
+    private DemoImageViewInteractinator mImageView;
     private final Rect mHitRect = new Rect();
+
     //endregion Fields
 
     //region Lifecycle methods
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_interactive_image_view_1);
+        setContentView(R.layout.activity_image_view_interactinator);
 
         mDrawerLayout = findViewById(R.id.layout_drawer);
         mDrawerLayout.setScrimColor(Color.TRANSPARENT);
@@ -39,11 +41,11 @@ public class InteractiveImageViewActivity extends AppCompatActivity
 
         mControlsDrawer = findViewById(R.id.layout_controls);
 
-        final InteractiveImageViewControlsFragment fragment =
-                (InteractiveImageViewControlsFragment) getSupportFragmentManager()
+        final InteractinatorControlsFragment fragment =
+                (InteractinatorControlsFragment) getSupportFragmentManager()
                         .findFragmentById(R.id.fragment_controls);
         mImageView = findViewById(R.id.image);
-        mImageView.setSingleTapConfirmedListener(this);
+        mImageView.setOnClickListener(this);
         fragment.setImageView(mImageView);
     }
 
@@ -52,9 +54,11 @@ public class InteractiveImageViewActivity extends AppCompatActivity
         getMenuInflater().inflate(R.menu.menu_interactive_image_view, menu);
         return true;
     }
+
     //endregion Lifecycle methods
 
     //region Implemented methods
+
     @Override // DemoDrawerLayout.DemoDrawerLayoutListener
     public boolean onInterceptTouchEvent(MotionEvent ev) {
         mControlsDrawer.getHitRect(mHitRect);
@@ -62,15 +66,17 @@ public class InteractiveImageViewActivity extends AppCompatActivity
                 !mImageView.isInteracting();
     }
 
-    @Override // DemoInteractiveImageView.SingleTapConfirmedListener
-    public void onSingleTapConfirmed(DemoInteractiveImageView view) {
+    @Override // View.OnClickListener
+    public void onClick(View v) {
         if (mDrawerLayout.isDrawerOpen(Gravity.END)) {
             mDrawerLayout.closeDrawer(Gravity.END);
         }
     }
+
     //endregion Implemented methods
 
     //region Methods
+
     public void onControlsClick(MenuItem item) {
         if (mDrawerLayout.isDrawerOpen(Gravity.END)) {
             mDrawerLayout.closeDrawer(Gravity.END);
@@ -78,5 +84,6 @@ public class InteractiveImageViewActivity extends AppCompatActivity
             mDrawerLayout.openDrawer(Gravity.END);
         }
     }
+
     //endregion Methods
 }

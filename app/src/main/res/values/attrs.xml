@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <declare-styleable name="Theme">
-        <attr name="customCompatSeekBarStyle" format="reference" />
-        <attr name="interactiveImageViewStyle" format="reference" />
         <attr name="absSeekBarLayoutStyle" format="reference" />
+        <attr name="customAppCompatSeekBarStyle" format="reference" />
+        <attr name="imageViewInteractinatorStyle" format="reference" />
 
         <attr name="clampedMax" format="integer" />
         <attr name="clampedMin" format="integer" />
@@ -11,6 +11,8 @@
         <attr name="compatCropToPadding" format="boolean" />
         <attr name="doubleTapToScaleEnabled" format="boolean" />
         <attr name="flingEnabled" format="boolean" />
+        <attr name="maxScaleBreadthFactor" format="float" />
+        <attr name="maxScaleLengthFactor" format="float" />
         <attr name="scaleEnabled" format="boolean" />
         <attr name="scalePresets" format="reference" />
         <attr name="scrollEnabled" format="boolean" />
@@ -25,6 +27,8 @@
         <attr name="compatCropToPadding" />
         <attr name="doubleTapToScaleEnabled" />
         <attr name="flingEnabled" />
+        <attr name="maxScaleBreadthFactor" />
+        <attr name="maxScaleLengthFactor" />
         <attr name="scaleEnabled" />
         <attr name="scalePresets" />
         <attr name="scrollEnabled" />

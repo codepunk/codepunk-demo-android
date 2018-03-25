@@ -7,11 +7,11 @@
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
         <item name="colorAccent">@color/colorAccent</item>
-
-        <item name="customCompatSeekBarStyle">@style/AppCompatSeekBarEx</item>
-        <item name="interactiveImageViewStyle">@style/InteractiveImageView</item>
-        <item name="absSeekBarLayoutStyle">@style/AbsSeekBarLayout</item>
         <item name="android:colorEdgeEffect">@android:color/black</item>
+
+        <item name="absSeekBarLayoutStyle">@style/AbsSeekBarLayout</item>
+        <item name="customAppCompatSeekBarStyle">@style/CustomAppCompatSeekBar</item>
+        <item name="imageViewInteractinatorStyle">@style/ImageViewInteractinator</item>
     </style>
 
 </resources>

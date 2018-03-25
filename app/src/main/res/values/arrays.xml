@@ -22,27 +22,19 @@
         <item>CENTER_INSIDE</item>
     </string-array>
 
-    <string-array name="drawables">
-        <item>None</item>
-        <item>Cinderella Castle</item>
-        <item>Wilderness Lodge</item>
-        <item>Polynesian</item>
-        <item>Gradient</item>
-    </string-array>
-
     <array name="image_res_ids">
         <item>0</item>
-        <item>@drawable/cinderellas_castle</item>
-        <item>@drawable/wilderness_lodge</item>
-        <item>@drawable/polynesian</item>
+        <item>@drawable/new_york_city</item>
+        <item>@drawable/nyc_subway_map</item>
+        <item>@drawable/united_states_at_night</item>
         <item>@drawable/gradient</item>
     </array>
 
     <string-array name="image_names">
         <item>None</item>
-        <item>Cinderella Castle</item>
-        <item>Wilderness Lodge</item>
-        <item>Polynesian</item>
+        <item>New York City</item>
+        <item>NYC Subway Map</item>
+        <item>United States At Night</item>
         <item>Gradient</item>
     </string-array>
 

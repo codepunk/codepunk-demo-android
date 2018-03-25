@@ -1,17 +1,19 @@
 <resources>
-    <style name="AppCompatSeekBarEx" parent="@android:style/Widget.SeekBar">
+    <style name="CustomAppCompatSeekBar" parent="@android:style/Widget.SeekBar">
     </style>
 
-    <style name="InteractiveImageView" parent="@android:style/Widget">
+    <style name="ImageViewInteractinator" parent="@android:style/Widget">
         <item name="compatCropToPadding">false</item>
         <item name="doubleTapToScaleEnabled">true</item>
         <item name="flingEnabled">true</item>
+        <item name="maxScaleBreadthFactor">5.0</item>
+        <item name="maxScaleLengthFactor">7.0</item>
         <item name="scaleEnabled">true</item>
         <item name="scalePresets">@array/scale_presets</item>
         <item name="scrollEnabled">true</item>
     </style>
 
-    <style name="InteractiveImageViewEx" parent="InteractiveImageView">
+    <style name="DemoImageViewInteractinator" parent="ImageViewInteractinator">
         <item name="android:scaleType">centerCrop</item>
     </style>
 

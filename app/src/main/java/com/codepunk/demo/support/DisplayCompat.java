@@ -12,7 +12,9 @@ import static android.os.Build.VERSION_CODES.JELLY_BEAN_MR1;
 
 @SuppressLint({"ObsoleteSdkInt"})
 public class DisplayCompat {
+
     //region Nested classes
+
     private interface DisplayCompatImpl {
         void getRealMetrics(Display display, DisplayMetrics outMetrics);
         void getRealSize(Display display, Point outSize);
@@ -56,9 +58,11 @@ public class DisplayCompat {
             display.getRealSize(outSize);
         }
     }
+
     //endregion Nested classes
 
     //region Constants
+
     private static final DisplayCompatImpl IMPL;
     static {
         if (SDK_INT >= JELLY_BEAN_MR1) {
@@ -69,9 +73,11 @@ public class DisplayCompat {
             IMPL = new BaseDisplayCompatImpl();
         }
     }
+
     //endregion Constants
 
     //region Methods
+
     public static void getRealMetrics(Display display, DisplayMetrics outMetrics) {
         IMPL.getRealMetrics(display, outMetrics);
     }
@@ -83,5 +89,6 @@ public class DisplayCompat {
     public static void getSize(Display display, Point outSize) {
         IMPL.getSize(display, outSize);
     }
+
     //endregion Methods
 }

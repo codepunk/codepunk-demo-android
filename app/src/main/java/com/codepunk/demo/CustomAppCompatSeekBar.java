@@ -21,17 +21,17 @@ public class CustomAppCompatSeekBar extends AppCompatSeekBar
     //region Constructors
     public CustomAppCompatSeekBar(Context context) {
         super(context);
-        initAppCompatSeekBarEx(context, null, 0);
+        initCustomAppCompatSeekBar(context, null, 0);
     }
 
     public CustomAppCompatSeekBar(Context context, AttributeSet attrs) {
         super(context, attrs);
-        initAppCompatSeekBarEx(context, attrs, 0);
+        initCustomAppCompatSeekBar(context, attrs, 0);
     }
 
     public CustomAppCompatSeekBar(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
-        initAppCompatSeekBarEx(context, attrs, defStyleAttr);
+        initCustomAppCompatSeekBar(context, attrs, defStyleAttr);
     }
     //endregion Constructors
 
@@ -120,7 +120,7 @@ public class CustomAppCompatSeekBar extends AppCompatSeekBar
     //endregion Methods
 
     //region Private methods
-    private void initAppCompatSeekBarEx(Context context, AttributeSet attrs, int defStyleAttr) {
+    private void initCustomAppCompatSeekBar(Context context, AttributeSet attrs, int defStyleAttr) {
         TypedArray a = context.obtainStyledAttributes(
                 attrs,
                 R.styleable.CustomAppCompatSeekBar,
