@@ -135,8 +135,7 @@ public class ImageViewInteractinator extends AppCompatImageView {
                 return false;
             }
 
-            final float x
-                    = e2.getX();
+            final float x = e2.getX();
             final float y = e2.getY();
             boolean needsInvalidate = mTempTransform.recycle()
                     .pivot(mTouchPivotPoint.x, mTouchPivotPoint.y)

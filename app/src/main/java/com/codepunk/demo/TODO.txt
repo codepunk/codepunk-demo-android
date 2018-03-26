@@ -8,4 +8,3 @@ Remove TODOs and revisit warnings
 
 When pinch scaling, always send adjusted scale in case one direction gets clamped and the other doesn't
 
-*** When resolving default values, pick values that reflect the current transform

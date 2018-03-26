@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+@SuppressWarnings("SpellCheckingInspection")
 public class InteractinatorControlsFragment extends Fragment
         implements AbsSeekBarLayout.OnSeekBarChangeListener<Float>,
                 AdapterView.OnItemSelectedListener,
@@ -34,6 +35,7 @@ public class InteractinatorControlsFragment extends Fragment
 
     //region Constants
 
+    @SuppressWarnings("unused")
     private static final String LOG_TAG = InteractinatorControlsFragment.class.getSimpleName();
     private static final @DrawableRes int DEFAULT_DRAWABLE_RES_ID = R.drawable.new_york_city;
 
@@ -290,19 +292,19 @@ public class InteractinatorControlsFragment extends Fragment
         final Drawable d = mImageView.getDrawable();
         final int width = (d == null ? 0 : d.getIntrinsicWidth());
         final int height = (d == null ? 0 : d.getIntrinsicHeight());
-        maybeUpdateRange(
+        updateRange(
                 mImageScaleXSeekBarLayout,
                 mImageView.getImageMinScaleX(),
                 mImageView.getImageMaxScaleX());
-        maybeUpdateRange(
+        updateRange(
                 mImageScaleYSeekBarLayout,
                 mImageView.getImageMinScaleY(),
                 mImageView.getImageMaxScaleY());
-        maybeUpdateRange(
+        updateRange(
                 mImagePivotXSeekBarLayout,
                 0.0f,
                 (float) width);
-        maybeUpdateRange(
+        updateRange(
                 mImagePivotYSeekBarLayout,
                 0.0f,
                 (float) height);
@@ -368,15 +370,6 @@ public class InteractinatorControlsFragment extends Fragment
     //endregion Methods
 
     //region Private methods
-
-    private void maybeUpdateRange(FloatSeekBarLayout layout, float min, float max) {
-        if (Float.compare(layout.getMinValue(), min) != 0) {
-            layout.setMinValue(min);
-        }
-        if (Float.compare(layout.getMaxValue(), max) != 0) {
-            layout.setMaxValue(max);
-        }
-    }
 
     private void resetClamps() {
         final float minScaleX = mImageView.getImageMinScaleX();
@@ -451,6 +444,15 @@ public class InteractinatorControlsFragment extends Fragment
             }
         }
         return false;
+    }
+
+    private void updateRange(FloatSeekBarLayout layout, float min, float max) {
+        if (Float.compare(layout.getMinValue(), min) != 0) {
+            layout.setMinValue(min);
+        }
+        if (Float.compare(layout.getMaxValue(), max) != 0) {
+            layout.setMaxValue(max);
+        }
     }
 
     //endregion Methods
